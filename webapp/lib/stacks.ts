@@ -10,7 +10,6 @@ import {
   cvToJSON,
   makeRandomPrivKey,
   getAddressFromPrivateKey,
-  TransactionVersion,
 } from '@stacks/transactions';
 import { STACKS_TESTNET, STACKS_MAINNET } from '@stacks/network';
 
@@ -47,13 +46,12 @@ export function generateAgentWallet(): AgentWallet {
   // Determine network (testnet or mainnet)
   const network = process.env.NEXT_PUBLIC_NETWORK || 'testnet';
   
-  // Use TransactionVersion enum instead of network.version
-  const transactionVersion = network === 'mainnet' 
-    ? TransactionVersion.Mainnet  // 0x16
-    : TransactionVersion.Testnet; // 0x1a
+  // Use address version numbers directly (from Stacks docs)
+  // Mainnet: 22 (0x16), Testnet: 26 (0x1a)
+  const addressVersion = network === 'mainnet' ? 22 : 26;
   
   // Get the address from the private key
-  const address = getAddressFromPrivateKey(privateKey, transactionVersion);
+  const address = getAddressFromPrivateKey(privateKey, addressVersion);
   
   // Generate a simple mnemonic representation
   const mnemonic = generateSimpleMnemonic(privateKey);
