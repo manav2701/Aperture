@@ -1,17 +1,15 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  // Disable Turbopack for production builds
-  // Use Webpack for stability
-  turbopack: false,
-  
-  // Existing config...
   reactStrictMode: true,
-  swcMinify: true,
   
-  // Optimize bundle
+  // Optimize package imports for better bundling
   experimental: {
-    optimizePackageImports: ['@stacks/transactions', '@stacks/network'],
+    optimizePackageImports: [
+      '@stacks/transactions',
+      '@stacks/network',
+      '@stacks/connect',
+    ],
   },
 };
 
