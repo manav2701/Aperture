@@ -1,0 +1,16 @@
+{
+  "name": "x402 Policy Manager",
+  "short_name": "x402 Policy",
+  "description": "Policy-based payment management for AI agents on Stacks blockchain",
+  "start_url": "/",
+  "display": "standalone",
+  "theme_color": "#f97316",
+  "background_color": "#ffffff",
+  "icons": [
+    {
+      "src": "/logo.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

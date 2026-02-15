@@ -1,0 +1,25 @@
+---
+id: 0
+name: Testnet deployment
+network: testnet
+stacks-node: "https://api.testnet.hiro.so"
+bitcoin-node: "http://blockstack:blockstacksystem@bitcoind.testnet.stacks.co:18332"
+plan:
+  batches:
+    - id: 0
+      transactions:
+        - contract-publish:
+            contract-name: policy-manager
+            expected-sender: ST28DERT007J1P63JPP4XGDKW0BWEXFHCJ0RVNT38
+            cost: 131110
+            path: "contracts\\policy-manager.clar"
+            anchor-block-only: true
+            clarity-version: 4
+        - contract-publish:
+            contract-name: session-tracker
+            expected-sender: ST28DERT007J1P63JPP4XGDKW0BWEXFHCJ0RVNT38
+            cost: 97330
+            path: "contracts\\session-tracker.clar"
+            anchor-block-only: true
+            clarity-version: 4
+      epoch: "3.3"

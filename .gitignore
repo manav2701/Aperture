@@ -1,0 +1,42 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Testing
+coverage/
+
+# Production
+build/
+dist/
+
+# Environment
+.env
+.env.local
+.env.production
+.env.example
+
+# Clarinet
+.cache/
+costs-reports.txt
+
+# IDE
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+
+# Private keys (NEVER COMMIT THESE!)
+*.key
+*.pem
+settings/Devnet.toml
+settings/Testnet.toml
+settings/Mainnet.toml

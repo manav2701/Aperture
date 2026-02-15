@@ -1,0 +1,111 @@
+{
+  "name": "x402 Policy Manager Demo",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## x402 Policy Manager Agent Demo\n\nThis workflow demonstrates an AI agent that:\n1. Uses x402 to pay for API access\n2. Gets controlled by spending policies\n3. Shows real-time updates in dashboard\n\n**Setup:**\n1. Set your agent address in credentials\n2. Create policy at: YOUR_APP_URL/policies\n3. Approve this service URL\n4. Run workflow!"
+      },
+      "name": "Instructions",
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [240, 140]
+    },
+    {
+      "parameters": {
+        "values": {
+          "string": [
+            {
+              "name": "agentAddress",
+              "value": "ST28DE...YOUR_ADDRESS"
+            },
+            {
+              "name": "policyProxyUrl",
+              "value": "https://your-app.vercel.app/api/proxy"
+            },
+            {
+              "name": "targetApi",
+              "value": "https://api.openweathermap.org/data/2.5/weather?q=London&appid=demo"
+            }
+          ]
+        }
+      },
+      "name": "Config",
+      "type": "n8n-nodes-base.set",
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "url": "={{$node[\"Config\"].json[\"policyProxyUrl\"]}}?target={{$node[\"Config\"].json[\"targetApi\"]}}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-agent-address",
+              "value": "={{$node[\"Config\"].json[\"agentAddress\"]}}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "name": "Call API via Policy Proxy",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "number": [
+            {
+              "value1": "={{$json[\"statusCode\"]}}",
+              "value2": 200
+            }
+          ]
+        }
+      },
+      "name": "Check Response",
+      "type": "n8n-nodes-base.if",
+      "position": [900, 300]
+    },
+    {
+      "parameters": {
+        "content": "✅ **SUCCESS!**\n\nPayment approved by policy.\nAPI call completed.\n\nCheck your dashboard for real-time update!"
+      },
+      "name": "Success",
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [1100, 200]
+    },
+    {
+      "parameters": {
+        "content": "❌ **BLOCKED!**\n\nPayment blocked by policy.\nReason shown in error message.\n\nCheck dashboard to see blocked payment logged."
+      },
+      "name": "Blocked",
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [1100, 400]
+    }
+  ],
+  "connections": {
+    "Config": {
+      "main": [
+        [
+          {
+            "node": "Call API via Policy Proxy",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call API via Policy Proxy": {
+      "main": [
+        [
+          {
+            "node": "Check Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+}

@@ -1,0 +1,227 @@
+-- ============================================
+-- MULTI-AGENT COMPANY DEMO SETUP
+-- ============================================
+-- This creates a realistic startup team scenario:
+-- - 5 developers with different spending limits
+-- - Multiple approved services
+-- - Simulates a company with shared wallet control
+-- ============================================
+
+-- Agent 1: Senior Dev (High Limit)
+INSERT INTO policies (
+  agent_address,
+  owner_address,
+  daily_limit_stx,
+  daily_limit_sbtc,
+  per_tx_limit_stx,
+  per_tx_limit_sbtc,
+  is_active,
+  is_paused,
+  is_revoked
+) VALUES (
+  'ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM',  -- Agent A (Senior Dev)
+  'ST28DERT007J1P63JPP4XGDKW0BWEXFHCJ0RVNT38',  -- Company wallet
+  10000000,   -- 10 STX daily
+  100000000,  -- 1 sBTC daily
+  5000000,    -- 5 STX per transaction
+  50000000,   -- 0.5 sBTC per transaction
+  true,
+  false,
+  false
+) ON CONFLICT (agent_address) DO UPDATE SET
+  daily_limit_stx = 10000000,
+  per_tx_limit_stx = 5000000;
+
+-- Agent 2: Mid-Level Dev (Medium Limit)
+INSERT INTO policies (
+  agent_address,
+  owner_address,
+  daily_limit_stx,
+  daily_limit_sbtc,
+  per_tx_limit_stx,
+  per_tx_limit_sbtc,
+  is_active,
+  is_paused,
+  is_revoked
+) VALUES (
+  'ST2CY5V39NHDPWSXMW9QDT3HC3GD6Q6XX4CFRK9AG',  -- Agent B (Mid Dev)
+  'ST28DERT007J1P63JPP4XGDKW0BWEXFHCJ0RVNT38',
+  5000000,    -- 5 STX daily
+  50000000,   -- 0.5 sBTC daily
+  1000000,    -- 1 STX per transaction
+  10000000,   -- 0.1 sBTC per transaction
+  true,
+  false,
+  false
+) ON CONFLICT (agent_address) DO UPDATE SET
+  daily_limit_stx = 5000000,
+  per_tx_limit_stx = 1000000;
+
+-- Agent 3: Junior Dev (Low Limit)
+INSERT INTO policies (
+  agent_address,
+  owner_address,
+  daily_limit_stx,
+  daily_limit_sbtc,
+  per_tx_limit_stx,
+  per_tx_limit_sbtc,
+  is_active,
+  is_paused,
+  is_revoked
+) VALUES (
+  'ST2JHG321N5SXSWYM7ZSVMEJ6QJ8QN7YMF2KNDFDD',  -- Agent C (Junior Dev)
+  'ST28DERT007J1P63JPP4XGDKW0BWEXFHCJ0RVNT38',
+  2000000,    -- 2 STX daily
+  20000000,   -- 0.2 sBTC daily
+  500000,     -- 0.5 STX per transaction
+  5000000,    -- 0.05 sBTC per transaction
+  true,
+  false,
+  false
+) ON CONFLICT (agent_address) DO UPDATE SET
+  daily_limit_stx = 2000000,
+  per_tx_limit_stx = 500000;
+
+-- Agent 4: Contractor (Restricted)
+INSERT INTO policies (
+  agent_address,
+  owner_address,
+  daily_limit_stx,
+  daily_limit_sbtc,
+  per_tx_limit_stx,
+  per_tx_limit_sbtc,
+  is_active,
+  is_paused,
+  is_revoked
+) VALUES (
+  'ST3N7C5G0W8YV5SXD93TCJP0HT26XY8CMVJB8RSTF',  -- Agent D (Contractor)
+  'ST28DERT007J1P63JPP4XGDKW0BWEXFHCJ0RVNT38',
+  1000000,    -- 1 STX daily (very limited)
+  10000000,   -- 0.1 sBTC daily
+  300000,     -- 0.3 STX per transaction
+  3000000,    -- 0.03 sBTC per transaction
+  true,
+  false,
+  false
+) ON CONFLICT (agent_address) DO UPDATE SET
+  daily_limit_stx = 1000000,
+  per_tx_limit_stx = 300000;
+
+-- Agent 5: Your Current Agent (for comparison)
+INSERT INTO policies (
+  agent_address,
+  owner_address,
+  daily_limit_stx,
+  daily_limit_sbtc,
+  per_tx_limit_stx,
+  per_tx_limit_sbtc,
+  is_active,
+  is_paused,
+  is_revoked
+) VALUES (
+  'ST28DERT007J1P63JPP4XGDKW0BWEXFHCJ0RVNT38',  -- Your existing agent
+  'ST28DERT007J1P63JPP4XGDKW0BWEXFHCJ0RVNT38',
+  10000000,   -- 10 STX daily
+  100000000,  -- 1 sBTC daily
+  1000000,    -- 1 STX per transaction
+  10000000,   -- 0.1 sBTC per transaction
+  true,
+  false,
+  false
+) ON CONFLICT (agent_address) DO UPDATE SET
+  is_active = true,
+  is_paused = false;
+
+-- ============================================
+-- Add Approved Services for ALL Agents
+-- ============================================
+
+-- Weather API (free)
+INSERT INTO approved_services (agent_address, service_url, approved) VALUES
+  ('ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM', 'https://wttr.in', true),
+  ('ST2CY5V39NHDPWSXMW9QDT3HC3GD6Q6XX4CFRK9AG', 'https://wttr.in', true),
+  ('ST2JHG321N5SXSWYM7ZSVMEJ6QJ8QN7YMF2KNDFDD', 'https://wttr.in', true),
+  ('ST3N7C5G0W8YV5SXD93TCJP0HT26XY8CMVJB8RSTF', 'https://wttr.in', true),
+  ('ST28DERT007J1P63JPP4XGDKW0BWEXFHCJ0RVNT38', 'https://wttr.in', true)
+ON CONFLICT (agent_address, service_url) DO UPDATE SET approved = true;
+
+-- HTTPBin (testing)
+INSERT INTO approved_services (agent_address, service_url, approved) VALUES
+  ('ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM', 'https://httpbin.org', true),
+  ('ST2CY5V39NHDPWSXMW9QDT3HC3GD6Q6XX4CFRK9AG', 'https://httpbin.org', true),
+  ('ST2JHG321N5SXSWYM7ZSVMEJ6QJ8QN7YMF2KNDFDD', 'https://httpbin.org', true),
+  ('ST3N7C5G0W8YV5SXD93TCJP0HT26XY8CMVJB8RSTF', 'https://httpbin.org', true),
+  ('ST28DERT007J1P63JPP4XGDKW0BWEXFHCJ0RVNT38', 'https://httpbin.org', true)
+ON CONFLICT (agent_address, service_url) DO UPDATE SET approved = true;
+
+-- JSONPlaceholder (mock API)
+INSERT INTO approved_services (agent_address, service_url, approved) VALUES
+  ('ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM', 'https://jsonplaceholder.typicode.com', true),
+  ('ST2CY5V39NHDPWSXMW9QDT3HC3GD6Q6XX4CFRK9AG', 'https://jsonplaceholder.typicode.com', true),
+  ('ST2JHG321N5SXSWYM7ZSVMEJ6QJ8QN7YMF2KNDFDD', 'https://jsonplaceholder.typicode.com', true)
+ON CONFLICT (agent_address, service_url) DO UPDATE SET approved = true;
+
+-- ============================================
+-- Simulate Some Activity (Optional)
+-- ============================================
+
+-- Some payments from different agents (makes dashboard look realistic)
+INSERT INTO payment_history (agent_address, amount, asset_type, service_url, approved, transaction_id) VALUES
+  ('ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM', 5000, 'STX', 'https://wttr.in/NewYork', true, 'demo-1'),
+  ('ST2CY5V39NHDPWSXMW9QDT3HC3GD6Q6XX4CFRK9AG', 1000, 'STX', 'https://wttr.in/London', true, 'demo-2'),
+  ('ST2JHG321N5SXSWYM7ZSVMEJ6QJ8QN7YMF2KNDFDD', 500, 'STX', 'https://httpbin.org/json', true, 'demo-3');
+
+-- ============================================
+-- VERIFICATION QUERIES
+-- ============================================
+
+-- Check all agents
+SELECT 
+  agent_address,
+  daily_limit_stx / 1000000.0 as daily_limit_stx,
+  is_paused,
+  is_revoked
+FROM policies
+ORDER BY daily_limit_stx DESC;
+
+-- Check services
+SELECT agent_address, service_url 
+FROM approved_services 
+WHERE approved = true
+ORDER BY agent_address;
+
+-- ============================================
+-- TEST COMMANDS (run these in your terminal)
+-- ============================================
+
+/*
+# Test Agent A (Senior - high limit)
+curl "http://localhost:3000/api/proxy?target=https://wttr.in/Tokyo?format=j1" \
+  -H "x-agent-address: ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM"
+
+# Test Agent B (Mid - medium limit)
+curl "http://localhost:3000/api/proxy?target=https://wttr.in/Paris?format=j1" \
+  -H "x-agent-address: ST2CY5V39NHDPWSXMW9QDT3HC3GD6Q6XX4CFRK9AG"
+
+# Test Agent C (Junior - low limit)
+curl "http://localhost:3000/api/proxy?target=https://wttr.in/Berlin?format=j1" \
+  -H "x-agent-address: ST2JHG321N5SXSWYM7ZSVMEJ6QJ8QN7YMF2KNDFDD"
+
+# Test Agent D (Contractor - very limited)
+curl "http://localhost:3000/api/proxy?target=https://httpbin.org/json" \
+  -H "x-agent-address: ST3N7C5G0W8YV5SXD93TCJP0HT26XY8CMVJB8RSTF"
+
+# Hit Agent D multiple times to exceed limit (demo policy enforcement)
+for i in {1..5}; do
+  curl "http://localhost:3000/api/proxy?target=https://httpbin.org/json" \
+    -H "x-agent-address: ST3N7C5G0W8YV5SXD93TCJP0HT26XY8CMVJB8RSTF"
+  echo "\nRequest $i completed"
+  sleep 1
+done
+
+# Now check Company Dashboard: http://localhost:3000/company
+# You should see:
+# - Agent D at or over limit (red/orange)
+# - Other agents still active (green)
+# - Company-wide spending tracked
+*/

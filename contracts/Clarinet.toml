@@ -1,0 +1,19 @@
+[project]
+name = "contracts"
+description = "x402-Stacks Policy Manager Smart Contracts"
+authors = []
+telemetry = true
+cache_dir = "./.cache"
+
+# Contract definitions (UNCOMMENT AND ADD THESE)
+[contracts.policy-manager]
+path = "contracts/policy-manager.clar"
+epoch = "3.3"
+
+[contracts.session-tracker]
+path = "contracts/session-tracker.clar"
+epoch = "3.3"
+
+[repl.analysis]
+passes = ["check_checker"]
+check_checker = { trusted_sender = false, trusted_caller = false, callee_filter = false }

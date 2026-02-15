@@ -1,0 +1,1294 @@
+  Get Started 
+Developer Quickstart 
+Your 0→1 guide for building a Clarity contract and app on Stacks. 
+ 
+Welcome to the Stacks Developer Quickstart Guide! 
+This is your fast-track path for understanding what you'll need to become a Stacks developer. In this 
+guide, you’ll build a real Clarity smart contract, wire up a functioning Stacks app, and pick up about 
+75% of the practical knowledge every Stacks builder needs. Whether you’re shipping your first 
+project or leveling up your skills, this guide takes you from zero to deployed—quickly and confidently. 
+What you'll achieve 
+By the end of this quickstart, you’ll have built an onchain app by: 
+  Building a Clarity smart contract with Clarinet 
+  Utilize the 1:1 Bitcoin backed token, sBTC 
+  Deploying your smart contract to Stacks' testnet 
+  Interacting with your deployed contract from a frontend app 
+Why Stacks? 
+Stacks is a fast, low-cost, builder-friendly layer 2 network on Bitcoin. It’s built on Bitcoin, inheriting 
+Bitcoin’s battle-tested security. By jumping into this guide, you’re joining the Stacks community that’s 
+bringing a global onchain economy to Bitcoin. 
+What You'll Build 
+The app you'll build will be a message board contract. Users can add a new message to store 
+on-chain for a fee of 1 satoshi in sBTC. Other functionality to read data from the contract will also be 
+handled. Besides sBTC, there will be other things that'll be introduced to you such as 
+post-conditions, Bitcoin read access, unit testing, wallet connectivity, BNS, Hiro, and more. Hopefully 
+all this will give you a good flavor of what you can expect in the Stacks builder ecosystem. 
+Let's start building on Bitcoin! 
+�
+�
+ 
+Prerequisites 
+  Basic familiarity with web development 
+  Basic familiarity with web3 concepts 
+  A modern web browser 
+  Node.js 
+  Visual Studio Code or any other popular IDE 
+Set Up Your Developer Environment 
+Install Clarinet 
+Clarinet is the popular CLI tool to build, test, and deploy smart contracts on the Stacks 
+blockchain. 
+Below are a few different ways to install Clarinet on your machine using your terminal. 
+Refer to the dedicated installation guide in the 'Learn Clarinet' section for more 
+information. 
+Homebrew 
+Winget 
+Source 
+Binary 
+Copy 
+brew install clarinet 
+Install Clarity Extension 
+You'll also want to install the Clarity Extension for your code editor. The official one is 
+'Clarity - Stacks Labs' which is maintained by Stacks Labs. 
+ 
+The 'Clarity - Stacks Labs' extension as it appears in Visual Studio Code. 
+Install a Stacks wallet 
+There are many Stacks supported wallets in the market. For this guide, we'll be using the 
+Leather wallet. Leather supports Stacks, Bitcoin, and other Bitcoin related meta-protocols. 
+Download and install its browser extension so you can interact with your smart contract 
+later on in this guide. Make sure to switch to the Testnet network in your wallet settings. 
+Later on, we'll show you how to get testnet STX and sBTC tokens that you'll use for 
+contract interaction. 
+Create a Clarity smart contract 
+Create a new Clarinet project 
+Let's start by creating a new Clarinet project which will house our smart contract. The 
+clarinet new command sets up everything you need for smart contract development, 
+including a testing framework, deployment configurations, and a local development 
+environment. 
+terminal 
+Copy 
+clarinet new my-stacks-contracts 
+A Clarinet project will be scaffolded with the below: 
+terminal 
+Copy 
+Created directory my-stacks-contracts 
+ 
+Created directory contracts 
+ 
+Created directory settings 
+Created directory tests 
+Created file Clarinet.toml 
+Created file settings/Mainnet.toml 
+Created file settings/Testnet.toml 
+Created file settings/Devnet.toml 
+Created directory .vscode 
+Created file .vscode/settings.json 
+Created file .vscode/tasks.json 
+Created file .gitignore 
+Created file .gitattributes 
+ 
+Created file package.json 
+ 
+Created file tsconfig.json 
+ 
+Created file vitest.config.ts 
+ 
+ 
+ ---------------------------- 
+ 
+Hint: what's next? 
+ 
+Switch to the newly created directory with: 
+ 
+ 
+ 
+ $ cd my-stacks-contracts 
+ 
+ 
+ 
+Once you are ready to write your contracts, run the following commands: 
+ 
+ 
+ 
+ $ clarinet contract new <contract-name> 
+ 
+   Create new contract scaffolding, including test files. 
+ 
+ 
+ 
+ $ clarinet check 
+ 
+   Check contract syntax for all files in ./contracts. 
+Show all 30 lines 
+Generate your contract 
+Now that we have our project structure, let's create a smart contract. Navigate into your 
+project directory and use Clarinet's contract generator: 
+Copy 
+$ cd my-stacks-contracts 
+ 
+$ clarinet contract new message-board 
+ 
+Created file contracts/message-board.clar 
+ 
+Created file tests/message-board.test.ts 
+ 
+Updated Clarinet.toml with contract message-board 
+Clarinet automatically creates both your contract file and a corresponding test file. 
+Write your Clarity smart contract 
+Define constants 
+Open contracts/message-board.clar and remove its existing content. This is where 
+we'll start writing our own Clarity smart contract. 
+Let's first define some constants: 
+  contract owner to establish control access 
+  custom error codes to handle errors in functions 
+message-board.clar 
+Copy 
+;; Simple Message Board Contract 
+ 
+;; This contract allows users to read and post messages for a fee in sBTC. 
+ 
+ 
+ 
+;; Define contract owner 
+ 
+(define-constant CONTRACT_OWNER tx-sender) 
+ 
+ 
+ 
+;; Define error codes 
+ 
+(define-constant ERR_NOT_ENOUGH_SBTC (err u1004)) 
+ 
+(define-constant ERR_NOT_CONTRACT_OWNER (err u1005)) 
+ 
+(define-constant ERR_BLOCK_NOT_FOUND (err u1003)) 
+You'll notice in the CONTRACT_OWNER constant that tx-sender is set in place as the value. 
+When this contract is deployed, the Clarity VM will determine who the tx-sender is based 
+on who deployed the contract. This allows the hardcoded tx-sender to always point to 
+the principal that deployed the contract. 
+Define data storage 
+We'll then need to define some data storage: 
+  A map to store key-value pairs of the message id and it's related metadata 
+  A data variable to count the total number of messages added 
+message-board.clar 
+Copy 
+;; Define a map to store messages 
+ 
+;; Each message has an ID, content, author, and Bitcoin block height 
+timestamp 
+ 
+(define-map messages 
+ 
+ uint 
+ 
+ { 
+ 
+   message: (string-utf8 280), 
+ 
+   author: principal, 
+ 
+   time: uint, 
+ 
+ } 
+ 
+) 
+ 
+ 
+ 
+;; Counter for total messages 
+ 
+(define-data-var message-count uint u0) 
+Define an add message function 
+Next up is our main function of the contract. This function allows users to add a new 
+message to the contract for a fee of 1 satoshi in sBTC. Invoking this function will change 
+the state of our contract and update the data storage pieces we setup before. 
+message-board.clar 
+Copy 
+;; Public function to add a new message for 1 satoshi of sBTC 
+ 
+;; @format-ignore 
+ 
+(define-public (add-message (content (string-utf8 280))) 
+ 
+ (let ((id (+ (var-get message-count) u1))) 
+ 
+   (try! (restrict-assets? contract-caller  
+ 
+     ((with-ft 'SM3VDXK3WZZSA84XXFKAFAF15NNZX32CTSG82JFQ4.sbtc-token 
+"sbtc-token" u1)) 
+ 
+     (unwrap! 
+ 
+       ;; Charge 1 satoshi of sBTC from the caller 
+ 
+       (contract-call? 
+'SM3VDXK3WZZSA84XXFKAFAF15NNZX32CTSG82JFQ4.sbtc-token 
+ 
+         transfer u1 contract-caller current-contract none 
+ 
+       ) 
+ 
+       ERR_NOT_ENOUGH_SBTC 
+ 
+     ) 
+ 
+   )) 
+ 
+   ;; Store the message with current Bitcoin block height 
+ 
+   (map-set messages id { 
+ 
+     message: content, 
+ 
+     author: contract-caller, 
+ 
+     time: burn-block-height, 
+ 
+   }) 
+ 
+   ;; Update message count 
+ 
+   (var-set message-count id) 
+ 
+   ;; Emit event for the new message 
+ 
+   (print { 
+ 
+     event: "[Stacks Dev Quickstart] New Message", 
+ 
+     message: content, 
+ 
+     id: id, 
+ 
+     author: contract-caller, 
+ 
+     time: burn-block-height, 
+ 
+   }) 
+ 
+   ;; Return the message ID 
+ 
+   (ok id) 
+ 
+ ) 
+ 
+) 
+Show all 34 lines 
+There's quite a lot going on in this function above that covers in-contract post-conditions, 
+calling the official sBTC token contract, reading Bitcoin state, emitting events, and etc. 
+We'll break it down for you: 
+Add sBTC contract requirements 
+Since we're working with sBTC in our local developer environment, we'll need to make 
+sure Clarinet can recognize this. Clarinet can automatically wire up the official sBTC 
+contracts so you can build and test sBTC flows locally. 
+In our case, all we'll need to do is add the .sbtc-deposit contract as a project 
+requirement. 
+terminal 
+Copy 
+clarinet requirements add 
+SM3VDXK3WZZSA84XXFKAFAF15NNZX32CTSG82JFQ4.sbtc-deposit 
+You'll notice in the add-message public function, we're making an external contract call to 
+the .sbtc-token contract. This is the official sBTC token contract that contains the 
+SIP-010 standard transfer function that we are invoking. 
+Check out the dedicated sBTC integration page to learn more. 
+Allow contract owner to withdraw funds 
+In the beginning of our contract, we defined a constant to store the Stacks principal of the 
+contract owner. Having a contract owner allows for specific access control of the contract 
+that is entitled to the owner. Let's allow the owner to be able to withdraw the accumulated 
+sBTC fees that were sent by anyone who created a new message in the contract. 
+Copy 
+;; Withdraw function for contract owner to withdraw accumulated sBTC 
+ 
+(define-public (withdraw-funds) 
+ 
+ (begin 
+ 
+   (asserts! (is-eq tx-sender CONTRACT_OWNER) (err u1005)) 
+ 
+   (let ((balance (unwrap-panic (contract-call? 
+'SM3VDXK3WZZSA84XXFKAFAF15NNZX32CTSG82JFQ4.sbtc-token 
+ 
+       get-balance current-contract 
+ 
+     )))) 
+ 
+     (if (> balance u0) 
+ 
+       (contract-call? 
+'SM3VDXK3WZZSA84XXFKAFAF15NNZX32CTSG82JFQ4.sbtc-token 
+ 
+         transfer balance current-contract CONTRACT_OWNER none 
+ 
+       ) 
+ 
+       (ok false) 
+ 
+     ) 
+ 
+   ) 
+ 
+ ) 
+ 
+) 
+Show all 16 lines 
+You'll notice in the highlighted line that the function performs an asserts! check to 
+confirm that the tx-sender calling the contract is in fact the CONTRACT_OWNER . If it is in 
+fact the owner of the contract, the function body proceeds with transferring the balance of 
+sBTC to the owner or else it'll throw an error that we defined earlier. 
+The usage of tx-sender versus another Clarity keyword, contract-caller , is always a tricky 
+concept because it determines who actually initiated the transaction versus who invoked the current 
+function. Both of them can have certain implications on security based on the context of your code. 
+Check out the dedicated blog, written by community dev Setzeus, to learn when you should use 
+either or. 
+Implement read only functions 
+We'll round out our contract with important read only functions that will return us needed 
+data from the contract. 
+Copy 
+;; Read-only function to get a message by ID 
+ 
+(define-read-only (get-message (id uint)) 
+ 
+ (map-get? messages id) 
+ 
+) 
+ 
+ 
+ 
+;; Read-only function to get message author 
+ 
+(define-read-only (get-message-author (id uint)) 
+ 
+ (get author (map-get? messages id)) 
+ 
+) 
+ 
+ 
+ 
+;; Read-only function to get message count at a specific Stacks block 
+height 
+ 
+(define-read-only (get-message-count-at-block (block uint)) 
+ 
+ (ok (at-block 
+ 
+   (unwrap! (get-stacks-block-info? id-header-hash block) 
+ERR_BLOCK_NOT_FOUND) 
+ 
+   (var-get message-count) 
+ 
+ )) 
+ 
+) 
+Show all 17 lines 
+You'll notice the usage of a at-block function in the highlighted line of code. The 
+at-block function evaluates the inner expression as if it were evaluated at the end of a 
+specific Stacks block. 
+Test your contract 
+Now with the actual writing of your contract complete, we now need to test its functionality. 
+There's a few different ways we can go about iterating and testing the functionality of your 
+contract. 
+Contract interaction in the Clarinet REPL 
+Running your contract in a local blockchain environment 
+Fuzz testing with Rendezvous 
+Writing unit tests with the Clarinet JS SDK 
+We'll go with unit testing for now. In your tests folder, open up the related 
+message-board.test.ts file and let's use the unit test written below. 
+tests/message-board.test.ts 
+Copy 
+import { Cl, ClarityType } from "@stacks/transactions"; 
+import { describe, expect, it } from "vitest"; 
+const accounts = simnet.getAccounts(); 
+const deployer = accounts.get("deployer")!; 
+const address1 = accounts.get("wallet_1")!; 
+ 
+ 
+ 
+describe("example tests", () => { 
+ 
+ let content = "Hello Stacks Devs!" 
+ 
+ 
+ 
+ it("allows user to add a new message", () => { 
+ 
+   let currentBurnBlockHeight = simnet.burnBlockHeight; 
+ 
+ 
+ 
+   let confirmation = simnet.callPublicFn( 
+ 
+     "stacks-dev-quickstart-message-board", 
+ 
+     "add-message", 
+ 
+     [Cl.stringUtf8(content)], 
+ 
+     address1 
+ 
+   ) 
+ 
+ 
+ 
+   const messageCount = 
+simnet.getDataVar("stacks-dev-quickstart-message-board", "message-count"); 
+ 
+    
+ 
+   expect(confirmation.result).toHaveClarityType(ClarityType.ResponseOk); 
+ 
+   expect(confirmation.result).toBeOk(messageCount);     
+ 
+   expect(confirmation.events[1].data.value).toBeTuple({ 
+ 
+     author: Cl.standardPrincipal(address1), 
+ 
+     event: Cl.stringAscii("[Stacks Dev Quickstart] New Message"), 
+ 
+     id: messageCount, 
+ 
+     message: Cl.stringUtf8(content), 
+ 
+     time: Cl.uint(currentBurnBlockHeight), 
+ 
+   }); 
+ 
+ }); 
+ 
+ 
+ 
+ it("allows contract owner to withdraw funds", () => { 
+ 
+   simnet.callPublicFn( 
+ 
+     "stacks-dev-quickstart-message-board", 
+ 
+     "add-message", 
+ 
+     [Cl.stringUtf8(content)], 
+ 
+     address1 
+ 
+   ) 
+ 
+    
+ 
+   simnet.mineEmptyBurnBlocks(2); 
+ 
+ 
+ 
+   let confirmation = simnet.callPublicFn( 
+ 
+     "stacks-dev-quickstart-message-board", 
+ 
+     "withdraw-funds", 
+ 
+     [], 
+ 
+     deployer 
+ 
+   ) 
+ 
+    
+ 
+   expect(confirmation.result).toBeOk(Cl.bool(true)); 
+ 
+   expect(confirmation.events[0].event).toBe("ft_transfer_event") 
+ 
+   expect(confirmation.events[0].data).toMatchObject({ 
+ 
+     amount: '1', 
+ 
+     asset_identifier: 
+'SM3VDXK3WZZSA84XXFKAFAF15NNZX32CTSG82JFQ4.sbtc-token::sbtc-token', 
+ 
+     recipient: deployer, 
+ 
+     sender: `${deployer}${".stacks-dev-quickstart-message-board"}`, 
+ 
+   }) 
+ 
+ }) 
+ 
+}); 
+Show all 61 lines 
+You'll notice we have two it blocks setup to test out 2 different scenarios: 
+Allows user to add a new message 
+Allows owner to withdraw sBTC funds 
+Run the test via npm run test to confirm that the two scenarios are functioning as 
+intended. 
+terminal 
+Copy 
+$ npm run test 
+✓ tests/message-board.test.ts (2 tests) 46ms 
+✓ message board tests (2) 
+✓ allows user to add a new message 26ms 
+ 
+    ✓ allows contract owner to withdraw funds 19ms 
+ 
+ 
+ 
+Test Files  1 passed (1) 
+ 
+     Tests  2 passed (2) 
+ 
+  Start at  14:05:07 
+ 
+  Duration  886ms (transform 40ms, setup 42ms, collect 8ms, tests 46ms, 
+environment 699ms, prepare 4ms) 
+Great! Now that your contract is working as intended, let's deploy the contract to testnet. 
+Get testnet faucet tokens 
+Navigate to the Hiro Platform faucet 
+Hiro is a platform to build and scale Bitcoin apps, including custom data streams, onchain 
+alerts, API key management, and more. Create an account and navigate to the top tab of 
+'Faucet'. On the Faucet page, you can request testnet STX and/or sBTC. We'll be needing 
+both so fund your Leather wallet account with both. 
+ 
+Grab the testnet Stacks address from your Leather wallet and paste it in the recipient field. 
+Important: Switch to the Testnet network in your wallet settings 
+Confirm testnet tokens in your wallet 
+Open up your Leather extension to confirm that you've received testnet STX and sBTC. 
+You might need to enable the viewing of the sBTC token in your wallet under 'Manage 
+tokens'. 
+ 
+With both testnet STX and sBTC, you're ready to deploy your contract and interact with it 
+from a front-end client. 
+Deploy your Clarity smart contract 
+Generate testnet deployment plan 
+You'll first want to input a mnemonic seed phrase in the settings/Testnet.toml file and 
+specify the account derivation path that you want to use for deploying the contract. The 
+account should be the same one you used to request testnet STX to. This will be the 
+account that actually deploys the contract and becomes the contract owner. 
+settings/Testnet.toml 
+Copy 
+[network] 
+ 
+name = "testnet" 
+ 
+stacks_node_rpc_address = "https://api.testnet.hiro.so" 
+ 
+deployment_fee_rate = 10 
+ 
+ 
+ 
+[accounts.deployer] 
+ 
+mnemonic = "<YOUR TESTNET MNEMONIC>" 
+ 
+derivation = "m/44'/5757'/0'/0/0" 
+Then generate a deployment plan for the testnet network. Deployment plans are YAML 
+files that describe how contracts are published or called. 
+For more information on configuring deployment plans, check out the specific guide here. 
+terminal 
+Copy 
+$ clarinet deployments generate --testnet --medium-cost 
+ 
+Analyzing contracts... 
+ 
+Calculating deployment costs... 
+ 
+Generating deployment plan 
+ 
+Created file deployments/default.testnet-plan.yaml 
+Deploy contract to testnet 
+Once your deployment plan is generated and configured properly, go ahead and deploy 
+the contract to testnet. 
+terminal 
+Copy 
+clarinet deployments apply --testnet 
+If the contract was successfully deployed, you should see the below confirmation: 
+Copy 
+Broadcasting transactions to https://api.testnet.hiro.so 
+ 
+Publish ST11V9ZN6E6VG72SHMAVM9GDE30VD3VGW5Q1W9WX3.message-board 
+Transaction confirmed 
+A sample of the contract we just created above is already deployed to testnet here. Check out its 
+contract page on the Stacks Explorer and directly interact with its functions. 
+Use stacks.js on the frontend 
+Connect wallet 
+Using stacks.js packages on the frontend will allow our frontend app to authenticate 
+wallets, call our contract functions, and interact with the Stacks network. 
+We'll first want to connect and authenticate our Leather wallet extension with our frontend 
+app. The stacks.js monorepo contains several underlying packages specific to different 
+use cases. The package @stacks/connect is the main connectivity package used in 
+Stacks. 
+In the snippet below, you'll notice we have 3 functions setup to handle connectWallet , 
+disconnectWallet, and for getBns . All 3 functions will be integral in how we want to 
+display the 'Connect' and 'Disconnect' button in the UI. 
+Retrieving a wallet account's associated BNS is a staple of Stacks and for web3 identity. Check out 
+BNSv2 for more information and for availably public API endpoints you could use. 
+src/App.tsx 
+Copy 
+import { connect, disconnect } from '@stacks/connect' 
+ 
+import type { GetAddressesResult } from 
+'@stacks/connect/dist/types/methods' 
+ 
+import { useState } from 'react' 
+ 
+ 
+ 
+function App() { 
+ 
+ let [isConnected, setIsConnected] = useState<boolean>(false) 
+ 
+ let [walletInfo, setWalletInfo] = useState<any>(null) 
+ 
+ let [bns, setBns] = useState<string>('') 
+ 
+ 
+ 
+ async function connectWallet() { 
+ 
+   let connectionResponse: GetAddressesResult = await connect() 
+ 
+   let bnsName = await getBns(connectionResponse.addresses[2].address) 
+ 
+ 
+ 
+   setIsConnected(true) 
+ 
+   setWalletInfo(connectionResponse) 
+ 
+   setBns(bnsName) 
+ 
+ } 
+ 
+ 
+ 
+ async function disconnectWallet() { 
+ 
+   disconnect(); 
+ 
+ } 
+ 
+  
+ 
+ async function getBns(stxAddress: string) { 
+ 
+   let response = await 
+fetch(`https://api.bnsv2.com/testnet/names/address/${stxAddress}/valid`) 
+ 
+   let data = await response.json() 
+ 
+ 
+ 
+   return data.names[0].full_name 
+ 
+ } 
+ 
+  
+ 
+ return ( 
+ 
+   <> 
+ 
+     <h3>Stacks Dev Quickstart Message Board</h3> 
+ 
+     {isConnected ? ( 
+ 
+       <button onClick={disconnectWallet}>{ 
+ 
+         bns ? bns : walletInfo.addresses[2].address 
+ 
+       }</button> 
+) : ( 
+<button onClick={connectWallet}>connect wallet</button> 
+)} 
+</> 
+) 
+} 
+Show all 42 lines 
+The connect() method comes with ability to configure how you want the wallet selector 
+modal to appear for your app. You can decide which wallets to have only appear as an 
+option or allow any wallet that follows the SIP-030 standard to appear as an available 
+Stacks wallet. 
+ 
+The Stacks Connect wallet selector modal 
+Call `add-message` public function 
+Next, we'll setup a stx_callContract to invoke the add-message public function of our 
+contract. This function will accept a string content to be passed into our contract call. 
+Copy 
+import { request } from '@stacks/connect' 
+ 
+import type { TransactionResult } from 
+'@stacks/connect/dist/types/methods' 
+ 
+import { Cl, Pc } from '@stacks/transactions' 
+ 
+import { useState } from 'react' 
+ 
+ 
+ 
+function App() { 
+ 
+ // ... 
+ 
+ let [content, setContent] = useState<string>('') 
+ 
+ 
+ 
+ async function addMessage() { 
+ 
+   let postCond_1 = 
+Pc.principal('ST11V9ZN6E6VG72SHMAVM9GDE30VD3VGW5Q1W9WX3') 
+ 
+     .willSendEq(1) 
+ 
+     .ft('ST1F7QA2MDF17S807EPA36TSS8AMEFY4KA9TVGWXT.sbtc-token', 
+'sbtc-token') 
+ 
+  
+ 
+   let result: TransactionResult = await request('stx_callContract', { 
+ 
+     contract: 
+'ST11V9ZN6E6VG72SHMAVM9GDE30VD3VGW5Q1W9WX3.stacks-dev-quickstart-message-b
+oard', 
+ 
+     functionName: 'add-message', 
+ 
+     functionArgs: [Cl.stringUtf8(content)], 
+ 
+     network: 'testnet', 
+ 
+     postConditions: [postCond_1], 
+ 
+     postConditionMode: 'deny', 
+ 
+     sponsored: false 
+ 
+   }) 
+ 
+  
+ 
+   setContent('') 
+ 
+ } 
+ 
+ 
+ 
+ return ( 
+ 
+   <> 
+ 
+     // ... 
+ 
+     <span className='input-container'> 
+ 
+       <button onClick={addMessage}>add-message</button> 
+ 
+       <input type="text" onChange={e => setContent(e.target.value)}/> 
+ 
+     </span> 
+ 
+   </> 
+ 
+ ) 
+ 
+} 
+Show all 37 lines 
+You'll notice in the transaction data object that we pass into our string literal method of 
+stx_callContract, that we're setting up post-conditions. Post-Conditions for the frontend 
+are declared to protect user assets. The Pc helper from @stacks/transactions helps us 
+to declare post-condition statements for any type of asset and equality operator. 
+Invoking our addMessage function will prompt the user's connected wallet to prompt a 
+transaction confirmation popup. This popup will display all of the relevant information of the 
+transaction as well as the post-condition statements that we've declared. 
+ 
+Call read-only function 
+As how we've created a few read-only functions in our contract, we'll also want to call 
+these from the frontend to retrieve certain contract data. 
+Let's setup a fetchCallReadOnlyFunction to invoke our contract's 
+get-message-count-at-block read-only function. For this, we'll fetch the current Stacks 
+block height from the Hiro API endpoint and pass that returned value into our read-only 
+function. 
+Copy 
+// ... 
+ 
+import type { ClarityValue } from '@stacks/connect/dist/types/methods' 
+ 
+import { Cl, fetchCallReadOnlyFunction } from '@stacks/transactions' 
+ 
+ 
+ 
+function App() { 
+ 
+ // ...   
+ 
+ async function getMessageCountAtBlock() { 
+ 
+   let response = await fetch('https://api.testnet.hiro.so/v2/info', { 
+ 
+     headers: { 
+ 
+       "x-api-key": "<HIRO_API_KEY>" 
+ 
+     } 
+ 
+   }) 
+ 
+   let data = await response.json() 
+ 
+   let stacksBlockHeight = data.stacks_tip_height 
+ 
+ 
+ 
+   let result: ClarityValue = await fetchCallReadOnlyFunction({ 
+ 
+     contractAddress: 'ST11V9ZN6E6VG72SHMAVM9GDE30VD3VGW5Q1W9WX3', 
+ 
+     contractName: 'stacks-dev-quickstart-message-board', 
+ 
+     functionName: 'get-message-count-at-block', 
+ 
+     functionArgs: [Cl.uint(stacksBlockHeight)], 
+ 
+     network: 'testnet', 
+ 
+     senderAddress: 'ST11V9ZN6E6VG72SHMAVM9GDE30VD3VGW5Q1W9WX3', 
+ 
+   }) 
+ 
+ } 
+ 
+  
+ 
+ // ... 
+Show all 26 lines 
+For the complete set of available API endpoints for the Stacks network, check out the Hiro docs. But 
+first create an API key from the Hiro Platform to determine your API rate plan. 
+And that's it, you've successfully created an sBTC powered Clarity smart contract which can be 
+interacted with from a frontend app. There's obviously much more you can do to complete this but 
+you've got some of the basics down pat now. Go ahead and finish creating the frontend functions to 
+call on the other contract functions we have. 
+ 
+Further Improvements 
+This is just the beginning. There are many ways we can improve upon this app. Here are some 
+suggestions for you to extend the functionality of this app: 
+  Deploy to mainnet and share your project with the community 
+  Use Chainhooks to index emitted events from the contract 
+  Integrate the sbtc library so users can directly bridge their BTC to sBTC in-app 
+  Utilize SIP-009 NFTs to uniquely identify each message for each author 
+ 
+Next Steps 
+Now that you have the basics down, here are some ways to continue your Stacks development 
+journey: 
+Learn More About Clarity 
+  Clarity Crash Course: Quick introduction to Clarity concepts 
+  Clarity Book: Comprehensive guide to Clarity development 
+  Clarity Reference: Complete documentation of Clarity functions 
+Development Tools 
+  Clarinet: Local development environment for Clarity 
+  Hiro Platform: API management 
+  Stacks Explorer: View transactions and contracts 
+Community Resources 
+  Stacks Discord: Connect with other developers 
+  Stacks Forum: Ask questions and share projects 
+ 
+ 
+ 
+ 
+ 
+ 
+Clarity Crash Course 
+The Stacks ecosystem has its own smart contract programming language 
+called Clarity. 
+ 
+Intro 
+This is designed for people with some programming experience who are new to Clarity. You don't 
+need prior smart contract development experience, but if you have experience with languages like 
+Solidity, you'll pick this up quickly. 
+Once you've briefly familiarized yourself with the language, consider the Clarity Book or the course 
+Clarity Universe to continue your learning. 
+Clarity is developed as a joint effort of Hiro PBC, Algorand, and various other stakeholders, that 
+originally targets the Stacks blockchain. The Clarity source code can be found in the stacks-core 
+repo here. 
+Your First Clarity Smart Contract 
+We're going to walkthrough a basic Clarity smart contract using the Clarity Playground, an online 
+REPL environment where you can write and run Clarity code in the browser. Visit that link and it will 
+open up a new example contract for you on the left view, with an interactive REPL on the right view. 
+ 
+The example counter contract provided when visiting the Clarity Playground 
+Clarity Playground is a new tool to write and run Clarity code directly in the browser. With Clarity 
+Playground, developers can test out concepts, try new ideas, or just, well…play around. Learn more 
+here. 
+The example contract you'll see is a simple counter contract that will store the value of a count in a 
+data variable and increment the count value by invoking a defined public function. 
+counter.clar 
+Copy 
+(define-data-var count uint u0) 
+ 
+(define-data-var contract-owner principal tx-sender) 
+ 
+(define-data-var cost uint u10) 
+ 
+ 
+ 
+(define-read-only (get-count) 
+ 
+ (var-get count) 
+ 
+) 
+ 
+ 
+ 
+(define-public (increment) 
+ 
+ (begin 
+ 
+   (print u"incrementing count") 
+ 
+   (ok (var-set count (+ (var-get count) u1))) 
+ 
+ ) 
+ 
+) 
+Clarity's syntax is inspired by LISP: everything is an expression wrapped in parentheses. Function 
+definitions, variable declarations, and parameters are lists inside lists. This makes Clarity concise 
+and readable once you get used to it. Here are some characteristics of Clarity you'll notice: 
+Everything in parentheses is an expression 
+Clarity treats everything as expressions inside parentheses. Function definitions are calls 
+to built-in functions; the function body is an expression. This uniformity helps reasoning 
+about programs in Clarity. 
+Uses LISP-like nesting 
+Expect nested parentheses and expressions. You’ll often read code as lists inside lists, 
+where each parentheses-enclosed group represents a call or expression. 
+In Clarity, there are public, private, and read-only functions: 
+  public: can modify chain state and be called externally. 
+  private: can modify state but only be called within the contract. 
+  read-only: will fail if they attempt to modify state. 
+Let's expand on these ideas by walking through that example counter contract line by line. 
+Defining data variables 
+The built-in Clarity function of define-data-var allows you to define a new persisted variable for 
+the contract. Only modifiable by the contract. 
+Copy 
+;; defining a `count` variable to store a variable unsigned integer value 
+ 
+(define-data-var count uint u0) 
+ 
+ 
+ 
+;; defining a `contract-owner` for a specific `principal` value 
+ 
+(define-data-var contract-owner principal tx-sender) 
+ 
+ 
+ 
+;; defining a `cost` variable with an initial unsigned integer value of 10 
+ 
+(define-data-var cost uint u10) 
+Defining a read-only function to read the current count value 
+The built-in Clarity function of define-read-only defines a public read-only function. Cannot 
+modify data maps or call mutating functions. May return any type. 
+Copy 
+;; allows anyone to read the current `count` value in the contract 
+ 
+(define-read-only (get-count) 
+ 
+ (var-get count) 
+ 
+) 
+Defining a public function to increment the count value 
+This function prints a log event saying it's incrementing a counter, then reads the current counter, 
+adds 1, saves it back on-chain, and returns success. 
+Copy 
+;; Defines a public function named increment that anyone can call 
+ 
+(define-public (increment) 
+ 
+ ;; Starts a begin block, which allows multiple expressions to run in 
+order. 
+ 
+ (begin 
+ 
+   ;; Logs/prints the text "incrementing count" (as a Unicode string) to  
+ 
+   ;; the transaction output or event stream. 
+ 
+   (print u"incrementing count") 
+ 
+   ;; adds u1 to the current count and wraps the resulting value in a 
+response type 
+ 
+   (ok (var-set count (+ (var-get count) u1))) 
+ 
+ ) 
+ 
+) 
+Interact With Your Contract 
+The Clarity Playground allows you to call your functions on the right side view via a REPL console 
+that runs a simnet environment. 
+On page load of the Clarity Playground, the example counter contract is automatically deployed to 
+the REPL console on the right side. If you made any changes to the contract in the code editor on 
+the left view, be sure to click on Deploy. 
+Calling contracts in the console or calling any externally deployed contracts will need to be passed 
+into the built-in Clarity function called contract-call? . 
+Follow the steps below to interact with your counter contract: 
+Call the read-only `get-count` function 
+In the bottom right Clarity command console, paste in the below command to call your 
+get-count function to see the current count value. 
+clarity command console 
+Copy 
+(contract-call? .contract-0 get-count) 
+The console should return an initial value of u0 since we haven't incremented the count 
+yet. 
+Call the public `increment` function 
+Now let's finally increment our count value. In the bottom right Clarity command console, 
+paste in the below command to call your increment function, which will increment the 
+count value by 1. 
+The console should return a value of (ok true) . This means the public function 
+executed successfully and the count should have incremented. 
+clarity command console 
+Copy 
+(contract-call? .contract-0 increment) 
+Call our `get-count` function again 
+To see if our count value was really incremented, let's call our read-only get-count 
+function once again. 
+clarity command console 
+Copy 
+(contract-call? .contract-0 get-count) 
+The console should now returns a value of u1 which is exactly what we'd expect. 
+ 
+Great! You just interacted with your first Clarity smart contract. Hopefully this gives you a good 
+introduction to how the Clarity smart contract language looks and feels. 
+ 
+Read Access into Bitcoin 
+Clarity smart contracts on the Stacks layer can also read Bitcoin state and can be triggered by 
+standard Bitcoin transactions. This is because Stacks nodes also run Bitcoin nodes as part of 
+consensus, and they read and index Bitcoin state. 
+Reading Bitcoin state in Clarity is made by possible by the built-in function: get-burn-block-info? 
+and the keyword burn-block-height . 
+  burn-block-height : This keyword returns the current block height of the underlying 
+burnchain: Bitcoin. Check out the example snippet below: 
+Copy 
+(> burn-block-height u1000)  
+ 
+;; returns true if the current height of the underlying burn blockchain 
+has passed 1000 blocks. 
+  get-burn-block-info? : This function fetches block data of the burnchain: Bitcoin. Check 
+out the example snippet below: 
+Copy 
+(get-burn-block-info? header-hash u677050) 
+ 
+;; Returns (some 0xe671...) 
+ 
+Flexible and secure modularization 
+Many DAOs of the major Stacks apps implement a familiar contract design and architecture. This 
+familiarity is inspired by the ExecutorDAO framework, written by Marvin Janssen. This ExecutorDAO 
+framework leverages the flexibility of having modularization in your smart contracts by 
+compartmentalizing duties. 
+The core tenets of the ExecutorDAO framework that make this possible are: 
+  Proposals are smart contracts. 
+  The core executes, the extensions give form. 
+  Ownership control happens via sending context. 
+Main DAO contract 
+A proposal extension contract 
+The main DAO contract acts as the core contract where its sole purpose is to execute proposals and 
+to keep a list of authorised extensions. 
+dao.clar 
+Copy 
+(use-trait proposal-trait .proposal-trait.proposal-trait) 
+ 
+(use-trait extension-trait .extension-trait.extension-trait) 
+ 
+ 
+ 
+;; ... 
+ 
+ 
+ 
+;; --- Authorisation check 
+ 
+(define-private (is-self-or-extension) 
+ 
+ (ok (asserts! (or (is-eq tx-sender (as-contract tx-sender)) 
+(is-extension contract-caller)) err-unauthorised)) 
+ 
+) 
+ 
+ 
+ 
+;; ... 
+ 
+ 
+ 
+;; --- Admin function to execute proposals 
+ 
+(define-public (execute (proposal <proposal-trait>) (sender principal)) 
+ 
+ (begin 
+ 
+  (try! (is-self-or-extension)) 
+ 
+  (asserts! (map-insert executed-proposals (contract-of 
+proposal) block-height) err-already-executed) 
+ 
+  (print {event: "execute", proposal: proposal}) 
+ 
+  (as-contract (contract-call? proposal execute sender)) 
+ 
+ ) 
+ 
+) 
+Show all 21 lines 
+ 
+Testing Clarity Smart Contracts 
+Once you get to writing more advanced smart contracts, properly testing them is paramount to 
+protecting anyone who interacts with your contract. 
+Smart contracts are immutable once deployed. Bugs are permanent. Test them thoroughly. 
+  Rendezvous Fuzz Testing: Use Rendezvous to hammer your contract with random inputs. It 
+helps expose edge cases and vulnerabilities. 
+  Unit Testing in Clarinet: Unit testing verifies that individual contract functions behave as 
+expected. 
+ 
+Auditing Clarity Smart Contracts 
+Auditors provide an independent, expert review of your smart contracts to identify vulnerabilities, 
+logic flaws, edge cases, or design risks that might be missed during development. Here are a few 
+Clarity smart contract auditors that are part of the Stacks community. 
+  List of professional auditors 
+ 
+Deploying Clarity Smart Contracts 
+When you deploy a Clarity smart contract, you're uploading its code to the Stacks blockchain, 
+making it immutable and publicly accessible. Deployment involves submitting a transaction that 
+includes the smart contract code and specific parameters. Once deployed, the contract's logic is 
+fixed, providing transparency and security by ensuring that no further changes can be made. 
+Do note that not all methods below will support the latest Clarity version. 
+Here are a few different ways to deploy a Clarity smart contract: 
+ 
+ 
+Smart Contract Monitoring & Alerts 
+Utilize tools that provide the event-driven infrastructure developers need to observe, index, and react 
+to on-chain activity. 
+ 
+Additional Resources 
+This brief overview should get your feet wet with Clarity. For deeper learning, we recommend: 
+  Clarity Book 
+  Clarity Universe 
+  Clarity Playground 
+  Clarity Camp 
+  [StacksGov] SIP-002 The Clarity Smart Contract Language 
+  [Hiro Blog] Web3 Programming Languages: Clarity vs. Solidity 
+  [Stacks YT] How Stacks' Language Clarity Enables Next Gen Smart Contracts 
+  [StacksDevs YT] How Stacks’ Smart Contract Language Prevents Exploitation 
+  [Chainlink YT] Marvin Janssen: Clarity Smart Contracts for Stacks 
+  100+ Days of Clarity video series by Setzeus 
+  [waits.dev] Clarity vs Solidity 
+If you prefer jumping into Clarity's reference materials for definitions on all its types, functions, and 
+keywords, head to Clarity's Reference section of the docs. 
+ 
+ 
+Latest Updates 
+Check out the latest Stacks developer updates 
+Deprecation notices for Hiro's Chainhooks v1 & L1 
+APIs 
+February 6th, 2026 
+[Hiro] Chainhooks V2 is now available. This is a huge upgrade with more capability, better 
+performance, and much greater reliability. But it also means that Hiro is deprecating their hosted 
+Chainhooks v1 on March 9th, so if you’re using Chainhooks via the Hiro Platform, now is the time 
+to upgrade. Self hosted Chainhook instances aren’t affected by this. 
+L1 Bitcoin APIs shutting down March 9th. Hiro is also deprecating their Ordinals, BRC-20, Runes, 
+and Bitcoin Indexer APIs. They've partnered with Xverse to provide a smooth migration path for 
+these use cases, and have put together a detailed migration guide to help you transition. 
+ 
+Start Cookin' with the Cookbook 
+January 30, 2026 
+The Cookbook contains detailed coding snippets known as recipes. Recipes are focused and 
+reusable. They are designed to be referenced, copied, and adapted. 
+This section provides focused, reusable Clarity and Stacks.js code snippets that solve common 
+problems or demonstrate specific patterns—designed to be referenced, copied, and adapted rather 
+than read end-to-end. 
+ 
+New 'Path To Production' Guide 
+January 26, 2026 
+Are you a new developer looking for security resources and best practices for when you're ready for 
+testing or deploying? This page provides an outline of checklist items that you can use to further 
+battle-test your contracts. Head to the Path To Production guide to see what steps you can take to 
+harden your project before mainnet production. 
+ 
+Catch Dead Code Early with Clarity Linting 
+January 14, 2026 
+The latest Clarinet v3.13.0 release includes a built-in Clarity linter to clarinet check, enabling 
+dead code analysis and no-op detection, with configurable lint levels and inline overrides. The initial 
+release focuses on identifying unused code and expressions that have no effect on execution. Lint 
+behavior can be customized globally or per rule via Clarinet.toml. 
+ 
+Completion of dimension-specific tenure extension 
+January 12, 2026 
+[Stacks Core 3.3.0.0.4] With dimension-specific tenure extensions, Stacks can extend block limits 
+per dimension (likeruntimeandread_countbudgets) instead of stopping early. This ensures DeFi 
+protocols can process critical flows during high-volatility periods. Hear Alex Huth talk about this 
+during the latest DevRel office hours here. 
+ 
+Multiple language support for Learn 
+January 9, 2026 
+The Learn section now supports Chinese and Spanish, helping more developers access clear 
+explanations of how Stacks works. You can switch languages using the selector in the top-right 
+corner of the Learn pages. 
+ 
+Bridging USDCx developer guide 
+January 8, 2026 
+Developers can now programmatically integrate the USDCx bridging flow into their app. Deposits are 
+initiated on Ethereum and automatically minted on Stacks, while withdrawals are initiated on Stacks 
+and settled on Ethereum. Check out the guide here and start enabling stablecoin liquidity across the 
+Stacks DeFi ecosystem. 
+ 
+Multiple network URLs supported in RPC-API 
+playground 
+December 29, 2025 
+The API playground in the RPC-API reference now supports testnet and mainnet. Use the interactive 
+API playground to test API calls on mainnet, testnet, devnet, or for your own locally running Stacks 
+node. 
+ 
+Stacks Blockchain API v8.13.6 is live 
+December 22, 2025 
+[Hiro] This is a required upgrade for all API users (incl. partners & exchanges): adds support for 
+smart contracts deployed with empty source code. 
+It's an easy upgrade: no DB migrations, and fully compatible with the current chainstate. 
+See more in Hiro's release notes here. 
+ 
+USDCx now live on mainnet 
+December 18, 2025 
+New docs section dedicated to the launch of USDCx is now live here. Learn about its interoperable 
+architecture with Circle's xReserve and discover the Clarity contracts behind the new USDCx token. 
+ 
+Stacks Miners — Please Update ASAP! 
+December 12, 2025 
+This release activates the new read-count tenure extensions from SIP-034, a highly anticipated 
+upgrade for builders across the ecosystem. 
+It also includes several important bug fixes, making this an update you don’t want to delay. 
+ 
+Upgrade to Dual Stacking contracts 
+December 10, 2025 
+Dual Stacking contracts will be upgraded on Dec 15. This upgrade enables more flexible reward 
+parameters and allows users to view their sBTC holdings and corresponding rewards within the Dual 
+Stacking app. 
+ 
+Deploy in Clarinet using encrypted mnemonics 
+December 9, 2025 
+clarinet 3.11.0 contains support for encrypted mnemonics. This feature gives users the option to 
+encrypt the mnemonic seed phrase in their deployment files, so if a user's machine is compromised 
+by a filesystem reading vulnerability, the seed phrase is not leaked to the attacker. 
+ 
+New Tutorials section 
+December 7, 2025 
+The new Tutorials section is now live on the Stacks docs! 
+First up: the beloved Bitcoin Primer by Kenny Rogers. 
+We’re building a collection of the best full, end-to-end tutorials in the Stacks ecosystem. If you want 
+to contribute a complete end-to-end tutorial related to developing on Stacks, let us know! 
+ 
+Clarity 4 is now LIVE! 
+November 18, 2025 
+SIP-033 and SIP-034 have officially activated at Bitcoin block 923222 – bringing Clarity 4 live on 
+Stacks, the smart contract layer secured by Bitcoin. 
+This upgrade introduces Version 4 of the Clarity smart contract language, marking a major step 
+forward for the Stacks ecosystem. For users, it delivers safer, smarter contracts with enhanced 
+built-in protections. 
+For builders, it unlocks five powerful new functions that make developing secure, flexible, and 
+Bitcoin-native DeFi applications easier than ever. 
+ 
+ 
+Clarinet was migrated to Stacks Labs 
+November 5, 2025 
+You may have noticed that the Clarinet repository now belongs to the stx-labs organization. 
+With the 3.9.0 release, a few other things have changed: 
+The NPM packages are now published under the @stacks organization. 
+The Clarity VSCode extension is now published under the Stacks Labs organization. 

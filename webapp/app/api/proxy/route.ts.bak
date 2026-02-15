@@ -1,0 +1,311 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { supabase } from '@/lib/supabase';
+
+/**
+ * Universal x402 Payment Proxy
+ * 
+ * This intercepts ALL x402 payments and enforces policies
+ * Works with ANY agent (n8n, LangChain, custom)
+ * 
+ * Usage:
+ * Instead of: https://api.example.com/endpoint
+ * Use: https://your-app.vercel.app/api/proxy?target=https://api.example.com/endpoint
+ */
+
+export async function GET(request: NextRequest) {
+  return handleProxyRequest(request, 'GET');
+}
+
+export async function POST(request: NextRequest) {
+  return handleProxyRequest(request, 'POST');
+}
+
+async function handleProxyRequest(request: NextRequest, method: string) {
+  try {
+    console.log('🔵 PROXY REQUEST RECEIVED', {
+      method,
+      url: request.url,
+      headers: Object.fromEntries(request.headers.entries()),
+    });
+
+    // 1. Extract target URL
+    const targetUrl = request.nextUrl.searchParams.get('target');
+    const agentAddress = request.headers.get('x-agent-address');
+    
+    console.log('🔍 Extracted:', { targetUrl, agentAddress });
+
+    if (!targetUrl) {
+      console.log('❌ Missing target URL');
+      return NextResponse.json(
+        { error: 'Missing target URL. Use: /api/proxy?target=https://...' },
+        { status: 400 }
+      );
+    }
+
+    if (!agentAddress) {
+      console.log('❌ Missing agent address header');
+      return NextResponse.json(
+        { error: 'Missing x-agent-address header' },
+        { status: 401 }
+      );
+    }
+
+    // 2. Get policy for this agent
+    console.log('🔍 Looking up policy for:', agentAddress);
+    const { data: policy, error: policyError } = await supabase
+      .from('policies')
+      .select('*')
+      .eq('agent_address', agentAddress)
+      .single();
+
+    console.log('📋 Policy result:', { policy, policyError });
+
+    if (policyError || !policy) {
+      console.log('❌ No policy found');
+      await recordBlockedPayment(agentAddress, targetUrl, 0, 'No policy found');
+      return NextResponse.json(
+        { error: 'No policy found for this agent. Create one first!' },
+        { status: 403 }
+      );
+    }
+
+    // 3. Check if agent is active
+    if (policy.is_paused) {
+      await recordBlockedPayment(agentAddress, targetUrl, 0, 'Agent is paused');
+      return NextResponse.json(
+        { error: 'Agent is paused. Unpause to continue.' },
+        { status: 403 }
+      );
+    }
+
+    if (policy.is_revoked) {
+      await recordBlockedPayment(agentAddress, targetUrl, 0, 'Agent is revoked');
+      return NextResponse.json(
+        { error: 'Agent access has been revoked permanently.' },
+        { status: 403 }
+      );serviceOrigin = new URL(targetUrl).origin;
+    console.log('🔍 Checking service approval for:', serviceOrigin);
+    
+    const { data: serviceApproval, error: serviceError } = await supabase
+      .from('approved_services')
+      .select('*')
+      .eq('agent_address', agentAddress)
+      .eq('service_url', serviceOrigin)
+      .eq('approved', true)
+      .single();
+
+    console.log('🌐 Service approval result:', { serviceApproval, serviceError });
+
+    if (!serviceApproval) {
+      console.log('❌ Service not approved');
+      await recordBlockedPayment(agentAddress, targetUrl, 0, 'Service not approved');
+      return NextResponse.json(
+        { error: `Service ${serviceO
+    if (!serviceApproval) {
+      await recordBlockedPayment(agentAddress, targetUrl, 0, 'Service not approved');
+      return NextResponse.json(
+        { error: `Service ${new URL(targetUrl).origin} is not approved for this agent` },
+        { status: 403 }
+      );
+    }
+
+    // 5ole.log('🌐 Forwarding request to:', targetUrl);
+    const headers: HeadersInit = {};
+    request.headers.forEach((value, key) => {
+      if (!key.startsWith('x-') && key !== 'host') {
+        headers[key] = value;
+      }
+    });
+
+    const targetResponse = await fetch(targetUrl, {
+      method,
+      headers,
+      body: method === 'POST' ? await request.text() : undefined,
+    });
+
+    console.log('📥 Target API response status:', targetResponse.status body: method === 'POST' ? await request.text() : undefined,
+    });
+
+    // 6. Check if payment is required (402 status)
+    if (targetResponse.status === 402) {
+      const paymentInfo = await targetResponse.json();
+      const amount = parseInt(paymentInfo.amount || '0');
+      
+      // Check policy limits
+      const policyCheck = await checkPolicyLimits(
+        agentAddress,
+        amount,
+        policy
+      );
+
+      if (!policyCheck.allowed) {
+        await recordBlockedPayment(agentAddress, targetUrl, amount, policyCheck.reason);
+        return NextResponse.json(
+          {
+            error: 'Payment blocked by policy',
+            reason: policyCheck.reason,
+            details: policyCheck,
+          },
+          { status: 403 }record and forward
+      console.log('✅ Real x402 payment approved, recording and forwarding to agent');
+      await recordApprovedPayment(agentAddress, targetUrl, amount);
+      
+      }
+
+      // Policy allows - forward the 402 to agent
+      // Agent will handle actual payment
+      return NextResponse.json(paymentInfo, {
+        status: 402,
+        headers: {
+          'X-Policy-Status': 'allowed',
+          'X-Daily-Remaining-STX': policyCheck.remainingDaily.toString(),
+        },
+      });
+    }
+console.log('✅ Request successful! Recording payment:', paidAmount, 'microSTX');
+      // ALWAYS record successful requests so they appear in dashboard
+      await recordApprovedPayment(agentAddress, targetUrl, paidAmount);
+      console.log('💾 Payment recorded successfully'
+    if (targetResponse.ok) {
+      // Extract payment amount from response headers, or use default cost
+      const paidAmount = parseInt(targetResponse.headers.get('x-payment-amount') || '1000');
+      
+      // ALWAYS record successful requests so they appear in dashboard
+      await recordApprovedPayment(agentAddress, targetUrl, paidAmount);
+    }
+
+    // 8. Return the actual API response
+    const responseData = await targetResponse.text();
+    return new NextResponse(responseData, {
+      status: targetResponse.status,
+      headers: {
+        'Content-Type': targetResponse.headers.get('content-type') || 'application/json',
+        'X-Policy-unknown) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    console.error('❌ Proxy error:', errorMessage);
+    console.error('Full error:', error);
+    return NextResponse.json(
+      { error: 'Proxy error', details: errorM
+
+  } catch (error: any) {
+    console.error('Proxy error:', error);
+    return NextResponse.json(
+      { error: 'Proxy error', details: error.message },
+      { status: 500 }
+interface Policy {
+  daily_limit_stx: number;
+  per_tx_limit_stx: number;
+  [key: string]: unknown;
+}
+
+async function checkPolicyLimits(
+  agentAddress: string,
+  amount: number,
+  policy: Polic
+async function checkPolicyLimits(
+  agentAddress: string,
+  amount: number,
+  policy: any
+) {
+  // Get today's spending
+  const today = new Date().toISOString().split('T')[0];
+  const { data: spending } = await supabase
+    .from('daily_spending')
+    .select('*')
+    .eq('agent_address', agentAddress)
+    .eq('day', today)
+    .single();
+
+  const stxSpent = spending?.stx_spent || 0;
+  const dailyLimit = policy.daily_limit_stx;
+  const perTxLimit = policy.per_tx_limit_stx;
+
+  // Check per-transaction limit
+  if (amount > perTxLimit) {
+    return {
+      allowed: false,
+      reason: `Amount ${amount} exceeds per-transaction limit of ${perTxLimit} microSTX`,
+      remainingDaily: dailyLimit - stxSpent,
+    };
+  }
+
+  // Check daily limit
+  if (stxSpent + amount > dailyLimit) {
+    return {
+      allowed: false,
+      reason: `Would exceed daily limit. Spent: ${stxSpent}, Limit: ${dailyLimit}`,
+      remainingDaily: dailyLimit - stxSpent,
+    };
+  }
+
+  return {
+    allowed: true,
+    reason: 'Payment within limits',
+    remainingDaily: dailyLimit - stxSpent - amount,
+  };
+}
+console.log('💾 Recording approved payment:', { agentAddress, service, amount, today });
+
+  // Record in payment history
+  const { data: paymentData, error: paymentError } = await supabase.from('payment_history').insert({
+    agent_address: agentAddress,
+    amount,
+    asset_type: 'STX',
+    service_url: service,
+    approved: true,
+    transaction_id: `proxy-${Date.now()}`,
+  }).select();
+
+  console.log('💾 Payment history insert result:', { paymentData, paymentError });
+
+  if (paymentError) {
+    console.error('❌ Failed to insert payment history:', paymentError);
+  } else {
+    console.log('✅ Payment history record created with ID:', paymentData?.[0]?.id);
+  }
+
+  // Update daily spending
+  const { data: spendingData, error: spendingError } = await supabase.rpc('increment_daily_spending', {
+    p_agent_address: agentAddress,
+    p_day: today,
+    p_stx_amount: amount,
+  });
+
+  console.log('💾 Daily spending update result:', { spendingData, spendingError });
+
+  if (spendingError) {
+    console.error('❌ Failed to update daily spending:', spendingError);
+  } else {
+    console.log('✅ Daily spending updated successfully');
+  }   transaction_id: `proxy-${Date.now()}`,
+  });
+
+  // Update daily spending
+  await supabase.rpc('increment_daily_spending', {
+  _reason: string // prefixed with _ to indicate intentionally unused
+) {
+  console.log('🚫 Recording blocked payment:', { agentAddress, service, amount, reason: _reason });
+  
+  const { error } = await supabase.from('payment_history').insert({
+    agent_address: agentAddress,
+    amount,
+    asset_type: 'STX',
+    service_url: service,
+    approved: false,
+    transaction_id: null,
+  });
+
+  if (error) {
+    console.error('❌ Failed to record blocked payment:', error);
+  }unt: number,
+  reason: string
+) {
+  await supabase.from('payment_history').insert({
+    agent_address: agentAddress,
+    amount,
+    asset_type: 'STX',
+    service_url: service,
+    approved: false,
+    transaction_id: null,
+  });
+}
