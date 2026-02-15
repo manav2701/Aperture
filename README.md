@@ -57,6 +57,8 @@ Imagine you're managing a company with **50 AI agents** working autonomously acr
 
 ## The Solution
 
+https://www.youtube.com/watch?v=3GF1wIJuKkM
+
 **Aperture** introduces **policy-based financial governance** for AI agents using blockchain-verified identity and programmable spending controls.
 
 ### How It Works: The 50-Agent Company
