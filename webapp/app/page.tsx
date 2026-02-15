@@ -4,6 +4,9 @@ import { useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import Link from 'next/link';
 
+// Force dynamic rendering to avoid prerender errors with Turbopack
+export const dynamic = 'force-dynamic';
+
 const TOTAL_FRAMES = 76;
 const SCROLL_HEIGHT = 4000;
 

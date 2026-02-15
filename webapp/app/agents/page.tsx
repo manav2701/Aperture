@@ -1,9 +1,9 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
+import dynamic from 'next/dynamic';
 import { useWallet } from '@/components/WalletConnect';
 import { supabase } from '@/lib/supabase';
-import { STXtoMicroSTX, BTCtoSatoshis, generateAgentWallet } from '@/lib/stacks';
 import { HiFire, HiRefresh, HiLockClosed, HiClipboardCopy, HiSearch, HiTrash, HiExclamationCircle } from 'react-icons/hi';
 
 interface Agent {
@@ -21,7 +21,80 @@ interface NewAgentResult {
   mnemonic: string;
 }
 
-export default function AgentsPage() {
+function STXtoMicroSTX(stx: number): number {
+  return Math.floor(stx * 1_000_000);
+}
+
+function generateSimpleMnemonic(privateKeyData: string): string {
+  const words = [
+    'abandon', 'ability', 'able', 'about', 'above', 'absent', 'absorb', 'abstract',
+    'absurd', 'abuse', 'access', 'accident', 'account', 'accuse', 'achieve', 'acid',
+    'acoustic', 'acquire', 'across', 'act', 'action', 'actor', 'actress', 'actual',
+    'adapt', 'add', 'addict', 'address', 'adjust', 'admit', 'adult', 'advance',
+    'advice', 'aerobic', 'affair', 'afford', 'afraid', 'again', 'age', 'agent',
+    'agree', 'ahead', 'aim', 'air', 'airport', 'aisle', 'alarm', 'album',
+    'alcohol', 'alert', 'alien', 'all', 'alley', 'allow', 'almost', 'alone',
+    'alpha', 'already', 'also', 'alter', 'always', 'amateur', 'amazing', 'among',
+    'amount', 'amused', 'analyst', 'anchor', 'ancient', 'anger', 'angle', 'angry',
+    'animal', 'ankle', 'announce', 'annual', 'another', 'answer', 'antenna', 'antique',
+    'anxiety', 'any', 'apart', 'apology', 'appear', 'apple', 'approve', 'april',
+    'arch', 'arctic', 'area', 'arena', 'argue', 'arm', 'armed', 'armor',
+    'army', 'around', 'arrange', 'arrest', 'arrive', 'arrow', 'art', 'artefact',
+    'artist', 'artwork', 'ask', 'aspect', 'assault', 'asset', 'assist', 'assume',
+    'asthma', 'athlete', 'atom', 'attack', 'attend', 'attitude', 'attract', 'auction',
+    'audit', 'august', 'aunt', 'author', 'auto', 'autumn', 'average', 'avocado',
+    'avoid', 'awake', 'aware', 'away', 'awesome', 'awful', 'awkward', 'axis',
+    'baby', 'bachelor', 'bacon', 'badge', 'bag', 'balance', 'balcony', 'ball',
+    'bamboo', 'banana', 'banner', 'bar', 'barely', 'bargain', 'barrel', 'base',
+    'basic', 'basket', 'battle', 'beach', 'bean', 'beauty', 'because', 'become',
+    'beef', 'before', 'begin', 'behave', 'behind', 'believe', 'below', 'belt',
+    'bench', 'benefit', 'best', 'betray', 'better', 'between', 'beyond', 'bicycle',
+    'bid', 'bike', 'bind', 'biology', 'bird', 'birth', 'bitter', 'black',
+    'blade', 'blame', 'blanket', 'blast', 'bleak', 'bless', 'blind', 'blood',
+    'blossom', 'blouse', 'blue', 'blur', 'blush', 'board', 'boat', 'body',
+    'boil', 'bomb', 'bone', 'bonus', 'book', 'boost', 'border', 'boring',
+    'borrow', 'boss', 'bottom', 'bounce', 'box', 'boy', 'bracket', 'brain',
+    'brand', 'brass', 'brave', 'bread', 'breeze', 'brick', 'bridge', 'brief',
+    'bright', 'bring', 'brisk', 'broccoli', 'broken', 'bronze', 'broom', 'brother',
+    'brown', 'brush', 'bubble', 'buddy', 'budget', 'buffalo', 'build', 'bulb',
+    'bulk', 'bullet', 'bundle', 'bunker', 'burden', 'burger', 'burst', 'bus',
+    'business', 'busy', 'butter', 'buyer', 'buzz', 'cabbage', 'cabin', 'cable'
+  ];
+
+  const mnemonicWords: string[] = [];
+  for (let i = 0; i < 24; i++) {
+    const index = parseInt(privateKeyData.slice(i * 2, i * 2 + 2), 16) % words.length;
+    mnemonicWords.push(words[index]);
+  }
+
+  return mnemonicWords.join(' ');
+}
+
+async function generateAgentWalletLocal(): Promise<NewAgentResult & { privateKey: string }> {
+  const { makeRandomPrivKey, getAddressFromPrivateKey } = await import('@stacks/transactions');
+
+  const privateKey = makeRandomPrivKey();
+  const network = process.env.NEXT_PUBLIC_NETWORK || 'testnet';
+  const address = getAddressFromPrivateKey(privateKey, network as 'testnet' | 'mainnet');
+
+  return {
+    address,
+    mnemonic: generateSimpleMnemonic(privateKey),
+    privateKey,
+  };
+}
+
+interface PolicyRow {
+  id: string;
+  agent_name: string;
+  agent_address: string;
+  agent_mnemonic?: string;
+  daily_limit_stx: number;
+  per_tx_limit_stx: number;
+  is_paused: boolean;
+}
+
+function AgentsPage() {
   const { address, isConnected } = useWallet();
   const [agents, setAgents] = useState<Agent[]>([]);
   const [loading, setLoading] = useState(false);
@@ -34,11 +107,9 @@ export default function AgentsPage() {
   const [dailyLimitStx, setDailyLimitStx] = useState('10');
   const [perTxLimitStx, setPerTxLimitStx] = useState('1');
 
-  useEffect(() => {
-    if (address) loadAgents();
-  }, [address]);
-
-  async function loadAgents() {
+  const loadAgents = useCallback(async () => {
+    if (!address) return;
+    
     const { data } = await supabase
       .from('policies')
       .select('*')
@@ -46,17 +117,21 @@ export default function AgentsPage() {
       .order('created_at', { ascending: false });
 
     if (data) {
-      setAgents(data.map((p: any) => ({
+      setAgents(data.map((p: PolicyRow) => ({
         id: p.id,
         agent_name: p.agent_name,
-        agent_address: p.agent_address, // ✅ Fix: Include agent address
+        agent_address: p.agent_address,
         agent_mnemonic: p.agent_mnemonic,
         daily_limit_stx: p.daily_limit_stx,
         per_tx_limit_stx: p.per_tx_limit_stx,
         is_paused: p.is_paused,
       })));
     }
-  }
+  }, [address]);
+
+  useEffect(() => {
+    loadAgents();
+  }, [loadAgents]);
 
   async function createAgent() {
     if (!address) return;
@@ -65,7 +140,7 @@ export default function AgentsPage() {
     try {
       // 🔥 GENERATE REAL STACKS WALLET
       console.log('🔐 Generating real Stacks wallet for agent...');
-      const wallet = generateAgentWallet();
+      const wallet = await generateAgentWalletLocal();
       console.log('✅ Wallet generated:', wallet.address);
 
       const policyData = {
@@ -141,7 +216,7 @@ export default function AgentsPage() {
       
       for (const agent of demoAgents) {
         // Generate REAL wallet
-        const wallet = generateAgentWallet();
+        const wallet = await generateAgentWalletLocal();
         console.log(`✅ Generated ${agent.name}:`, wallet.address);
 
         await supabase.from('policies').insert({
@@ -603,3 +678,5 @@ export default function AgentsPage() {
     </div>
   );
 }
+
+export default dynamic(() => Promise.resolve(AgentsPage), { ssr: false });

@@ -2,6 +2,9 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+
+// Force dynamic rendering to avoid prerender errors with Turbopack
+export const dynamic = 'force-dynamic';
 import { useWallet } from '@/components/WalletConnect';
 import { supabase } from '@/lib/supabase';
 import { microSTXtoSTX, satoshisToBTC } from '@/lib/stacks';

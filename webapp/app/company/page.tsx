@@ -1,6 +1,9 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+
+// Force dynamic rendering to avoid prerender errors with Turbopack
+export const dynamic = 'force-dynamic';
 import { supabase } from '@/lib/supabase';
 import { microSTXtoSTX } from '@/lib/stacks';
 import { HiServer, HiChartBar, HiFire, HiShieldCheck, HiSearch, HiLightningBolt } from 'react-icons/hi';

@@ -1,15 +1,32 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+
+// Force dynamic rendering to avoid prerender errors with Turbopack
+export const dynamic = 'force-dynamic';
 import { useWallet } from '@/components/WalletConnect';
 import { supabase } from '@/lib/supabase';
 import { STXtoMicroSTX, microSTXtoSTX, BTCtoSatoshis, satoshisToBTC } from '@/lib/stacks';
 import { HiLink, HiFlag, HiCheckCircle } from 'react-icons/hi';
 
+interface Policy {
+  id: string;
+  agent_address: string;
+  owner_address: string;
+  daily_limit_stx: number;
+  daily_limit_sbtc: number;
+  per_tx_limit_stx: number;
+  per_tx_limit_sbtc: number;
+  is_active: boolean;
+  is_paused: boolean;
+  is_revoked: boolean;
+  created_at: string;
+}
+
 export default function PoliciesPage() {
   const { address, isConnected } = useWallet();
   const [loading, setLoading] = useState(false);
-  const [policy, setPolicy] = useState<any>(null);
+  const [policy, setPolicy] = useState<Policy | null>(null);
   const [services, setServices] = useState<string[]>([]);
   const [facilitators, setFacilitators] = useState<string[]>([]);
 
