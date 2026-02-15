@@ -46,8 +46,8 @@ export function generateAgentWallet(): AgentWallet {
   // Determine network (testnet or mainnet)
   const network = process.env.NEXT_PUBLIC_NETWORK || 'testnet';
   
-  // Get the address from the private key (pass network as string)
-  const address = getAddressFromPrivateKey(privateKey, network as 'testnet' | 'mainnet');
+  // Pass network string directly ('mainnet' or 'testnet')
+  const address = getAddressFromPrivateKey(privateKey, network as 'mainnet' | 'testnet');
   
   // Generate a simple mnemonic representation
   const mnemonic = generateSimpleMnemonic(privateKey);
