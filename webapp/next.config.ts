@@ -3,13 +3,15 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   
-  // Optimize package imports for better bundling
-  experimental: {
-    optimizePackageImports: [
-      '@stacks/transactions',
-      '@stacks/network',
-      '@stacks/connect',
-    ],
+  // Remove experimental features that might conflict
+  webpack: (config) => {
+    config.resolve.fallback = {
+      ...config.resolve.fallback,
+      fs: false,
+      net: false,
+      tls: false,
+    };
+    return config;
   },
 };
 
