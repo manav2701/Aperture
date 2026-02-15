@@ -396,7 +396,7 @@ function AgentsPage() {
             </button>
             <button
               onClick={() => setShowCreateForm(!showCreateForm)}
-              className="px-6 py-2 bg-accent border-2 border-accent text-background font-mono uppercase tracking-wider cyber-chamfer-sm hover:brightness-110 transition-all shadow-neon"
+              className="px-6 py-2 bg-white border-2 border-white text-background font-mono uppercase tracking-wider cyber-chamfer-sm hover:bg-white/90 transition-all shadow-neon"
             >
               {'> '}CREATE AGENT
             </button>
