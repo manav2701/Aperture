@@ -45,13 +45,16 @@ export function generateAgentWallet(): AgentWallet {
   
   // Determine network (testnet or mainnet)
   const network = process.env.NEXT_PUBLIC_NETWORK || 'testnet';
-  const networkObj = network === 'mainnet' ? STACKS_MAINNET : STACKS_TESTNET;
   
-  // Get the address from the private key using the network object
-  const address = getAddressFromPrivateKey(privateKey, networkObj);
+  // Use TransactionVersion enum instead of network.version
+  const transactionVersion = network === 'mainnet' 
+    ? TransactionVersion.Mainnet  // 0x16
+    : TransactionVersion.Testnet; // 0x1a
   
-  // Generate a simple mnemonic representation (note: this is simplified)
-  // In production, you'd use proper BIP39 mnemonic generation
+  // Get the address from the private key
+  const address = getAddressFromPrivateKey(privateKey, transactionVersion);
+  
+  // Generate a simple mnemonic representation
   const mnemonic = generateSimpleMnemonic(privateKey);
   
   return {
