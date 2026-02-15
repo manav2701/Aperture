@@ -3,7 +3,17 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   
-  // Remove experimental features that might conflict
+  // Add empty turbopack config to silence the warning
+  turbopack: {
+    resolveAlias: {
+      // Add fallbacks for Node.js modules that aren't available in the browser
+      fs: false,
+      net: false,
+      tls: false,
+    },
+  },
+  
+  // Keep webpack config for backwards compatibility when using --webpack flag
   webpack: (config) => {
     config.resolve.fallback = {
       ...config.resolve.fallback,
