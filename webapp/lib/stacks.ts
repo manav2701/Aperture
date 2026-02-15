@@ -10,6 +10,7 @@ import {
   cvToJSON,
   makeRandomPrivKey,
   getAddressFromPrivateKey,
+  TransactionVersion,
 } from '@stacks/transactions';
 import { STACKS_TESTNET, STACKS_MAINNET } from '@stacks/network';
 
