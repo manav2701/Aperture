@@ -7,7 +7,7 @@
 [![TypeScript](https://img.shields.io/badge/TypeScript-100%25-3178C6?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
 [![Supabase](https://img.shields.io/badge/Supabase-Database-3ECF8E?style=flat-square&logo=supabase)](https://supabase.com/)
 
-[**Live Demo**](https://aperture.vercel.app) 
+[**Live Demo**](https://aperture-1.vercel.app) 
 
 ---
 
