@@ -558,6 +558,6 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 **Built for secure, transparent, and controllable AI agent operations**
 
-[Get Started](https://aperture.vercel.app) • [Documentation](./docs) • [Report Issue](https://github.com/manav2701/Aperture/issues)
+[Get Started](https://aperture-1.vercel.app) • [Documentation](./docs) • [Report Issue](https://github.com/manav2701/Aperture/issues)
 
 </div>
