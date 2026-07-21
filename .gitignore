@@ -40,3 +40,9 @@ npm-debug.log*
 settings/Devnet.toml
 settings/Testnet.toml
 settings/Mainnet.toml
+
+# Anchor & Rust build outputs
+target/
+.anchor/
+tmp-aperture-ws/
+scripts/debug_hook.js

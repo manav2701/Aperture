@@ -22,6 +22,9 @@
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
+    "@coral-xyz/anchor": "^0.30.1",
+    "@solana/spl-token": "^0.4.8",
+    "@solana/web3.js": "^1.95.0",
     "@react-spring/web": "^10.0.3",
     "@stacks/connect": "^8.2.4",
     "@stacks/network": "^7.3.1",
@@ -32,6 +35,12 @@
     "x402-stacks": "^2.0.1"
   },
   "devDependencies": {
+    "chai": "^4.3.4",
+    "mocha": "^9.0.3",
+    "ts-mocha": "^10.0.0",
+    "@types/bn.js": "^5.1.0",
+    "@types/chai": "^4.3.0",
+    "@types/mocha": "^9.0.0",
     "@types/express": "^5.0.6",
     "@types/node": "^25.2.3",
     "concurrently": "^9.2.1",
