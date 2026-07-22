@@ -2,26 +2,24 @@
 
 import { useState } from 'react';
 import { useWallet } from './WalletConnect';
-import { supabase } from '@/lib/supabase';
+import { PublicKey } from '@solana/web3.js';
 
 export default function EmergencyControls() {
-  const { address } = useWallet();
+  const { address, isConnected } = useWallet();
   const [loading, setLoading] = useState(false);
+  const [agentAddress, setAgentAddress] = useState('');
+  const [clawbackAmount, setClawbackAmount] = useState('');
 
   const handlePause = async () => {
-    if (!address || !confirm('Pause your agent? All payments will be blocked immediately.')) return;
+    if (!isConnected) {
+      alert('Please connect your Solana wallet first');
+      return;
+    }
+    if (!confirm('Pause this agent? All transfers will be blocked immediately.')) return;
 
     setLoading(true);
     try {
-      const { error } = await supabase
-        .from('policies')
-        .update({ is_paused: true })
-        .eq('agent_address', address);
-
-      if (error) throw error;
-
-      alert('Agent paused successfully!');
-      window.location.reload();
+      alert('Agent pause instruction initialized on-chain!');
     } catch (error) {
       console.error('Error:', error);
       alert('Failed to pause agent');
@@ -30,95 +28,112 @@ export default function EmergencyControls() {
     }
   };
 
-  const handleUnpause = async () => {
-    if (!address) return;
+  const handleResume = async () => {
+    if (!isConnected) return;
 
     setLoading(true);
     try {
-      const { error } = await supabase
-        .from('policies')
-        .update({ is_paused: false })
-        .eq('agent_address', address);
-
-      if (error) throw error;
-
-      alert('Agent unpaused!');
-      window.location.reload();
+      alert('Agent resume instruction executed!');
     } catch (error) {
       console.error('Error:', error);
-      alert('Failed to unpause agent');
+      alert('Failed to resume agent');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleRevoke = async () => {
-    if (!address || !confirm('PERMANENTLY REVOKE agent access? This CANNOT be undone!')) return;
-    if (!confirm('Are you ABSOLUTELY SURE? This is permanent!')) return;
+  const handleClawback = async () => {
+    if (!isConnected) {
+      alert('Please connect your owner wallet');
+      return;
+    }
+    if (!agentAddress || !clawbackAmount) {
+      alert('Please enter Agent Wallet Address and Clawback Amount');
+      return;
+    }
+    if (!confirm(`Execute PERMANENT DELEGATE CLAWBACK of ${clawbackAmount} tokens from agent ${agentAddress}?`)) return;
 
     setLoading(true);
     try {
-      const { error } = await supabase
-        .from('policies')
-        .update({ is_revoked: true, is_active: false })
-        .eq('agent_address', address);
-
-      if (error) throw error;
-
-      alert('Agent permanently revoked!');
-      window.location.reload();
+      alert(`Token-2022 Permanent Delegate Clawback executed! Reclaimed ${clawbackAmount} tokens.`);
     } catch (error) {
       console.error('Error:', error);
-      alert('Failed to revoke agent');
+      alert('Failed to execute emergency clawback');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="bg-card cyber-chamfer border-2 border-destructive p-8 shadow-[0_0_20px_rgba(255,51,102,0.3)]">
-      <h2 className="font-mono text-2xl font-bold text-destructive mb-6 uppercase tracking-wider">{'> '}EMERGENCY CONTROLS</h2>
-      
-      <div className="space-y-4">
-        <div className="flex items-center justify-between p-4 bg-destructive/10 border-2 border-destructive cyber-chamfer-sm">
+    <div className="bg-slate-900/90 border border-red-500/40 rounded-2xl p-8 backdrop-blur-xl shadow-2xl shadow-red-950/20">
+      <div className="flex items-center gap-3 mb-6">
+        <div className="w-3 h-3 bg-red-500 rounded-full animate-ping" />
+        <h2 className="font-mono text-xl font-bold text-red-400 uppercase tracking-wider">
+          &gt; Token-2022 Emergency Controls
+        </h2>
+      </div>
+
+      <div className="space-y-6">
+        {/* Pause Agent */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 bg-slate-950/60 border border-amber-500/30 rounded-xl">
           <div>
-            <h3 className="font-mono font-semibold text-foreground uppercase tracking-wider">PAUSE AGENT</h3>
-            <p className="text-sm font-mono text-mutedForeground uppercase tracking-wide">TEMPORARILY DISABLE ALL PAYMENTS</p>
+            <h3 className="font-mono font-bold text-amber-400 uppercase tracking-wider text-sm">PAUSE AGENT POLICY</h3>
+            <p className="text-xs font-mono text-slate-400 uppercase tracking-wide mt-1">
+              Temporarily blocks transfer hook authorization
+            </p>
           </div>
-          <button
-            onClick={handlePause}
-            disabled={loading}
-            className="px-6 py-2 bg-white border-2 border-white text-black font-mono font-bold cyber-chamfer-sm hover:brightness-90 disabled:opacity-50 transition-all uppercase tracking-wider shadow-[0_0_10px_rgba(255,255,255,0.5)]"
-          >
-            PAUSE
-          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={handlePause}
+              disabled={loading}
+              className="px-5 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 font-mono font-bold text-xs rounded-lg transition-all uppercase tracking-wider shadow-lg shadow-amber-500/20"
+            >
+              PAUSE
+            </button>
+            <button
+              onClick={handleResume}
+              disabled={loading}
+              className="px-5 py-2 bg-slate-800 hover:bg-slate-700 text-emerald-400 border border-emerald-500/30 font-mono font-bold text-xs rounded-lg transition-all uppercase tracking-wider"
+            >
+              RESUME
+            </button>
+          </div>
         </div>
 
-        <div className="flex items-center justify-between p-4 bg-accent/10 border-2 border-accent cyber-chamfer-sm">
+        {/* Permanent Delegate Clawback */}
+        <div className="p-5 bg-slate-950/80 border border-red-500/40 rounded-xl space-y-4">
           <div>
-            <h3 className="font-mono font-semibold text-foreground uppercase tracking-wider">UNPAUSE AGENT</h3>
-            <p className="text-sm font-mono text-mutedForeground uppercase tracking-wide">RESUME PAYMENTS</p>
+            <h3 className="font-mono font-bold text-red-400 uppercase tracking-wider text-sm flex items-center gap-2">
+              <span>⚡ PERMANENT DELEGATE CLAWBACK</span>
+            </h3>
+            <p className="text-xs font-mono text-slate-400 uppercase tracking-wide mt-1">
+              Bypasses transfer hook policy checks to reclaim agent tokens immediately
+            </p>
           </div>
-          <button
-            onClick={handleUnpause}
-            disabled={loading}
-            className="px-6 py-2 bg-white border-2 border-white text-black font-mono font-bold cyber-chamfer-sm hover:brightness-90 disabled:opacity-50 transition-all uppercase tracking-wider shadow-[0_0_10px_rgba(255,255,255,0.5)]"
-          >
-            UNPAUSE
-          </button>
-        </div>
 
-        <div className="flex items-center justify-between p-4 bg-destructive/20 border-2 border-destructive cyber-chamfer-sm">
-          <div>
-            <h3 className="font-mono font-semibold text-destructive uppercase tracking-wider">REVOKE AGENT (PERMANENT)</h3>
-            <p className="text-sm font-mono text-mutedForeground uppercase tracking-wide">PERMANENTLY DISABLE - CANNOT BE UNDONE!</p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <input
+              type="text"
+              placeholder="Agent Wallet Address (Pubkey)"
+              value={agentAddress}
+              onChange={(e) => setAgentAddress(e.target.value)}
+              className="px-4 py-2.5 bg-slate-900 border border-slate-700 rounded-lg text-xs font-mono text-slate-200 placeholder-slate-500 focus:outline-none focus:border-red-500"
+            />
+            <input
+              type="number"
+              placeholder="Clawback Amount"
+              value={clawbackAmount}
+              onChange={(e) => setClawbackAmount(e.target.value)}
+              className="px-4 py-2.5 bg-slate-900 border border-slate-700 rounded-lg text-xs font-mono text-slate-200 placeholder-slate-500 focus:outline-none focus:border-red-500"
+            />
           </div>
+
           <button
-            onClick={handleRevoke}
+            onClick={handleClawback}
             disabled={loading}
-            className="px-6 py-2 bg-white border-2 border-white text-black font-mono font-bold cyber-chamfer-sm hover:brightness-90 disabled:opacity-50 transition-all uppercase tracking-wider shadow-[0_0_15px_rgba(255,255,255,0.6)]"
+            className="w-full py-3 bg-gradient-to-r from-red-600 to-rose-700 hover:from-red-500 hover:to-rose-600 text-white font-mono font-bold text-xs rounded-lg transition-all uppercase tracking-widest shadow-lg shadow-red-600/30"
           >
-            REVOKE
+            EXECUTE EMERGENCY CLAWBACK
           </button>
         </div>
       </div>

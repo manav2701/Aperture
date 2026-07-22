@@ -238,7 +238,7 @@ export default function LandingPage() {
               LAYER
             </h1>
             <p className="font-mono text-xl md:text-2xl text-foreground max-w-3xl mb-12 uppercase tracking-wide pointer-events-none">
-              Autonomous agents built on x402 stacks, controlled spending
+              Autonomous agents built on Solana Anchor, controlled via SPL Token-2022 Transfer Hooks
             </p>
             <div className="transition-opacity duration-500" style={{ opacity: getOpacity3(scrollProgress) }}>
               <Link
@@ -282,7 +282,7 @@ export default function LandingPage() {
               <div className="w-3 h-3 rounded-full bg-accent"></div>
             </div>
             <div className="font-mono text-xs text-mutedForeground uppercase tracking-wider">
-              {'> '}x402_policy_manager.exe
+              {'> '}solana_policy_manager.exe
             </div>
           </div>
         </div>
@@ -291,7 +291,7 @@ export default function LandingPage() {
         <section className="py-32 px-4 border-t border-border">
           <div className="max-w-6xl mx-auto">
             <div className="font-mono text-sm text-accent mb-2 uppercase tracking-[0.4em] font-bold text-center">
-              {'> '}APERTURE {'_'}
+              {'> '}APERTURE SOLANA {'_'}
             </div>
             <div className="font-mono text-xs text-accent mb-4 uppercase tracking-[0.3em] text-center">
               {'> '}ERROR.LOG
@@ -380,24 +380,24 @@ export default function LandingPage() {
               className="font-mono text-lg text-mutedForeground leading-relaxed max-w-4xl mb-16 uppercase tracking-wide"
             >
               APERTURE ADDS A <span className="text-accent">PERMISSION LAYER</span> BETWEEN AI AGENTS AND THEIR WALLETS, 
-              ENFORCED BY BLOCKCHAIN SMART CONTRACTS.
+              ENFORCED BY SOLANA ANCHOR SMART CONTRACTS & SPL TOKEN-2022 TRANSFER HOOKS.
             </motion.p>
 
             <div className="grid md:grid-cols-3 gap-6">
               {[
                 {
                   title: 'SPENDING LIMITS',
-                  description: 'Set daily, weekly, or per-transaction caps to control agent spending',
+                  description: 'Set daily and per-transaction caps enforced on-chain via SPL Transfer Hooks',
                   color: 'accent'
                 },
                 {
-                  title: 'SERVICE APPROVAL',
-                  description: 'Whitelist specific APIs and domains that agents can access',
+                  title: 'RECIPIENT ALLOWLISTS',
+                  description: 'Restrict agent payments to verified smart contracts and DEX pools',
                   color: 'accentTertiary'
                 },
                 {
                   title: 'AUDIT TRAIL',
-                  description: 'Complete payment history stored immutably on Stacks blockchain',
+                  description: 'Complete transaction history stored immutably on Solana blockchain',
                   color: 'accentSecondary'
                 }
               ].map((feature, i) => (
