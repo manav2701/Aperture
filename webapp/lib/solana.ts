@@ -1,6 +1,5 @@
 import { PublicKey, Connection, clusterApiUrl } from "@solana/web3.js";
-import { AnchorProvider, Program } from "@coral-xyz/anchor";
-import BN from "bn.js";
+import { AnchorProvider, Program, BN } from "@coral-xyz/anchor";
 
 export const POLICY_MANAGER_PROGRAM_ID = new PublicKey("H23GKLcVrnYoEC7s7Ju4nxk2LXLbuGn441YNQsFC2WdG");
 export const SESSION_TRACKER_PROGRAM_ID = new PublicKey("DiaiUEypUnGti22wFmKLC9V4NDHmdQgHvpzsXw9e5r14");
