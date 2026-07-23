@@ -3,7 +3,17 @@
 import { useEffect, useState } from 'react';
 import { useWallet } from '@/components/WalletConnect';
 import EmergencyControls from '@/components/EmergencyControls';
-import { getSolanaConnection, getPolicyPDA, formatSol } from '@/lib/solana';
+import {
+  getSolanaConnection,
+  getPolicyPDA,
+  getSessionPDA,
+  fetchPolicyAccountOnChain,
+  fetchSessionAccountOnChain,
+  formatSol,
+  PolicyAccountData,
+  SessionAccountData,
+} from '@/lib/solana';
+import { supabase } from '@/lib/supabase';
 import { PublicKey } from '@solana/web3.js';
 import Link from 'next/link';
 
@@ -19,10 +29,11 @@ interface ActivityLog {
 }
 
 export default function Dashboard() {
-  const { address, isConnected, publicKey } = useWallet();
+  const { isConnected, publicKey } = useWallet();
   const [solBalance, setSolBalance] = useState<string>('0.00');
   const [policyPDA, setPolicyPDA] = useState<string>('');
-  const [hasActivePolicy, setHasActivePolicy] = useState<boolean>(true);
+  const [policyData, setPolicyData] = useState<PolicyAccountData | null>(null);
+  const [sessionData, setSessionData] = useState<SessionAccountData | null>(null);
   const [activityLogs, setActivityLogs] = useState<ActivityLog[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
 
@@ -42,33 +53,45 @@ export default function Dashboard() {
         const [pda] = getPolicyPDA(publicKey);
         setPolicyPDA(pda.toBase58());
 
-        // Sample Solana compliance activity logs
-        setActivityLogs([
-          {
-            id: '1',
-            txHash: '5K9x...8zLq',
-            amount: '10.00 SOL',
-            recipient: '7fCo...nVPi',
-            status: 'COMPLIANT',
-            timestamp: '2 mins ago',
-          },
-          {
-            id: '2',
-            txHash: '3M2a...1pWk',
-            amount: '50.00 SOL',
-            recipient: '7fCo...nVPi',
-            status: 'REJECTED_CAP',
-            timestamp: '15 mins ago',
-          },
-          {
-            id: '3',
-            txHash: '8Y4b...9qRs',
-            amount: '5.00 SOL',
-            recipient: 'JAGd...3amM',
-            status: 'REJECTED_ALLOWLIST',
-            timestamp: '1 hour ago',
-          },
-        ]);
+        // Fetch on-chain policy account
+        const onChainPolicy = await fetchPolicyAccountOnChain(connection, pda);
+        setPolicyData(onChainPolicy);
+
+        // Fetch on-chain session account if policy exists
+        if (onChainPolicy) {
+          const [sessPDA] = getSessionPDA(pda);
+          const onChainSession = await fetchSessionAccountOnChain(connection, sessPDA);
+          setSessionData(onChainSession);
+        }
+
+        // Fetch real Supabase activity logs if available
+        try {
+          const { data: logsData } = await supabase
+            .from('payment_history')
+            .select('*')
+            .eq('agent_address', publicKey.toBase58())
+            .order('created_at', { ascending: false })
+            .limit(10);
+
+          if (logsData && logsData.length > 0) {
+            setActivityLogs(
+              logsData.map((item: any) => ({
+                id: item.id || String(Math.random()),
+                txHash: item.tx_id ? `${item.tx_id.slice(0, 6)}...${item.tx_id.slice(-4)}` : 'On-Chain',
+                amount: `${(item.amount / 1_000_000_000).toFixed(2)} SOL`,
+                recipient: item.recipient_address
+                  ? `${item.recipient_address.slice(0, 6)}...${item.recipient_address.slice(-4)}`
+                  : 'Contract',
+                status: item.status || 'COMPLIANT',
+                timestamp: new Date(item.created_at).toLocaleTimeString(),
+              }))
+            );
+          } else {
+            setActivityLogs([]);
+          }
+        } catch {
+          setActivityLogs([]);
+        }
 
         setLoading(false);
       } catch (err) {
@@ -102,12 +125,16 @@ export default function Dashboard() {
         <div className="text-center">
           <div className="w-16 h-16 border-4 border-cyan-500/20 border-t-cyan-400 rounded-full animate-spin mx-auto mb-4"></div>
           <p className="text-cyan-400 font-mono text-xs uppercase tracking-widest animate-pulse">
-            Querying Solana Localnet / Devnet...
+            Querying Solana RPC Node & Accounts...
           </p>
         </div>
       </div>
     );
   }
+
+  const dailySpentNum = policyData ? policyData.spentToday.toNumber() / 1_000_000_000 : 0;
+  const dailyLimitNum = policyData ? policyData.dailyLimit.toNumber() / 1_000_000_000 : 0;
+  const spentPct = dailyLimitNum > 0 ? Math.min((dailySpentNum / dailyLimitNum) * 100, 100) : 0;
 
   return (
     <div className="min-h-screen bg-slate-950 p-6 sm:p-8">
@@ -141,13 +168,35 @@ export default function Dashboard() {
           </div>
         </div>
 
+        {/* Policy Status Warning if no policy on-chain */}
+        {!policyData && (
+          <div className="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-6 flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div>
+              <h3 className="font-mono text-sm font-bold text-amber-400 uppercase tracking-wider">
+                NO ON-CHAIN POLICY FOUND FOR CONNECTED WALLET
+              </h3>
+              <p className="text-xs font-mono text-slate-400 mt-1">
+                Configure your daily limits, per-tx caps, and recipient allowlists to enable SPL Token-2022 transfer hook controls.
+              </p>
+            </div>
+            <Link
+              href="/policies"
+              className="px-5 py-2.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-mono font-bold text-xs rounded-xl transition-all uppercase tracking-wider shadow-lg shadow-amber-500/20 whitespace-nowrap"
+            >
+              CONFIGURE POLICY
+            </Link>
+          </div>
+        )}
+
         {/* Stats Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
           <div className="bg-slate-900/80 border border-cyan-500/20 rounded-2xl p-6 backdrop-blur-xl">
             <span className="text-xs font-mono text-slate-400 uppercase tracking-wider block mb-2">
               Single Tx Cap
             </span>
-            <span className="text-2xl font-mono font-bold text-cyan-400">20.00 SOL</span>
+            <span className="text-2xl font-mono font-bold text-cyan-400">
+              {policyData ? `${(policyData.perTxLimit.toNumber() / 1_000_000_000).toFixed(2)} SOL` : 'Not Set'}
+            </span>
             <span className="text-[10px] font-mono text-slate-500 block mt-2">Max allowed per transaction</span>
           </div>
 
@@ -155,9 +204,16 @@ export default function Dashboard() {
             <span className="text-xs font-mono text-slate-400 uppercase tracking-wider block mb-2">
               Daily Limit Spent
             </span>
-            <span className="text-2xl font-mono font-bold text-purple-400">10.00 / 100.00 SOL</span>
+            <span className="text-2xl font-mono font-bold text-purple-400">
+              {policyData
+                ? `${dailySpentNum.toFixed(2)} / ${dailyLimitNum.toFixed(2)} SOL`
+                : 'Not Set'}
+            </span>
             <div className="w-full bg-slate-950 h-2 rounded-full mt-3 overflow-hidden border border-slate-800">
-              <div className="bg-gradient-to-r from-cyan-400 to-purple-500 h-full w-[10%]" />
+              <div
+                className="bg-gradient-to-r from-cyan-400 to-purple-500 h-full transition-all"
+                style={{ width: `${spentPct}%` }}
+              />
             </div>
           </div>
 
@@ -165,17 +221,33 @@ export default function Dashboard() {
             <span className="text-xs font-mono text-slate-400 uppercase tracking-wider block mb-2">
               Session Budget
             </span>
-            <span className="text-2xl font-mono font-bold text-emerald-400">50.00 SOL</span>
-            <span className="text-[10px] font-mono text-emerald-500 block mt-2">Active • Auto-Renew Enabled</span>
+            <span className="text-2xl font-mono font-bold text-emerald-400">
+              {sessionData
+                ? `${(sessionData.budget.toNumber() / 1_000_000_000).toFixed(2)} SOL`
+                : 'No Active Session'}
+            </span>
+            <span className="text-[10px] font-mono text-emerald-500 block mt-2">
+              {sessionData
+                ? `Active • ${sessionData.autoRenew ? 'Auto-Renew Enabled' : 'Auto-Renew Off'}`
+                : 'Open sub-budget in Sessions tab'}
+            </span>
           </div>
 
           <div className="bg-slate-900/80 border border-cyan-500/20 rounded-2xl p-6 backdrop-blur-xl">
             <span className="text-xs font-mono text-slate-400 uppercase tracking-wider block mb-2">
               Transfer Hook Status
             </span>
-            <span className="text-lg font-mono font-bold text-emerald-400 flex items-center gap-2">
-              <span className="w-2.5 h-2.5 bg-emerald-400 rounded-full animate-pulse" />
-              ACTIVE (TOKEN-2022)
+            <span
+              className={`text-lg font-mono font-bold flex items-center gap-2 ${
+                policyData && !policyData.isPaused ? 'text-emerald-400' : 'text-amber-400'
+              }`}
+            >
+              <span
+                className={`w-2.5 h-2.5 rounded-full animate-pulse ${
+                  policyData && !policyData.isPaused ? 'bg-emerald-400' : 'bg-amber-400'
+                }`}
+              />
+              {policyData ? (policyData.isPaused ? 'PAUSED' : 'ACTIVE (TOKEN-2022)') : 'UNINITIALIZED'}
             </span>
             <span className="text-[10px] font-mono text-slate-500 block mt-2">On-Chain Policy Enforcement</span>
           </div>

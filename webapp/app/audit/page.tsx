@@ -1,8 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useWallet } from '@/components/WalletConnect';
-import { HiDocumentText, HiShieldCheck, HiXCircle, HiCheckCircle, HiExclamation } from 'react-icons/hi';
+import { supabase } from '@/lib/supabase';
+import { HiDocumentText, HiXCircle, HiCheckCircle, HiExclamationCircle } from 'react-icons/hi';
 
 export const dynamic = 'force-dynamic';
 
@@ -18,49 +19,53 @@ interface AuditItem {
 }
 
 export default function AuditPage() {
-  const { isConnected } = useWallet();
-  const [logs] = useState<AuditItem[]>([
-    {
-      id: '1',
-      txHash: '5K9x8zLqP2rT...vW1m',
-      agentName: 'Arbitrage Agent Alpha',
-      amount: '10.00 SOL',
-      recipient: 'Approved Orca DEX Pool (7fCo...nVPi)',
-      ruleExecuted: 'Transfer Hook Gated Check: Compliant',
-      status: 'APPROVED',
-      timestamp: '2 mins ago',
-    },
-    {
-      id: '2',
-      txHash: '3M2a1pWk9qRs...tY4n',
-      agentName: 'Arbitrage Agent Alpha',
-      amount: '50.00 SOL',
-      recipient: 'Approved Orca DEX Pool (7fCo...nVPi)',
-      ruleExecuted: 'Single Tx Cap Check: Exceeded (20 SOL max)',
-      status: 'REJECTED_CAP',
-      timestamp: '15 mins ago',
-    },
-    {
-      id: '3',
-      txHash: '8Y4b9qRs1mK3...zX9p',
-      agentName: 'Liquidity Rebalancer Bot',
-      amount: '5.00 SOL',
-      recipient: 'Unauthorized Address (JAGd...3amM)',
-      ruleExecuted: 'Recipient Allowlist Check: Not Allowlisted',
-      status: 'REJECTED_ALLOWLIST',
-      timestamp: '1 hour ago',
-    },
-    {
-      id: '4',
-      txHash: '2N7c4vB8xZ1q...mW5k',
-      agentName: 'Arbitrage Agent Alpha',
-      amount: '1000.00 SOL',
-      recipient: 'Recovery Owner Wallet',
-      ruleExecuted: 'Permanent Delegate Emergency Clawback',
-      status: 'CLAWBACK',
-      timestamp: '3 hours ago',
-    },
-  ]);
+  const { isConnected, publicKey } = useWallet();
+  const [logs, setLogs] = useState<AuditItem[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!publicKey) {
+      setLoading(false);
+      return;
+    }
+
+    async function loadAuditLogs() {
+      if (!publicKey) return;
+      try {
+        const { data } = await supabase
+          .from('payment_history')
+          .select('*')
+          .eq('agent_address', publicKey.toBase58())
+          .order('created_at', { ascending: false });
+
+        if (data && data.length > 0) {
+          setLogs(
+            data.map((item: any) => ({
+              id: item.id || String(Math.random()),
+              txHash: item.tx_id ? `${item.tx_id.slice(0, 8)}...${item.tx_id.slice(-6)}` : 'On-Chain Tx',
+              agentName: 'Agent Wallet',
+              amount: `${(item.amount / 1_000_000_000).toFixed(2)} SOL`,
+              recipient: item.recipient_address
+                ? `${item.recipient_address.slice(0, 6)}...${item.recipient_address.slice(-4)}`
+                : 'Contract Account',
+              ruleExecuted: item.rule_executed || 'SPL Token-2022 Transfer Hook Enforcement',
+              status: item.status || 'APPROVED',
+              timestamp: new Date(item.created_at).toLocaleTimeString(),
+            }))
+          );
+        } else {
+          setLogs([]);
+        }
+      } catch (err) {
+        console.warn('Error loading audit logs:', err);
+        setLogs([]);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    loadAuditLogs();
+  }, [publicKey]);
 
   if (!isConnected) {
     return (
@@ -99,47 +104,64 @@ export default function AuditPage() {
         <div className="bg-slate-900/80 border border-emerald-500/20 rounded-2xl overflow-hidden backdrop-blur-xl">
           <div className="p-6 border-b border-slate-800 flex items-center justify-between">
             <h2 className="text-sm font-mono font-bold text-emerald-400 uppercase tracking-wider">
-              &gt; Recent Transfer Hook Events
+              &gt; Transfer Hook Audit History
             </h2>
             <span className="text-xs font-mono text-slate-500">{logs.length} events logged</span>
           </div>
 
-          <div className="divide-y divide-slate-800/60">
-            {logs.map((log) => (
-              <div key={log.id} className="p-6 hover:bg-slate-900/40 transition-colors flex flex-col md:flex-row md:items-center justify-between gap-4">
-                <div className="space-y-1.5">
-                  <div className="flex items-center gap-3">
-                    <span
-                      className={`text-[10px] font-mono px-2.5 py-0.5 rounded-full font-bold uppercase tracking-wider flex items-center gap-1 ${
-                        log.status === 'APPROVED'
-                          ? 'bg-emerald-500/10 border border-emerald-500/30 text-emerald-400'
-                          : log.status === 'CLAWBACK'
-                          ? 'bg-purple-500/10 border border-purple-500/30 text-purple-400'
-                          : 'bg-red-500/10 border border-red-500/30 text-red-400'
-                      }`}
-                    >
-                      {log.status === 'APPROVED' && <HiCheckCircle className="w-3 h-3" />}
-                      {log.status !== 'APPROVED' && <HiXCircle className="w-3 h-3" />}
-                      {log.status}
-                    </span>
-                    <span className="font-mono text-xs font-bold text-slate-200">{log.agentName}</span>
+          {loading ? (
+            <div className="text-center py-16">
+              <div className="w-12 h-12 border-4 border-emerald-500/20 border-t-emerald-400 rounded-full animate-spin mx-auto mb-4"></div>
+              <p className="text-xs font-mono text-slate-400">Querying compliance audit logs...</p>
+            </div>
+          ) : logs.length > 0 ? (
+            <div className="divide-y divide-slate-800/60">
+              {logs.map((log) => (
+                <div key={log.id} className="p-6 hover:bg-slate-900/40 transition-colors flex flex-col md:flex-row md:items-center justify-between gap-4">
+                  <div className="space-y-1.5">
+                    <div className="flex items-center gap-3">
+                      <span
+                        className={`text-[10px] font-mono px-2.5 py-0.5 rounded-full font-bold uppercase tracking-wider flex items-center gap-1 ${
+                          log.status === 'APPROVED'
+                            ? 'bg-emerald-500/10 border border-emerald-500/30 text-emerald-400'
+                            : log.status === 'CLAWBACK'
+                            ? 'bg-purple-500/10 border border-purple-500/30 text-purple-400'
+                            : 'bg-red-500/10 border border-red-500/30 text-red-400'
+                        }`}
+                      >
+                        {log.status === 'APPROVED' && <HiCheckCircle className="w-3 h-3" />}
+                        {log.status !== 'APPROVED' && <HiXCircle className="w-3 h-3" />}
+                        {log.status}
+                      </span>
+                      <span className="font-mono text-xs font-bold text-slate-200">{log.agentName}</span>
+                    </div>
+
+                    <p className="text-xs font-mono text-slate-400">
+                      <span className="text-slate-500">Action:</span> {log.ruleExecuted}
+                    </p>
+                    <p className="text-[11px] font-mono text-slate-500">
+                      Recipient: <span className="text-slate-300">{log.recipient}</span> • Tx: <span className="text-cyan-400">{log.txHash}</span>
+                    </p>
                   </div>
 
-                  <p className="text-xs font-mono text-slate-400">
-                    <span className="text-slate-500">Action:</span> {log.ruleExecuted}
-                  </p>
-                  <p className="text-[11px] font-mono text-slate-500">
-                    Recipient: <span className="text-slate-300">{log.recipient}</span> • Tx: <span className="text-cyan-400">{log.txHash}</span>
-                  </p>
+                  <div className="text-right">
+                    <span className="text-sm font-mono font-bold text-slate-200 block">{log.amount}</span>
+                    <span className="text-[10px] font-mono text-slate-500 block">{log.timestamp}</span>
+                  </div>
                 </div>
-
-                <div className="text-right">
-                  <span className="text-sm font-mono font-bold text-slate-200 block">{log.amount}</span>
-                  <span className="text-[10px] font-mono text-slate-500 block">{log.timestamp}</span>
-                </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          ) : (
+            <div className="p-12 text-center space-y-3">
+              <HiExclamationCircle className="w-12 h-12 text-emerald-400 mx-auto" />
+              <h3 className="font-mono text-lg font-bold text-emerald-400 uppercase tracking-wider">
+                No Audit Events Logged Yet
+              </h3>
+              <p className="text-xs font-mono text-slate-400 max-w-md mx-auto">
+                Compliance event records automatically populate here when AI agents execute SPL Token-2022 transfer-hook-gated transactions.
+              </p>
+            </div>
+          )}
         </div>
 
       </div>

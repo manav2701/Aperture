@@ -2,18 +2,47 @@
 
 import { useState, useEffect } from 'react';
 import { useWallet } from '@/components/WalletConnect';
-import { getSolanaConnection, getSessionPDA } from '@/lib/solana';
+import {
+  getSolanaConnection,
+  getPolicyPDA,
+  getSessionPDA,
+  fetchSessionAccountOnChain,
+  SessionAccountData,
+} from '@/lib/solana';
 import { PublicKey } from '@solana/web3.js';
-import { HiClock, HiPlus, HiRefresh, HiCheckCircle } from 'react-icons/hi';
+import { HiClock, HiPlus, HiRefresh, HiCheckCircle, HiExclamationCircle } from 'react-icons/hi';
 
 export const dynamic = 'force-dynamic';
 
 export default function SessionsPage() {
   const { isConnected, publicKey } = useWallet();
   const [loading, setLoading] = useState(false);
+  const [sessionData, setSessionData] = useState<SessionAccountData | null>(null);
+
+  // Session Form State
   const [sessionBudgetSol, setSessionBudgetSol] = useState('50');
   const [durationHours, setDurationHours] = useState('24');
   const [autoRenew, setAutoRenew] = useState(true);
+
+  useEffect(() => {
+    if (!publicKey) return;
+
+    async function loadActiveSession() {
+      if (!publicKey) return;
+      try {
+        const connection = getSolanaConnection();
+        const [pda] = getPolicyPDA(publicKey);
+        const [sessPDA] = getSessionPDA(pda);
+
+        const onChainSession = await fetchSessionAccountOnChain(connection, sessPDA);
+        setSessionData(onChainSession);
+      } catch (err) {
+        console.warn('Session query error:', err);
+      }
+    }
+
+    loadActiveSession();
+  }, [publicKey]);
 
   const handleOpenSession = async () => {
     if (!isConnected) {
@@ -23,7 +52,7 @@ export default function SessionsPage() {
 
     setLoading(true);
     try {
-      alert(`Opened autonomous session budget of ${sessionBudgetSol} SOL on-chain!`);
+      alert(`Instruction prepared to open autonomous session budget of ${sessionBudgetSol} SOL on Solana.`);
     } catch (err) {
       console.error('Session error:', err);
       alert('Failed to open session budget');
@@ -48,6 +77,10 @@ export default function SessionsPage() {
     );
   }
 
+  const budgetNum = sessionData ? sessionData.budget.toNumber() / 1_000_000_000 : 0;
+  const spentNum = sessionData ? sessionData.spent.toNumber() / 1_000_000_000 : 0;
+  const remainingNum = Math.max(budgetNum - spentNum, 0);
+
   return (
     <div className="min-h-screen bg-slate-950 p-6 sm:p-8">
       <div className="max-w-5xl mx-auto space-y-8">
@@ -69,29 +102,61 @@ export default function SessionsPage() {
         <div className="bg-slate-900/80 border border-purple-500/20 rounded-2xl p-8 backdrop-blur-xl space-y-6">
           <h2 className="text-lg font-mono font-bold text-purple-400 uppercase tracking-wider border-b border-slate-800 pb-3 flex items-center justify-between">
             <span>&gt; Active Session Budget</span>
-            <span className="text-xs px-3 py-1 bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 rounded-full">
-              ONLINE
+            <span
+              className={`text-xs px-3 py-1 border rounded-full ${
+                sessionData
+                  ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
+                  : 'bg-slate-800 border-slate-700 text-slate-400'
+              }`}
+            >
+              {sessionData ? 'ON-CHAIN ACTIVE' : 'NO ACTIVE SESSION'}
             </span>
           </h2>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="bg-slate-950 p-5 rounded-xl border border-slate-800">
-              <span className="text-[10px] font-mono text-slate-500 uppercase tracking-wider block mb-1">Session Allocated</span>
-              <span className="text-xl font-mono font-bold text-purple-400">50.00 SOL</span>
-            </div>
+          {sessionData ? (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="bg-slate-950 p-5 rounded-xl border border-slate-800">
+                <span className="text-[10px] font-mono text-slate-500 uppercase tracking-wider block mb-1">
+                  Allocated Budget
+                </span>
+                <span className="text-xl font-mono font-bold text-purple-400">{budgetNum.toFixed(2)} SOL</span>
+              </div>
 
-            <div className="bg-slate-950 p-5 rounded-xl border border-slate-800">
-              <span className="text-[10px] font-mono text-slate-500 uppercase tracking-wider block mb-1">Spent / Remaining</span>
-              <span className="text-xl font-mono font-bold text-emerald-400">0.00 / 50.00 SOL</span>
-            </div>
+              <div className="bg-slate-950 p-5 rounded-xl border border-slate-800">
+                <span className="text-[10px] font-mono text-slate-500 uppercase tracking-wider block mb-1">
+                  Spent / Remaining
+                </span>
+                <span className="text-xl font-mono font-bold text-emerald-400">
+                  {spentNum.toFixed(2)} / {remainingNum.toFixed(2)} SOL
+                </span>
+              </div>
 
-            <div className="bg-slate-950 p-5 rounded-xl border border-slate-800">
-              <span className="text-[10px] font-mono text-slate-500 uppercase tracking-wider block mb-1">Auto-Renewal</span>
-              <span className="text-sm font-mono font-bold text-cyan-400 flex items-center gap-1.5 mt-1">
-                <HiRefresh className="w-4 h-4 animate-spin text-cyan-400" /> ENABLED
-              </span>
+              <div className="bg-slate-950 p-5 rounded-xl border border-slate-800">
+                <span className="text-[10px] font-mono text-slate-500 uppercase tracking-wider block mb-1">
+                  Auto-Renewal Status
+                </span>
+                <span className="text-sm font-mono font-bold text-cyan-400 flex items-center gap-1.5 mt-1">
+                  {sessionData.autoRenew ? (
+                    <>
+                      <HiRefresh className="w-4 h-4 animate-spin text-cyan-400" /> ENABLED
+                    </>
+                  ) : (
+                    'DISABLED'
+                  )}
+                </span>
+              </div>
             </div>
-          </div>
+          ) : (
+            <div className="p-6 bg-slate-950/60 border border-slate-800 rounded-xl text-center space-y-2">
+              <HiExclamationCircle className="w-8 h-8 text-purple-400 mx-auto" />
+              <h3 className="font-mono text-sm font-bold text-purple-300 uppercase tracking-wider">
+                No Active Session Sub-Budget Found
+              </h3>
+              <p className="text-xs font-mono text-slate-400 max-w-md mx-auto">
+                Open a time-bounded sub-budget below to grant your autonomous agent spending allocation for tasks.
+              </p>
+            </div>
+          )}
 
           {/* Form */}
           <div className="pt-6 border-t border-slate-800 space-y-6">

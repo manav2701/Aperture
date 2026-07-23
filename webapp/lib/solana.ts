@@ -71,3 +71,104 @@ export function formatSol(lamports: BN | number): string {
     maximumFractionDigits: 4,
   });
 }
+
+export async function fetchPolicyAccountOnChain(
+  connection: Connection,
+  policyPDA: PublicKey
+): Promise<PolicyAccountData | null> {
+  try {
+    const accInfo = await connection.getAccountInfo(policyPDA);
+    if (!accInfo || accInfo.data.length < 8 + 32 + 32 + 8 + 8 + 8 + 8) return null;
+
+    let offset = 8; // skip 8-byte Anchor discriminator
+    const owner = new PublicKey(accInfo.data.slice(offset, offset + 32));
+    offset += 32;
+    const agent = new PublicKey(accInfo.data.slice(offset, offset + 32));
+    offset += 32;
+    const dailyLimit = new BN(accInfo.data.slice(offset, offset + 8), "le");
+    offset += 8;
+    const perTxLimit = new BN(accInfo.data.slice(offset, offset + 8), "le");
+    offset += 8;
+    const spentToday = new BN(accInfo.data.slice(offset, offset + 8), "le");
+    offset += 8;
+    const lastResetTs = new BN(accInfo.data.slice(offset, offset + 8), "le");
+    offset += 8;
+
+    const allowlistLen = accInfo.data.readUInt32LE(offset);
+    offset += 4;
+    const allowlist: PublicKey[] = [];
+    for (let i = 0; i < allowlistLen; i++) {
+      allowlist.push(new PublicKey(accInfo.data.slice(offset, offset + 32)));
+      offset += 32;
+    }
+
+    const isPaused = accInfo.data[offset] !== 0;
+    offset += 1;
+    const velocityMaxTxPerHour = accInfo.data[offset];
+    offset += 1;
+    const txCountThisHour = accInfo.data[offset];
+    offset += 1;
+    const hourWindowStart = new BN(accInfo.data.slice(offset, offset + 8), "le");
+    offset += 8;
+    const bump = accInfo.data[offset];
+
+    return {
+      owner,
+      agent,
+      dailyLimit,
+      perTxLimit,
+      spentToday,
+      lastResetTs,
+      allowlist,
+      isPaused,
+      velocityMaxTxPerHour,
+      txCountThisHour,
+      hourWindowStart,
+      bump,
+    };
+  } catch (e) {
+    console.warn("Could not fetch or decode policy account on-chain:", e);
+    return null;
+  }
+}
+
+export async function fetchSessionAccountOnChain(
+  connection: Connection,
+  sessionPDA: PublicKey
+): Promise<SessionAccountData | null> {
+  try {
+    const accInfo = await connection.getAccountInfo(sessionPDA);
+    if (!accInfo || accInfo.data.length < 8 + 32 + 32 + 8 + 8 + 8 + 8 + 1 + 1) return null;
+
+    let offset = 8; // skip 8-byte Anchor discriminator
+    const policy = new PublicKey(accInfo.data.slice(offset, offset + 32));
+    offset += 32;
+    const sessionId = new PublicKey(accInfo.data.slice(offset, offset + 32));
+    offset += 32;
+    const budget = new BN(accInfo.data.slice(offset, offset + 8), "le");
+    offset += 8;
+    const spent = new BN(accInfo.data.slice(offset, offset + 8), "le");
+    offset += 8;
+    const startsAt = new BN(accInfo.data.slice(offset, offset + 8), "le");
+    offset += 8;
+    const expiresAt = new BN(accInfo.data.slice(offset, offset + 8), "le");
+    offset += 8;
+    const autoRenew = accInfo.data[offset] !== 0;
+    offset += 1;
+    const bump = accInfo.data[offset];
+
+    return {
+      policy,
+      sessionId,
+      budget,
+      spent,
+      startsAt,
+      expiresAt,
+      autoRenew,
+      bump,
+    };
+  } catch (e) {
+    console.warn("Could not fetch or decode session account on-chain:", e);
+    return null;
+  }
+}

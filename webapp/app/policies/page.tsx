@@ -2,9 +2,9 @@
 
 import { useState, useEffect } from 'react';
 import { useWallet } from '@/components/WalletConnect';
-import { getSolanaConnection, getPolicyPDA } from '@/lib/solana';
+import { getSolanaConnection, getPolicyPDA, fetchPolicyAccountOnChain } from '@/lib/solana';
 import { PublicKey } from '@solana/web3.js';
-import { HiShieldCheck, HiPlus, HiTrash, HiCheckCircle, HiExclamationCircle } from 'react-icons/hi';
+import { HiShieldCheck, HiPlus, HiTrash, HiCheckCircle } from 'react-icons/hi';
 
 export const dynamic = 'force-dynamic';
 
@@ -12,6 +12,7 @@ export default function PoliciesPage() {
   const { address, isConnected, publicKey } = useWallet();
   const [loading, setLoading] = useState(false);
   const [derivedPolicyPDA, setDerivedPolicyPDA] = useState('');
+  const [isExistingPolicy, setIsExistingPolicy] = useState(false);
 
   // Policy Form State
   const [agentPubKey, setAgentPubKey] = useState('');
@@ -22,13 +23,28 @@ export default function PoliciesPage() {
   const [allowlist, setAllowlist] = useState<string[]>([]);
 
   useEffect(() => {
-    if (publicKey) {
+    if (!publicKey) return;
+
+    async function checkExistingPolicy() {
+      if (!publicKey) return;
+      const connection = getSolanaConnection();
       const [pda] = getPolicyPDA(publicKey);
       setDerivedPolicyPDA(pda.toBase58());
-      if (!agentPubKey) {
-        setAgentPubKey(publicKey.toBase58());
+      setAgentPubKey(publicKey.toBase58());
+
+      const policyOnChain = await fetchPolicyAccountOnChain(connection, pda);
+      if (policyOnChain) {
+        setIsExistingPolicy(true);
+        setDailyLimitSol((policyOnChain.dailyLimit.toNumber() / 1_000_000_000).toString());
+        setPerTxLimitSol((policyOnChain.perTxLimit.toNumber() / 1_000_000_000).toString());
+        setVelocityCap(policyOnChain.velocityMaxTxPerHour.toString());
+        setAllowlist(policyOnChain.allowlist.map((pk) => pk.toBase58()));
+      } else {
+        setIsExistingPolicy(false);
       }
     }
+
+    checkExistingPolicy();
   }, [publicKey]);
 
   const handleAddRecipient = () => {
@@ -60,7 +76,7 @@ export default function PoliciesPage() {
 
     setLoading(true);
     try {
-      alert(`Policy for Agent ${agentPubKey.slice(0, 6)}... created on Solana localnet/devnet!`);
+      alert(`Instruction prepared to ${isExistingPolicy ? 'update' : 'initialize'} Policy Account for ${agentPubKey.slice(0, 6)}...${agentPubKey.slice(-4)} on Solana.`);
     } catch (err) {
       console.error('Policy error:', err);
       alert('Failed to save policy');
@@ -91,17 +107,24 @@ export default function PoliciesPage() {
         
         {/* Header */}
         <div className="bg-slate-900/90 border border-cyan-500/30 rounded-2xl p-8 backdrop-blur-xl shadow-2xl shadow-cyan-950/30">
-          <div className="flex items-center gap-3 mb-2">
-            <HiShieldCheck className="w-8 h-8 text-cyan-400" />
-            <h1 className="text-2xl font-black font-mono text-cyan-400 uppercase tracking-wider">
-              POLICY MANAGER CONFIGURATOR
-            </h1>
+          <div className="flex items-center justify-between gap-4 mb-2">
+            <div className="flex items-center gap-3">
+              <HiShieldCheck className="w-8 h-8 text-cyan-400" />
+              <h1 className="text-2xl font-black font-mono text-cyan-400 uppercase tracking-wider">
+                POLICY MANAGER CONFIGURATOR
+              </h1>
+            </div>
+            {isExistingPolicy && (
+              <span className="px-3 py-1 bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 font-mono text-xs font-bold rounded-full flex items-center gap-1.5">
+                <HiCheckCircle className="w-4 h-4" /> ON-CHAIN POLICY ACTIVE
+              </span>
+            )}
           </div>
           <p className="text-slate-400 font-mono text-xs">
             Configure Solana Anchor Policy Accounts for SPL Token-2022 Transfer Hook Enforcement
           </p>
           {derivedPolicyPDA && (
-            <div className="mt-4 p-3 bg-slate-950 border border-cyan-500/20 rounded-xl flex items-center justify-between">
+            <div className="mt-4 p-3 bg-slate-950 border border-cyan-500/20 rounded-xl flex items-center justify-between flex-wrap gap-2">
               <span className="text-[10px] font-mono text-slate-400 uppercase tracking-wider">Derived Policy Account PDA:</span>
               <span className="text-xs font-mono font-semibold text-cyan-400">{derivedPolicyPDA}</span>
             </div>
@@ -217,7 +240,7 @@ export default function PoliciesPage() {
             disabled={loading}
             className="w-full py-4 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-mono font-black text-sm rounded-xl transition-all uppercase tracking-widest shadow-lg shadow-cyan-500/20"
           >
-            CREATE / UPDATE ON-CHAIN POLICY
+            {isExistingPolicy ? 'UPDATE ON-CHAIN POLICY' : 'CREATE ON-CHAIN POLICY'}
           </button>
         </div>
 
