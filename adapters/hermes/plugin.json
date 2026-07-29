@@ -1,0 +1,7 @@
+{
+  "id": "aperture-hermes-plugin",
+  "name": "Aperture Corporate Guardrails for Hermes",
+  "version": "0.1.0",
+  "description": "Persistent cross-session spend tracking and vendor pattern memory for Hermes AI agents.",
+  "main": "src/index.js"
+}

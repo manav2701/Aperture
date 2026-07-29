@@ -48,6 +48,40 @@ CREATE TABLE IF NOT EXISTS daily_spending (
   UNIQUE(agent_address, day)
 );
 
+-- 9. Aperture v3 Orgs Table
+CREATE TABLE IF NOT EXISTS orgs (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  org_pda TEXT UNIQUE NOT NULL,
+  owner_address TEXT NOT NULL,
+  name TEXT NOT NULL,
+  global_daily_cap_sol NUMERIC DEFAULT 1000,
+  global_monthly_cap_sol NUMERIC DEFAULT 10000,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- 10. Aperture v3 Teams Table
+CREATE TABLE IF NOT EXISTS teams (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  team_pda TEXT UNIQUE NOT NULL,
+  org_pda TEXT REFERENCES orgs(org_pda) ON DELETE CASCADE,
+  team_id INT NOT NULL,
+  name TEXT NOT NULL,
+  team_lead_address TEXT NOT NULL,
+  team_daily_cap_sol NUMERIC DEFAULT 500,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- 11. Aperture v3 Org Members Table
+CREATE TABLE IF NOT EXISTS org_members (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  member_pda TEXT UNIQUE NOT NULL,
+  org_pda TEXT REFERENCES orgs(org_pda) ON DELETE CASCADE,
+  member_address TEXT NOT NULL,
+  role INT NOT NULL DEFAULT 3, -- 0=Owner, 1=CFO, 2=TeamLead, 3=Developer, 4=Auditor
+  joined_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  UNIQUE(org_pda, member_address)
+);
+
 -- 4. Approved Services Table
 CREATE TABLE IF NOT EXISTS approved_services (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

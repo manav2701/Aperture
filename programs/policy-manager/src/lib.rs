@@ -41,6 +41,16 @@ pub enum PolicyError {
     SessionNotStarted,
     #[msg("Invalid session policy linkage")]
     InvalidSessionPolicy,
+    #[msg("Monthly spending cap exceeded")]
+    MonthlyLimitExceeded,
+    #[msg("Velocity cooldown time has not elapsed")]
+    CooldownNotElapsed,
+    #[msg("Transaction outside allowed time window")]
+    TimeWindowViolation,
+    #[msg("Delegated sub-agent budget exceeded")]
+    DelegatedBudgetExceeded,
+    #[msg("Transaction exceeds escalation threshold and requires human approval")]
+    EscalationRequired,
 }
 
 #[derive(AnchorSerialize, AnchorDeserialize, Clone)]
@@ -79,8 +89,39 @@ pub mod policy_manager {
         policy.tx_count_this_hour = 0;
         policy.hour_window_start = Clock::get()?.unix_timestamp;
         policy.bump = ctx.bumps.policy_account;
+        policy.org = Pubkey::default();
+        policy.team = Pubkey::default();
 
         msg!("Policy created for agent: {:?}", policy.agent);
+        Ok(())
+    }
+
+    pub fn create_org_policy(
+        ctx: Context<CreatePolicy>,
+        daily_limit: u64,
+        per_tx_limit: u64,
+        allowlist: Vec<Pubkey>,
+        velocity_max_tx_per_hour: u16,
+        org: Pubkey,
+        team: Pubkey,
+    ) -> Result<()> {
+        let policy = &mut ctx.accounts.policy_account;
+        policy.owner = ctx.accounts.owner.key();
+        policy.agent = ctx.accounts.agent.key();
+        policy.daily_limit = daily_limit;
+        policy.per_tx_limit = per_tx_limit;
+        policy.spent_today = 0;
+        policy.last_reset_ts = Clock::get()?.unix_timestamp;
+        policy.allowlist = allowlist;
+        policy.is_paused = false;
+        policy.velocity_max_tx_per_hour = velocity_max_tx_per_hour;
+        policy.tx_count_this_hour = 0;
+        policy.hour_window_start = Clock::get()?.unix_timestamp;
+        policy.bump = ctx.bumps.policy_account;
+        policy.org = org;
+        policy.team = team;
+
+        msg!("Org Policy created for agent: {:?} (Org: {:?}, Team: {:?})", policy.agent, org, team);
         Ok(())
     }
 
@@ -226,6 +267,37 @@ pub mod policy_manager {
             return err!(PolicyError::DailyLimitExceeded);
         }
 
+        // Axis 1: Monthly limit check
+        if policy.monthly_limit > 0 {
+            if now - policy.last_month_reset_ts >= 2592000 {
+                policy.spent_this_month = 0;
+                policy.last_month_reset_ts = now;
+            }
+            if policy.spent_this_month + amount > policy.monthly_limit {
+                return err!(PolicyError::MonthlyLimitExceeded);
+            }
+        }
+
+        // Axis 2: Velocity cooldown check
+        if policy.cooldown_seconds > 0 && policy.last_tx_ts > 0 {
+            if now - policy.last_tx_ts < policy.cooldown_seconds as i64 {
+                return err!(PolicyError::CooldownNotElapsed);
+            }
+        }
+
+        // Axis 4: Time window check
+        if policy.allowed_hours_end > policy.allowed_hours_start {
+            let current_hour = ((now / 3600) % 24) as u8;
+            if current_hour < policy.allowed_hours_start || current_hour > policy.allowed_hours_end {
+                return err!(PolicyError::TimeWindowViolation);
+            }
+        }
+
+        // Axis 5: Escalation threshold check
+        if policy.escalation_threshold > 0 && amount > policy.escalation_threshold {
+            return err!(PolicyError::EscalationRequired);
+        }
+
         if !policy.allowlist.is_empty() {
             let recipient = ctx.accounts.destination_token.owner;
             if !policy.allowlist.contains(&recipient) {
@@ -242,6 +314,10 @@ pub mod policy_manager {
             }
             policy.tx_count_this_hour += 1;
         }
+
+        policy.spent_today += amount;
+        policy.spent_this_month += amount;
+        policy.last_tx_ts = now;
 
         // Verify and update session budget if session account belongs to the session-tracker program
         let session_info = &ctx.accounts.session_account;
@@ -505,4 +581,23 @@ pub struct PolicyAccount {
     pub tx_count_this_hour: u16,
     pub hour_window_start: i64,
     pub bump: u8,
+    pub org: Pubkey,
+    pub team: Pubkey,
+    pub monthly_limit: u64,
+    pub spent_this_month: u64,
+    pub last_month_reset_ts: i64,
+    pub cooldown_seconds: u32,
+    pub last_tx_ts: i64,
+    pub domain_allowlist_hash: [u8; 32],
+    pub require_kyc: bool,
+    pub allowed_hours_start: u8,
+    pub allowed_hours_end: u8,
+    pub allowed_days_bitmask: u8,
+    pub escalation_threshold: u64,
+    pub escalation_timeout_action: u8,
+    pub escalation_timeout_minutes: u16,
+    pub parent_policy: Option<Pubkey>,
+    pub delegated_budget: u64,
+    pub can_redelegate: bool,
+    pub delegation_depth: u8,
 }

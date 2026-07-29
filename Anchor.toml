@@ -7,6 +7,7 @@ skip-lint = false
 [programs.localnet]
 policy-manager = "H23GKLcVrnYoEC7s7Ju4nxk2LXLbuGn441YNQsFC2WdG"
 session-tracker = "DiaiUEypUnGti22wFmKLC9V4NDHmdQgHvpzsXw9e5r14"
+org-registry = "58NW2x3GDGKeFETkGECZSf53Nz8BJxCVSkoBhVCEPchu"
 
 [registry]
 url = "https://api.apr.dev"

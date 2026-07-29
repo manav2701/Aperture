@@ -1,0 +1,28 @@
+{
+  "name": "n8n-nodes-aperture",
+  "version": "0.1.0",
+  "description": "n8n community node for managing Aperture AI agent wallet spending policies and approvals",
+  "keywords": [
+    "n8n-community-node-package",
+    "aperture",
+    "solana",
+    "ai-agent",
+    "policy"
+  ],
+  "main": "dist/nodes/ApertureAgent/ApertureAgent.node.js",
+  "scripts": {
+    "build": "tsc"
+  },
+  "dependencies": {
+    "n8n-workflow": "^1.0.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.3.3"
+  },
+  "n8n": {
+    "n8nNodesApiVersion": 1,
+    "nodes": [
+      "dist/nodes/ApertureAgent/ApertureAgent.node.js"
+    ]
+  }
+}

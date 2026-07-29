@@ -1,0 +1,21 @@
+{
+  "name": "@aperture-finance/mcp-adapter",
+  "version": "0.1.0",
+  "description": "Aperture v3 Model Context Protocol (MCP) Server Adapter for Claude Desktop & ChatGPT",
+  "main": "dist/server.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/server.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.1",
+    "@solana/web3.js": "^1.95.3",
+    "@coral-xyz/anchor": "^0.30.1",
+    "@aperture-finance/sdk": "file:../../sdk",
+    "bn.js": "^5.2.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "typescript": "^5.3.3"
+  }
+}

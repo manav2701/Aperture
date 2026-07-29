@@ -64,11 +64,46 @@ export default function LayoutWrapper({ children }: { children: React.ReactNode 
                     {dropdownOpen && (
                       <div className="absolute top-full left-0 mt-2 w-52 bg-slate-900/95 border border-cyan-500/30 rounded-xl shadow-2xl backdrop-blur-xl py-2 z-50">
                         <Link
+                          href="/approvals"
+                          className="flex items-center gap-3 px-4 py-2.5 text-xs font-mono font-semibold text-slate-300 hover:text-cyan-400 hover:bg-slate-800/60 transition-all uppercase tracking-wider"
+                        >
+                          <HiShieldCheck className="w-4 h-4 text-amber-400" />
+                          APPROVALS QUEUE
+                        </Link>
+                        <Link
+                          href="/delegation"
+                          className="flex items-center gap-3 px-4 py-2.5 text-xs font-mono font-semibold text-slate-300 hover:text-cyan-400 hover:bg-slate-800/60 transition-all uppercase tracking-wider"
+                        >
+                          <HiShieldCheck className="w-4 h-4 text-purple-400" />
+                          DELEGATION TREE
+                        </Link>
+                        <Link
+                          href="/treasury"
+                          className="flex items-center gap-3 px-4 py-2.5 text-xs font-mono font-semibold text-slate-300 hover:text-cyan-400 hover:bg-slate-800/60 transition-all uppercase tracking-wider"
+                        >
+                          <HiOfficeBuilding className="w-4 h-4 text-cyan-400" />
+                          TREASURY
+                        </Link>
+                        <Link
+                          href="/org"
+                          className="flex items-center gap-3 px-4 py-2.5 text-xs font-mono font-semibold text-slate-300 hover:text-cyan-400 hover:bg-slate-800/60 transition-all uppercase tracking-wider"
+                        >
+                          <HiOfficeBuilding className="w-4 h-4 text-purple-400" />
+                          ORG SETTINGS
+                        </Link>
+                        <Link
+                          href="/roles"
+                          className="flex items-center gap-3 px-4 py-2.5 text-xs font-mono font-semibold text-slate-300 hover:text-cyan-400 hover:bg-slate-800/60 transition-all uppercase tracking-wider"
+                        >
+                          <HiShieldCheck className="w-4 h-4 text-emerald-400" />
+                          ROLES & RBAC
+                        </Link>
+                        <Link
                           href="/company"
                           className="flex items-center gap-3 px-4 py-2.5 text-xs font-mono font-semibold text-slate-300 hover:text-cyan-400 hover:bg-slate-800/60 transition-all uppercase tracking-wider"
                         >
                           <HiOfficeBuilding className="w-4 h-4 text-cyan-400" />
-                          COMPANY
+                          FLEET MONITOR
                         </Link>
                         <Link
                           href="/agents"
