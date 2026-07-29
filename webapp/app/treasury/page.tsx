@@ -3,7 +3,8 @@
 import { useState, useEffect } from 'react';
 import { useWallet } from '@/components/WalletConnect';
 import { supabase } from '@/lib/supabase';
-import { HiOfficeBuilding, HiChartBar, HiShieldCheck, HiServer, HiCreditCard } from 'react-icons/hi';
+import { HiOfficeBuilding, HiChartBar, HiShieldCheck } from 'react-icons/hi';
+import BudgetForecastWidget from '@/components/BudgetForecastWidget';
 import Link from 'next/link';
 
 export const dynamic = 'force-dynamic';
@@ -117,6 +118,14 @@ export default function TreasuryPage() {
           </div>
 
         </div>
+
+        {/* Budget Forecast Widget */}
+        <BudgetForecastWidget
+          dailySpentSol={globalDailySpent}
+          dailyCapSol={globalDailyCap}
+          monthlySpentSol={globalMonthlySpent}
+          monthlyCapSol={globalMonthlyCap}
+        />
 
         {/* Team Department Breakdown */}
         <div className="bg-slate-900/80 border border-cyan-500/20 rounded-2xl overflow-hidden backdrop-blur-xl">

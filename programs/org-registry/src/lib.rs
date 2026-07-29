@@ -169,6 +169,23 @@ pub mod org_registry {
         Ok(())
     }
 
+    pub fn set_global_kill_switch(
+        ctx: Context<UpdateOrgCaps>,
+        active: bool,
+    ) -> Result<()> {
+        require!(
+            ctx.accounts.caller_member_account.role == OrgRole::Owner as u8
+                || ctx.accounts.caller_member_account.role == OrgRole::CFO as u8,
+            ErrorCode::UnauthorizedRole
+        );
+
+        let org = &mut ctx.accounts.org_account;
+        org.is_kill_switch_active = active;
+
+        msg!("Org Global Kill Switch updated: active={}", active);
+        Ok(())
+    }
+
     pub fn transfer_org_ownership(
         ctx: Context<TransferOrgOwnership>,
         new_owner: Pubkey,
@@ -199,7 +216,7 @@ pub struct CreateOrg<'info> {
     #[account(
         init,
         payer = owner,
-        space = 8 + 32 + (4 + 64) + 8 + 8 + 8 + 8 + 2 + 2 + 8 + 1,
+        space = 8 + 32 + (4 + 64) + 8 + 8 + 8 + 8 + 2 + 2 + 8 + 1 + 1,
         seeds = [b"org", owner.key().as_ref()],
         bump
     )]
@@ -358,6 +375,7 @@ pub struct OrgAccount {
     pub agent_count: u16,
     pub created_at: i64,
     pub bump: u8,
+    pub is_kill_switch_active: bool,
 }
 
 #[account]
