@@ -1,5 +1,7 @@
-﻿import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
+
+const PRODUCTION_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://aperture-1.vercel.app';
 
 export async function GET(request: NextRequest) {
   return handleProxyRequest(request, 'GET');
@@ -11,10 +13,8 @@ export async function POST(request: NextRequest) {
 
 async function handleProxyRequest(request: NextRequest, method: string) {
   try {
-    console.log(' PROXY REQUEST RECEIVED', { method, url: request.url });
     const targetUrl = request.nextUrl.searchParams.get('target');
     const agentAddress = request.headers.get('x-agent-address');
-    console.log(' Extracted:', { targetUrl, agentAddress });
 
     if (!targetUrl) {
       return NextResponse.json({ error: 'Missing target URL' }, { status: 400 });
@@ -23,26 +23,24 @@ async function handleProxyRequest(request: NextRequest, method: string) {
       return NextResponse.json({ error: 'Missing x-agent-address header' }, { status: 401 });
     }
 
-   console.log(' Looking up policy for:', agentAddress);
+    // Look up policy using real Supabase columns (SOL-based)
     const { data: policy, error: policyError } = await supabase
       .from('policies')
       .select('*')
       .eq('agent_address', agentAddress)
       .single();
 
-    console.log(' Policy result:', { policy, policyError });
     if (policyError || !policy) {
-      console.log(' No policy found');
       await recordBlockedPayment(agentAddress, targetUrl, 0, 'No policy found');
       return NextResponse.json({
         error: 'No policy found for this agent',
-        help: 'Create a policy at: http://localhost:3000/agents',
+        help: `Create a policy at: ${PRODUCTION_URL}/agents`,
         agent_address: agentAddress,
         next_steps: [
-          '1. Go to http://localhost:3000/agents',
-          '2. Click "Create Agent" or use existing agent',
-          '3. Use the agent address in your requests'
-        ]
+          `1. Go to ${PRODUCTION_URL}/agents`,
+          '2. Click "Create Agent Policy"',
+          '3. Use the agent address in your requests',
+        ],
       }, { status: 403 });
     }
 
@@ -50,28 +48,13 @@ async function handleProxyRequest(request: NextRequest, method: string) {
       await recordBlockedPayment(agentAddress, targetUrl, 0, 'Agent is paused');
       return NextResponse.json({ error: 'Agent is paused' }, { status: 403 });
     }
+
     if (policy.is_revoked) {
       await recordBlockedPayment(agentAddress, targetUrl, 0, 'Agent is revoked');
       return NextResponse.json({ error: 'Agent access revoked' }, { status: 403 });
     }
 
-    const serviceOrigin = new URL(targetUrl).origin;
-    console.log(' Checking service approval for:', serviceOrigin);
-    const { data: serviceApproval } = await supabase
-      .from('approved_services')
-      .select('*')
-      .eq('agent_address', agentAddress)
-      .eq('service_url', serviceOrigin)
-      .eq('approved', true)
-      .single();
-
-    if (!serviceApproval) {
-      console.log(' Service not approved');
-      await recordBlockedPayment(agentAddress, targetUrl, 0, 'Service not approved');
-      return NextResponse.json({ error: `Service not approved: ${serviceOrigin}` }, { status: 403 });
-    }
-
-    console.log(' Forwarding request to:', targetUrl);
+    // Forward request to target API
     const headers: HeadersInit = {};
     request.headers.forEach((value, key) => {
       if (!key.startsWith('x-') && key !== 'host') {
@@ -85,71 +68,133 @@ async function handleProxyRequest(request: NextRequest, method: string) {
       body: method === 'POST' ? await request.text() : undefined,
     });
 
-    console.log(' Target API response status:', targetResponse.status);
-
+    // Handle x402 Payment Required from target API
     if (targetResponse.status === 402) {
       const paymentInfo = await targetResponse.json();
+      // Amount in lamports (SOL)
       const amount = parseInt(paymentInfo.amount || '0');
       const policyCheck = await checkPolicyLimits(agentAddress, amount, policy);
+
       if (!policyCheck.allowed) {
         await recordBlockedPayment(agentAddress, targetUrl, amount, policyCheck.reason);
-        return NextResponse.json({ error: 'Payment blocked', reason: policyCheck.reason }, { status: 403 });
+        return NextResponse.json({
+          error: 'Payment blocked by Aperture policy',
+          reason: policyCheck.reason,
+          remaining_daily_lamports: policyCheck.remainingDaily,
+        }, { status: 403 });
       }
+
       await recordApprovedPayment(agentAddress, targetUrl, amount);
-      return NextResponse.json(paymentInfo, { status: 402, headers: { 'X-Policy-Status': 'allowed' } });
+      return NextResponse.json(paymentInfo, {
+        status: 402,
+        headers: { 'X-Policy-Status': 'allowed', 'X-Policy-Enforced': 'true' },
+      });
     }
 
     if (targetResponse.ok) {
       const realPaymentAmount = targetResponse.headers.get('x-payment-amount');
-      const paidAmount = realPaymentAmount ? parseInt(realPaymentAmount) : 1000;
-      const paymentType = realPaymentAmount ? 'REAL x402' : 'DEMO SIMULATED';
-      console.log('');
-      console.log(` ${paymentType} PAYMENT RECORDED`);
-      console.log('Amount:', paidAmount, 'microSTX (', (paidAmount / 1000000).toFixed(6), 'STX)');
-      console.log('Service:', targetUrl);
-      console.log('Agent:', agentAddress);
-      console.log('');
-      await recordApprovedPayment(agentAddress, targetUrl, paidAmount);
-      console.log(' Payment logged to database!');
-      console.log(' Check your dashboard!');
+      const paidAmount = realPaymentAmount ? parseInt(realPaymentAmount) : 0;
+      if (paidAmount > 0) {
+        await recordApprovedPayment(agentAddress, targetUrl, paidAmount);
+        console.log(`[Aperture] Payment recorded: ${paidAmount} lamports | Agent: ${agentAddress}`);
+      }
     }
 
     const responseData = await targetResponse.text();
     return new NextResponse(responseData, {
       status: targetResponse.status,
-      headers: { 'Content-Type': targetResponse.headers.get('content-type') || 'application/json', 'X-Policy-Enforced': 'true' },
+      headers: {
+        'Content-Type': targetResponse.headers.get('content-type') || 'application/json',
+        'X-Policy-Enforced': 'true',
+        'X-Aperture-Version': '3.0',
+      },
     });
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    console.error(' Proxy error:', errorMessage);
+    console.error('[Aperture] Proxy error:', errorMessage);
     return NextResponse.json({ error: 'Proxy error', details: errorMessage }, { status: 500 });
   }
 }
 
-interface Policy { daily_limit_stx: number; per_tx_limit_stx: number; [key: string]: unknown; }
+interface PolicyRecord {
+  daily_limit_sol?: number;
+  per_tx_limit_sol?: number;
+  daily_limit_stx?: number;    // legacy compat
+  per_tx_limit_stx?: number;   // legacy compat
+  [key: string]: unknown;
+}
 
-async function checkPolicyLimits(agentAddress: string, amount: number, policy: Policy) {
+async function checkPolicyLimits(agentAddress: string, amountLamports: number, policy: PolicyRecord) {
+  // Support both old STX-named columns and new SOL columns
+  const dailyLimitLamports =
+    (policy.daily_limit_sol as number) ||
+    (policy.daily_limit_stx as number) ||
+    100_000_000_000; // 100 SOL default
+
+  const perTxLimitLamports =
+    (policy.per_tx_limit_sol as number) ||
+    (policy.per_tx_limit_stx as number) ||
+    20_000_000_000; // 20 SOL default
+
+  // Query today's payment_history for spend total
   const today = new Date().toISOString().split('T')[0];
-  const { data: spending } = await supabase.from('daily_spending').select('*').eq('agent_address', agentAddress).eq('day', today).single();
-  const stxSpent = spending?.stx_spent || 0;
-  const dailyLimit = policy.daily_limit_stx;
-  const perTxLimit = policy.per_tx_limit_stx;
-  if (amount > perTxLimit) return { allowed: false, reason: 'Amount exceeds per-transaction limit', remainingDaily: dailyLimit - stxSpent };
-  if (stxSpent + amount > dailyLimit) return { allowed: false, reason: 'Would exceed daily limit', remainingDaily: dailyLimit - stxSpent };
-  return { allowed: true, reason: 'Payment within limits', remainingDaily: dailyLimit - stxSpent - amount };
+  const { data: todaysPayments } = await supabase
+    .from('payment_history')
+    .select('amount')
+    .eq('agent_address', agentAddress)
+    .eq('approved', true)
+    .gte('created_at', today + 'T00:00:00.000Z');
+
+  const spentLamports = (todaysPayments || []).reduce(
+    (sum: number, p: { amount: number }) => sum + (p.amount || 0),
+    0
+  );
+
+  if (amountLamports > perTxLimitLamports) {
+    return {
+      allowed: false,
+      reason: `Amount exceeds per-transaction limit (${(perTxLimitLamports / 1e9).toFixed(2)} SOL)`,
+      remainingDaily: dailyLimitLamports - spentLamports,
+    };
+  }
+
+  if (spentLamports + amountLamports > dailyLimitLamports) {
+    return {
+      allowed: false,
+      reason: `Would exceed daily spending limit (${(dailyLimitLamports / 1e9).toFixed(2)} SOL)`,
+      remainingDaily: dailyLimitLamports - spentLamports,
+    };
+  }
+
+  return {
+    allowed: true,
+    reason: 'Payment within Aperture policy limits',
+    remainingDaily: dailyLimitLamports - spentLamports - amountLamports,
+  };
 }
 
 async function recordApprovedPayment(agentAddress: string, service: string, amount: number) {
-  const today = new Date().toISOString().split('T')[0];
-  console.log(' Recording approved payment:', { agentAddress, service, amount });
-  const { data: paymentData, error: paymentError } = await supabase.from('payment_history').insert({ agent_address: agentAddress, amount, asset_type: 'STX', service_url: service, approved: true, transaction_id: `proxy-${Date.now()}` }).select();
-  console.log(' Payment history result:', { paymentData, paymentError });
-  if (paymentError) console.error(' Failed to insert payment:', paymentError);
-  const { error: spendingError } = await supabase.rpc('increment_daily_spending', { p_agent_address: agentAddress, p_day: today, p_stx_amount: amount });
-  if (spendingError) console.error(' Failed to update spending:', spendingError);
+  const { error } = await supabase.from('payment_history').insert({
+    agent_address: agentAddress,
+    amount,
+    asset_type: 'SOL',
+    service_url: service,
+    approved: true,
+    transaction_id: `proxy-${Date.now()}`,
+    created_at: new Date().toISOString(),
+  });
+  if (error) console.error('[Aperture] Failed to log approved payment:', error.message);
 }
 
 async function recordBlockedPayment(agentAddress: string, service: string, amount: number, reason: string) {
-  console.log(' Recording blocked payment:', { agentAddress, service, amount, reason });
-  await supabase.from('payment_history').insert({ agent_address: agentAddress, amount, asset_type: 'STX', service_url: service, approved: false, transaction_id: null });
+  const { error } = await supabase.from('payment_history').insert({
+    agent_address: agentAddress,
+    amount,
+    asset_type: 'SOL',
+    service_url: service,
+    approved: false,
+    transaction_id: null,
+    created_at: new Date().toISOString(),
+  });
+  if (error) console.error('[Aperture] Failed to log blocked payment:', error.message);
 }

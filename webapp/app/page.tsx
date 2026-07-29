@@ -487,11 +487,11 @@ export default function LandingPage() {
               className="mt-16 p-8 border-2 border-accent cyber-chamfer bg-card shadow-neon"
             >
               <h3 className="font-mono text-2xl text-accent mb-4 font-bold uppercase tracking-wider">
-                {'> '}BUILT ON STACKS BLOCKCHAIN
+                {'> '}BUILT ON SOLANA BLOCKCHAIN
               </h3>
               <p className="font-mono text-base text-mutedForeground leading-relaxed uppercase tracking-wide">
-                EVERY POLICY IS ENFORCED BY CLARITY SMART CONTRACTS, ENSURING IMMUTABLE, 
-                TRANSPARENT, AND DECENTRALIZED ACCESS CONTROL.
+                EVERY POLICY IS ENFORCED BY SOLANA ANCHOR SMART CONTRACTS WITH TOKEN-2022 TRANSFER HOOKS,
+                ENSURING IMMUTABLE, TRANSPARENT, AND DECENTRALIZED ACCESS CONTROL.
               </p>
             </motion.div>
           </div>
@@ -513,8 +513,8 @@ export default function LandingPage() {
             </motion.h2>
             <div className="flex flex-wrap justify-center gap-4">
               {[
-                'STACKS',
-                'CLARITY',
+                'SOLANA',
+                'ANCHOR',
                 'SUPABASE',
                 'NEXT.JS',
                 'TYPESCRIPT'
@@ -733,7 +733,7 @@ export default function LandingPage() {
               </a>
               <span className="text-border">|</span>
               <span className="font-mono uppercase tracking-wider text-accent">
-                BUILT FOR STACKS HACKATHON
+                APERTURE v3 — SOLANA AI AGENT TREASURY
               </span>
             </div>
           </div>

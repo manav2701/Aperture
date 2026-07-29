@@ -10,7 +10,7 @@ const jetbrainsMono = JetBrains_Mono({ subsets: ['latin'], variable: '--font-jet
 
 export const metadata: Metadata = {
   title: 'Aperture | Control AI Agent Spending',
-  description: 'Set spending policies for AI agents making autonomous x402 payments on Stacks',
+  description: 'Set spending policies for AI agents making autonomous payments on Solana. Corporate treasury guardrails, RBAC, and multi-runtime adapters for Claude, n8n, and OpenClaw.',
 };
 
 export default function RootLayout({

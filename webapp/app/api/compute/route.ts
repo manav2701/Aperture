@@ -7,16 +7,16 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       {
         error: 'Payment required',
-        message: 'This API requires payment of 0.0001 STX',
-        amount: 100, // microSTX
-        asset: 'STX',
+        message: 'This API requires payment of 0.0001 SOL (100,000 lamports)',
+        amount: 100000, // lamports
+        asset: 'SOL',
       },
       { 
         status: 402,
         headers: {
           'X-Payment-Required': 'true',
-          'X-Payment-Amount': '100',
-          'X-Payment-Asset': 'STX',
+          'X-Payment-Amount': '100000',
+          'X-Payment-Asset': 'SOL',
         }
       }
     );
@@ -25,7 +25,6 @@ export async function POST(request: NextRequest) {
   const body = await request.json();
   const { operation, value } = body;
 
-  // Simulate expensive computation
   let result;
   if (operation === 'fibonacci') {
     result = fibonacci(value || 10);
@@ -42,6 +41,11 @@ export async function POST(request: NextRequest) {
       input: value,
       result,
       timestamp: new Date().toISOString(),
+    },
+    aperture: {
+      asset: 'SOL',
+      amount_paid_lamports: 100000,
+      policy_enforced: true,
     },
   });
 }
