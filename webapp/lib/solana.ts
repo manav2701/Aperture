@@ -51,6 +51,19 @@ export interface PolicyAccountData {
   txCountThisHour: number;
   hourWindowStart: BN;
   bump: number;
+  org?: PublicKey;
+  team?: PublicKey;
+  monthlyLimit?: BN;
+  spentThisMonth?: BN;
+  lastMonthResetTs?: BN;
+  cooldownSeconds?: number;
+  lastTxTs?: BN;
+  requireKyc?: boolean;
+  escalationThreshold?: BN;
+  parentPolicy?: PublicKey;
+  delegatedBudget?: BN;
+  canRedelegate?: boolean;
+  delegationDepth?: number;
 }
 
 export interface SessionAccountData {

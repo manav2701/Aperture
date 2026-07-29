@@ -2,8 +2,9 @@
 
 import { useState, useEffect } from 'react';
 import { useWallet } from '@/components/WalletConnect';
+import { getSolanaConnection, getPolicyPDA, fetchPolicyAccountOnChain } from '@/lib/solana';
 import { supabase } from '@/lib/supabase';
-import { HiOfficeBuilding, HiChartBar, HiShieldCheck } from 'react-icons/hi';
+import { HiOfficeBuilding, HiExclamationCircle } from 'react-icons/hi';
 import BudgetForecastWidget from '@/components/BudgetForecastWidget';
 import Link from 'next/link';
 
@@ -13,17 +14,56 @@ export default function TreasuryPage() {
   const { isConnected, publicKey } = useWallet();
   const [loading, setLoading] = useState(true);
 
-  // Treasury Stats
-  const [globalDailySpent, setGlobalDailySpent] = useState<number>(120.5);
-  const [globalDailyCap, setGlobalDailyCap] = useState<number>(1000.0);
-  const [globalMonthlySpent, setGlobalMonthlySpent] = useState<number>(2450.0);
-  const [globalMonthlyCap, setGlobalMonthlyCap] = useState<number>(10000.0);
+  // Real Treasury Stats
+  const [globalDailySpent, setGlobalDailySpent] = useState<number>(0);
+  const [globalDailyCap, setGlobalDailyCap] = useState<number>(0);
+  const [globalMonthlySpent, setGlobalMonthlySpent] = useState<number>(0);
+  const [globalMonthlyCap, setGlobalMonthlyCap] = useState<number>(0);
+  const [teamsBreakdown, setTeamsBreakdown] = useState<any[]>([]);
 
-  const [teamsBreakdown, setTeamsBreakdown] = useState<any[]>([
-    { name: 'Trading & Arbitrage Ops', spent: 85.5, cap: 500.0, agentsCount: 3 },
-    { name: 'DeFi Liquidity Rebalancing', spent: 35.0, cap: 300.0, agentsCount: 2 },
-    { name: 'Treasury Yield Optimization', spent: 0.0, cap: 200.0, agentsCount: 1 },
-  ]);
+  useEffect(() => {
+    if (!publicKey) {
+      setLoading(false);
+      return;
+    }
+
+    async function loadTreasuryStats() {
+      if (!publicKey) return;
+      try {
+        const connection = getSolanaConnection();
+        const [pda] = getPolicyPDA(publicKey);
+        const policyOnChain = await fetchPolicyAccountOnChain(connection, pda);
+
+        if (policyOnChain) {
+          setGlobalDailySpent(policyOnChain.spentToday.toNumber() / 1_000_000_000);
+          setGlobalDailyCap(policyOnChain.dailyLimit.toNumber() / 1_000_000_000);
+          setGlobalMonthlySpent(policyOnChain.spentThisMonth ? policyOnChain.spentThisMonth.toNumber() / 1_000_000_000 : 0);
+          setGlobalMonthlyCap(policyOnChain.monthlyLimit ? policyOnChain.monthlyLimit.toNumber() / 1_000_000_000 : 0);
+        }
+
+        // Query teams from Supabase
+        const { data: teamsData } = await supabase.from('teams').select('*');
+        if (teamsData && teamsData.length > 0) {
+          setTeamsBreakdown(
+            teamsData.map((t: any) => ({
+              name: t.name,
+              spent: 0,
+              cap: t.team_daily_cap_sol || 500,
+              agentsCount: 1,
+            }))
+          );
+        } else {
+          setTeamsBreakdown([]);
+        }
+      } catch (err) {
+        console.warn('Error loading treasury stats:', err);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    loadTreasuryStats();
+  }, [publicKey]);
 
   if (!isConnected) {
     return (
@@ -41,8 +81,8 @@ export default function TreasuryPage() {
     );
   }
 
-  const dailyPct = Math.min((globalDailySpent / globalDailyCap) * 100, 100);
-  const monthlyPct = Math.min((globalMonthlySpent / globalMonthlyCap) * 100, 100);
+  const dailyPct = globalDailyCap > 0 ? Math.min((globalDailySpent / globalDailyCap) * 100, 100) : 0;
+  const monthlyPct = globalMonthlyCap > 0 ? Math.min((globalMonthlySpent / globalMonthlyCap) * 100, 100) : 0;
 
   return (
     <div className="min-h-screen bg-slate-950 p-6 sm:p-8">
@@ -136,35 +176,58 @@ export default function TreasuryPage() {
             <span className="text-xs font-mono text-slate-500">{teamsBreakdown.length} teams allocated</span>
           </div>
 
-          <div className="divide-y divide-slate-800">
-            {teamsBreakdown.map((t, idx) => {
-              const util = Math.min((t.spent / t.cap) * 100, 100);
-              return (
-                <div key={idx} className="p-6 flex flex-col md:flex-row md:items-center justify-between gap-6">
-                  <div className="space-y-1">
-                    <h3 className="font-mono text-sm font-bold text-slate-200">{t.name}</h3>
-                    <p className="text-xs font-mono text-slate-500">{t.agentsCount} AI Agents Governed</p>
-                  </div>
+          {loading ? (
+            <div className="text-center py-12">
+              <div className="w-10 h-10 border-4 border-cyan-500/20 border-t-cyan-400 rounded-full animate-spin mx-auto mb-3"></div>
+              <p className="text-xs font-mono text-slate-400">Loading treasury breakdown...</p>
+            </div>
+          ) : teamsBreakdown.length > 0 ? (
+            <div className="divide-y divide-slate-800">
+              {teamsBreakdown.map((t, idx) => {
+                const util = Math.min((t.spent / (t.cap || 1)) * 100, 100);
+                return (
+                  <div key={idx} className="p-6 flex flex-col md:flex-row md:items-center justify-between gap-6">
+                    <div className="space-y-1">
+                      <h3 className="font-mono text-sm font-bold text-slate-200">{t.name}</h3>
+                      <p className="text-xs font-mono text-slate-500">{t.agentsCount} AI Agent Wallet Governed</p>
+                    </div>
 
-                  <div className="w-full md:w-72 space-y-2">
-                    <div className="flex justify-between text-xs font-mono">
-                      <span className="text-slate-400">Daily Cap Utilized</span>
-                      <span className="text-cyan-400 font-bold">{util.toFixed(0)}%</span>
-                    </div>
-                    <div className="w-full bg-slate-950 h-2 rounded-full overflow-hidden border border-slate-800">
-                      <div
-                        className="bg-gradient-to-r from-cyan-400 to-indigo-500 h-full"
-                        style={{ width: `${util}%` }}
-                      />
-                    </div>
-                    <div className="text-[10px] font-mono text-slate-500 text-right">
-                      {t.spent.toFixed(2)} / {t.cap.toFixed(2)} SOL
+                    <div className="w-full md:w-72 space-y-2">
+                      <div className="flex justify-between text-xs font-mono">
+                        <span className="text-slate-400">Daily Cap Utilized</span>
+                        <span className="text-cyan-400 font-bold">{util.toFixed(0)}%</span>
+                      </div>
+                      <div className="w-full bg-slate-950 h-2 rounded-full overflow-hidden border border-slate-800">
+                        <div
+                          className="bg-gradient-to-r from-cyan-400 to-indigo-500 h-full"
+                          style={{ width: `${util}%` }}
+                        />
+                      </div>
+                      <div className="text-[10px] font-mono text-slate-500 text-right">
+                        {t.spent.toFixed(2)} / {t.cap.toFixed(2)} SOL
+                      </div>
                     </div>
                   </div>
-                </div>
-              );
-            })}
-          </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="p-12 text-center space-y-3">
+              <HiExclamationCircle className="w-12 h-12 text-cyan-400 mx-auto" />
+              <h3 className="font-mono text-base font-bold text-cyan-400 uppercase tracking-wider">
+                No Department Teams Configured
+              </h3>
+              <p className="text-xs font-mono text-slate-400 max-w-md mx-auto">
+                Configure your organization's departmental team allocations in Organization Settings to track team-by-team treasury spending.
+              </p>
+              <Link
+                href="/org"
+                className="inline-block px-5 py-2.5 bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-mono font-bold text-xs rounded-xl transition-all uppercase tracking-wider shadow-lg shadow-cyan-500/20"
+              >
+                CREATE DEPARTMENT TEAM
+              </Link>
+            </div>
+          )}
         </div>
 
       </div>

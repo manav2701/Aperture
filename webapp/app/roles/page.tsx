@@ -1,8 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useWallet } from '@/components/WalletConnect';
-import { HiShieldCheck, HiPlus, HiTrash, HiUserGroup } from 'react-icons/hi';
+import { supabase } from '@/lib/supabase';
+import { HiShieldCheck, HiUserGroup, HiExclamationCircle } from 'react-icons/hi';
 
 export const dynamic = 'force-dynamic';
 
@@ -15,20 +16,10 @@ interface MemberRoleItem {
 
 export default function RolesPage() {
   const { isConnected, publicKey } = useWallet();
-  const [loading, setLoading] = useState(false);
-
-  // Form State
+  const [loading, setLoading] = useState(true);
   const [memberWallet, setMemberWallet] = useState('');
   const [selectedRole, setSelectedRole] = useState('1'); // CFO default
-
-  const [members, setMembers] = useState<MemberRoleItem[]>([
-    {
-      id: '1',
-      wallet: publicKey ? publicKey.toBase58() : 'OwnerWalletAddress...',
-      role: 'Owner (Master Authority)',
-      roleLevel: 0,
-    },
-  ]);
+  const [members, setMembers] = useState<MemberRoleItem[]>([]);
 
   const roleNames: { [key: number]: string } = {
     0: 'Owner (Master Authority)',
@@ -38,8 +29,57 @@ export default function RolesPage() {
     4: 'Auditor (Read-Only Compliance)',
   };
 
+  useEffect(() => {
+    if (!publicKey) {
+      setLoading(false);
+      return;
+    }
+
+    async function loadMembers() {
+      if (!publicKey) return;
+      try {
+        const { data } = await supabase.from('org_members').select('*');
+
+        if (data && data.length > 0) {
+          setMembers(
+            data.map((m: any) => ({
+              id: m.id,
+              wallet: m.member_address,
+              role: roleNames[m.role] || 'Member',
+              roleLevel: m.role,
+            }))
+          );
+        } else {
+          // If no members in database yet, display connected wallet as Owner
+          setMembers([
+            {
+              id: 'owner-1',
+              wallet: publicKey.toBase58(),
+              role: 'Owner (Master Authority)',
+              roleLevel: 0,
+            },
+          ]);
+        }
+      } catch (err) {
+        console.warn('Error loading members:', err);
+        setMembers([
+          {
+            id: 'owner-1',
+            wallet: publicKey.toBase58(),
+            role: 'Owner (Master Authority)',
+            roleLevel: 0,
+          },
+        ]);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    loadMembers();
+  }, [publicKey]);
+
   const handleAddMember = async () => {
-    if (!isConnected) {
+    if (!isConnected || !publicKey) {
       alert('Please connect your Solana wallet first');
       return;
     }

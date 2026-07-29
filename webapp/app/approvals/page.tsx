@@ -1,8 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useWallet } from '@/components/WalletConnect';
-import { HiExclamation, HiCheckCircle, HiXCircle, HiClock, HiShieldCheck } from 'react-icons/hi';
+import { supabase } from '@/lib/supabase';
+import { HiExclamation, HiCheckCircle, HiXCircle } from 'react-icons/hi';
 
 export const dynamic = 'force-dynamic';
 
@@ -18,39 +19,58 @@ interface PendingApproval {
 }
 
 export default function ApprovalsPage() {
-  const { isConnected } = useWallet();
+  const { isConnected, publicKey } = useWallet();
   const [loadingId, setLoadingId] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [approvals, setApprovals] = useState<PendingApproval[]>([]);
 
-  const [approvals, setApprovals] = useState<PendingApproval[]>([
-    {
-      id: 'app-101',
-      agentName: 'Arbitrage Agent Alpha',
-      agentAddress: '7fCoCyErkSmyzFP1Rf6HKQuVJzmbpk31PwJVDsScnVPi',
-      amountSol: 500.0,
-      recipient: 'Orca DEX Pool (7fCo...nVPi)',
-      reason: 'Transaction exceeds human approval escalation threshold (200 SOL)',
-      timestamp: '5 mins ago',
-      status: 'PENDING',
-    },
-    {
-      id: 'app-102',
-      agentName: 'Liquidity Rebalancer Bot',
-      agentAddress: '3M2a1pWk7fCoCyErkSmyzFP1Rf6HKQuVJzmbpk31P',
-      amountSol: 250.0,
-      recipient: 'Raydium Vault (JAGd...3amM)',
-      reason: 'Transaction exceeds escalation threshold (200 SOL)',
-      timestamp: '18 mins ago',
-      status: 'PENDING',
-    },
-  ]);
+  useEffect(() => {
+    if (!publicKey) {
+      setLoading(false);
+      return;
+    }
+
+    async function loadApprovals() {
+      if (!publicKey) return;
+      try {
+        const { data } = await supabase
+          .from('payment_history')
+          .select('*')
+          .eq('owner_address', publicKey.toBase58())
+          .eq('status', 'PENDING_APPROVAL');
+
+        if (data && data.length > 0) {
+          setApprovals(
+            data.map((item: any) => ({
+              id: item.id,
+              agentName: 'Agent Wallet',
+              agentAddress: item.agent_address,
+              amountSol: (item.amount || 0) / 1_000_000_000,
+              recipient: item.recipient_address || 'Contract Account',
+              reason: item.reason || 'Escalation threshold reached',
+              timestamp: new Date(item.created_at).toLocaleTimeString(),
+              status: 'PENDING',
+            }))
+          );
+        } else {
+          setApprovals([]);
+        }
+      } catch (err) {
+        console.warn('Error loading approvals:', err);
+        setApprovals([]);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    loadApprovals();
+  }, [publicKey]);
 
   const handleApprove = async (id: string) => {
     setLoadingId(id);
     try {
-      setApprovals(
-        approvals.map((a) => (a.id === id ? { ...a, status: 'APPROVED' } : a))
-      );
-      alert(`Approval ${id} confirmed on-chain! Agent transaction released.`);
+      setApprovals(approvals.map((a) => (a.id === id ? { ...a, status: 'APPROVED' } : a)));
+      alert(`Approval ${id} confirmed on-chain! Transaction released.`);
     } catch (err) {
       console.error('Approve error:', err);
     } finally {
@@ -61,10 +81,8 @@ export default function ApprovalsPage() {
   const handleDeny = async (id: string) => {
     setLoadingId(id);
     try {
-      setApprovals(
-        approvals.map((a) => (a.id === id ? { ...a, status: 'DENIED' } : a))
-      );
-      alert(`Approval ${id} denied on-chain! Agent transaction rejected.`);
+      setApprovals(approvals.map((a) => (a.id === id ? { ...a, status: 'DENIED' } : a)));
+      alert(`Approval ${id} denied! Transaction rejected.`);
     } catch (err) {
       console.error('Deny error:', err);
     } finally {
@@ -87,8 +105,6 @@ export default function ApprovalsPage() {
       </div>
     );
   }
-
-  const pendingList = approvals.filter((a) => a.status === 'PENDING');
 
   return (
     <div className="min-h-screen bg-slate-950 p-6 sm:p-8">
@@ -113,10 +129,15 @@ export default function ApprovalsPage() {
             <h2 className="text-sm font-mono font-bold text-amber-400 uppercase tracking-wider">
               &gt; Escalated Agent Transactions
             </h2>
-            <span className="text-xs font-mono text-slate-400 font-semibold">{pendingList.length} pending review</span>
+            <span className="text-xs font-mono text-slate-400 font-semibold">{approvals.length} pending review</span>
           </div>
 
-          {approvals.length > 0 ? (
+          {loading ? (
+            <div className="text-center py-12">
+              <div className="w-10 h-10 border-4 border-amber-500/20 border-t-amber-400 rounded-full animate-spin mx-auto mb-3"></div>
+              <p className="text-xs font-mono text-slate-400">Querying escalation queue...</p>
+            </div>
+          ) : approvals.length > 0 ? (
             <div className="space-y-4 pt-2">
               {approvals.map((item) => (
                 <div
@@ -143,7 +164,7 @@ export default function ApprovalsPage() {
                       <span className="text-slate-500">Reason:</span> {item.reason}
                     </p>
                     <p className="text-[11px] font-mono text-slate-500">
-                      Recipient: <span className="text-slate-300">{item.recipient}</span> • Agent: <span className="text-cyan-400">{item.agentAddress.slice(0, 6)}...{item.agentAddress.slice(-4)}</span>
+                      Recipient: <span className="text-slate-300">{item.recipient}</span> • Agent: <span className="text-cyan-400">{item.agentAddress}</span>
                     </p>
                   </div>
 
@@ -176,8 +197,8 @@ export default function ApprovalsPage() {
               ))}
             </div>
           ) : (
-            <p className="text-xs font-mono text-slate-500 italic text-center py-8">
-              No transactions currently awaiting human escalation approval.
+            <p className="text-xs font-mono text-slate-500 italic text-center py-12">
+              No pending approval escalations found for this wallet.
             </p>
           )}
         </div>
