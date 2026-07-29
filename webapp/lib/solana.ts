@@ -4,7 +4,11 @@ import { AnchorProvider, Program, BN } from "@coral-xyz/anchor";
 export const POLICY_MANAGER_PROGRAM_ID = new PublicKey("H23GKLcVrnYoEC7s7Ju4nxk2LXLbuGn441YNQsFC2WdG");
 export const SESSION_TRACKER_PROGRAM_ID = new PublicKey("DiaiUEypUnGti22wFmKLC9V4NDHmdQgHvpzsXw9e5r14");
 
-export const SOLANA_RPC_ENDPOINT = process.env.NEXT_PUBLIC_SOLANA_RPC_URL || "http://127.0.0.1:8899";
+export const SOLANA_RPC_ENDPOINT =
+  process.env.NEXT_PUBLIC_SOLANA_RPC_URL ||
+  (typeof window !== "undefined" && window.location.hostname !== "localhost"
+    ? "https://api.devnet.solana.com"
+    : "http://127.0.0.1:8899");
 
 export function getSolanaConnection(): Connection {
   return new Connection(SOLANA_RPC_ENDPOINT, "confirmed");
