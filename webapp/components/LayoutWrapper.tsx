@@ -5,190 +5,231 @@ import WalletConnect from './WalletConnect';
 import SolanaProvider from './SolanaProvider';
 import Link from 'next/link';
 import { useState } from 'react';
-import { HiChevronDown, HiServer, HiShieldCheck, HiClock, HiDocumentText, HiOfficeBuilding } from 'react-icons/hi';
+import { HiChevronDown, HiMenu, HiX } from 'react-icons/hi';
 
 export default function LayoutWrapper({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const isLandingPage = pathname === '/';
-  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [openCategory, setOpenCategory] = useState<string | null>(null);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  const toggleCategory = (cat: string) => {
+    setOpenCategory(openCategory === cat ? null : cat);
+  };
+
+  const navCategories = [
+    {
+      title: 'POLICY & AGENTS',
+      items: [
+        { label: 'AGENTS FLEET', href: '/agents' },
+        { label: 'SPENDING POLICIES', href: '/policies' },
+        { label: 'SESSION BUDGETS', href: '/sessions' },
+      ],
+    },
+    {
+      title: 'ORGANIZATION',
+      items: [
+        { label: 'ORG SETTINGS', href: '/org' },
+        { label: 'ROLES & RBAC', href: '/roles' },
+        { label: 'DELEGATION TREE', href: '/delegation' },
+        { label: 'APPROVALS QUEUE', href: '/approvals' },
+      ],
+    },
+    {
+      title: 'FINANCE & AUDIT',
+      items: [
+        { label: 'TREASURY VAULT', href: '/treasury' },
+        { label: 'FLEET MONITOR', href: '/company' },
+        { label: 'AUDIT LOGS', href: '/audit' },
+      ],
+    },
+  ];
 
   return (
     <SolanaProvider>
-      {isLandingPage ? (
-        <>{children}</>
-      ) : (
-        <>
-          {/* Header */}
-          <header className="sticky top-0 z-50 bg-slate-950/90 backdrop-blur-xl border-b border-cyan-500/30 shadow-lg shadow-cyan-950/30">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-              <div className="flex items-center justify-between h-16">
-                
-                {/* Logo */}
-                <Link href="/" className="flex items-center gap-3 group">
-                  <div className="w-10 h-10 bg-gradient-to-br from-cyan-400 to-blue-600 rounded-lg flex items-center justify-center shadow-lg shadow-cyan-500/20 group-hover:scale-105 transition-all">
-                    <span className="text-slate-950 font-black text-xl font-mono">A</span>
-                  </div>
-                  <div className="hidden sm:block">
-                    <div className="text-lg font-bold font-mono text-cyan-400 uppercase tracking-wider">APERTURE</div>
-                    <div className="text-[10px] font-mono text-slate-400 uppercase tracking-widest">Solana Token-2022</div>
-                  </div>
-                </Link>
-
-                {/* Navigation */}
-                <nav className="hidden md:flex items-center gap-2">
-                  <Link
-                    href="/"
-                    className="px-4 py-2 text-xs font-mono font-bold text-slate-300 hover:text-cyan-400 hover:bg-slate-900/60 rounded-lg transition-all uppercase tracking-wider"
-                  >
-                    HOME
-                  </Link>
+      <div className="kinetic-noise min-h-screen bg-background text-foreground flex flex-col font-sans selection:bg-accent selection:text-accentForeground">
+        {isLandingPage ? (
+          <>{children}</>
+        ) : (
+          <>
+            {/* Kinetic Header */}
+            <header className="sticky top-0 z-50 bg-background/95 backdrop-blur-md border-b-2 border-border">
+              <div className="max-w-[95vw] mx-auto px-4 sm:px-6">
+                <div className="flex items-center justify-between h-16">
                   
-                  <Link
-                    href="/dashboard"
-                    className="px-4 py-2 text-xs font-mono font-bold text-slate-300 hover:text-cyan-400 hover:bg-slate-900/60 rounded-lg transition-all uppercase tracking-wider"
-                  >
-                    DASHBOARD
-                  </Link>
-                  
-                  {/* Operations Dropdown */}
-                  <div className="relative">
-                    <button
-                      onClick={() => setDropdownOpen(!dropdownOpen)}
-                      onBlur={() => setTimeout(() => setDropdownOpen(false), 200)}
-                      className="px-4 py-2 text-xs font-mono font-bold text-slate-300 hover:text-cyan-400 hover:bg-slate-900/60 rounded-lg transition-all uppercase tracking-wider flex items-center gap-2"
-                    >
-                      OPERATIONS
-                      <HiChevronDown className={`transition-transform ${dropdownOpen ? 'rotate-180' : ''}`} />
-                    </button>
-                    
-                    {dropdownOpen && (
-                      <div className="absolute top-full left-0 mt-2 w-52 bg-slate-900/95 border border-cyan-500/30 rounded-xl shadow-2xl backdrop-blur-xl py-2 z-50">
-                        <Link
-                          href="/approvals"
-                          className="flex items-center gap-3 px-4 py-2.5 text-xs font-mono font-semibold text-slate-300 hover:text-cyan-400 hover:bg-slate-800/60 transition-all uppercase tracking-wider"
-                        >
-                          <HiShieldCheck className="w-4 h-4 text-amber-400" />
-                          APPROVALS QUEUE
-                        </Link>
-                        <Link
-                          href="/delegation"
-                          className="flex items-center gap-3 px-4 py-2.5 text-xs font-mono font-semibold text-slate-300 hover:text-cyan-400 hover:bg-slate-800/60 transition-all uppercase tracking-wider"
-                        >
-                          <HiShieldCheck className="w-4 h-4 text-purple-400" />
-                          DELEGATION TREE
-                        </Link>
-                        <Link
-                          href="/treasury"
-                          className="flex items-center gap-3 px-4 py-2.5 text-xs font-mono font-semibold text-slate-300 hover:text-cyan-400 hover:bg-slate-800/60 transition-all uppercase tracking-wider"
-                        >
-                          <HiOfficeBuilding className="w-4 h-4 text-cyan-400" />
-                          TREASURY
-                        </Link>
-                        <Link
-                          href="/org"
-                          className="flex items-center gap-3 px-4 py-2.5 text-xs font-mono font-semibold text-slate-300 hover:text-cyan-400 hover:bg-slate-800/60 transition-all uppercase tracking-wider"
-                        >
-                          <HiOfficeBuilding className="w-4 h-4 text-purple-400" />
-                          ORG SETTINGS
-                        </Link>
-                        <Link
-                          href="/roles"
-                          className="flex items-center gap-3 px-4 py-2.5 text-xs font-mono font-semibold text-slate-300 hover:text-cyan-400 hover:bg-slate-800/60 transition-all uppercase tracking-wider"
-                        >
-                          <HiShieldCheck className="w-4 h-4 text-emerald-400" />
-                          ROLES & RBAC
-                        </Link>
-                        <Link
-                          href="/company"
-                          className="flex items-center gap-3 px-4 py-2.5 text-xs font-mono font-semibold text-slate-300 hover:text-cyan-400 hover:bg-slate-800/60 transition-all uppercase tracking-wider"
-                        >
-                          <HiOfficeBuilding className="w-4 h-4 text-cyan-400" />
-                          FLEET MONITOR
-                        </Link>
-                        <Link
-                          href="/agents"
-                          className="flex items-center gap-3 px-4 py-2.5 text-xs font-mono font-semibold text-slate-300 hover:text-cyan-400 hover:bg-slate-800/60 transition-all uppercase tracking-wider"
-                        >
-                          <HiServer className="w-4 h-4 text-cyan-400" />
-                          AGENTS
-                        </Link>
-                        <Link
-                          href="/policies"
-                          className="flex items-center gap-3 px-4 py-2.5 text-xs font-mono font-semibold text-slate-300 hover:text-cyan-400 hover:bg-slate-800/60 transition-all uppercase tracking-wider"
-                        >
-                          <HiShieldCheck className="w-4 h-4 text-cyan-400" />
-                          POLICIES
-                        </Link>
-                        <Link
-                          href="/sessions"
-                          className="flex items-center gap-3 px-4 py-2.5 text-xs font-mono font-semibold text-slate-300 hover:text-cyan-400 hover:bg-slate-800/60 transition-all uppercase tracking-wider"
-                        >
-                          <HiClock className="w-4 h-4 text-cyan-400" />
-                          SESSIONS
-                        </Link>
-                        <Link
-                          href="/audit"
-                          className="flex items-center gap-3 px-4 py-2.5 text-xs font-mono font-semibold text-slate-300 hover:text-cyan-400 hover:bg-slate-800/60 transition-all uppercase tracking-wider"
-                        >
-                          <HiDocumentText className="w-4 h-4 text-cyan-400" />
-                          AUDIT LOG
-                        </Link>
+                  {/* Brand Logo */}
+                  <Link href="/" className="flex items-center gap-3 group">
+                    <div className="w-9 h-9 bg-accent text-accentForeground font-bold font-mono text-xl flex items-center justify-center border-2 border-accent transition-transform group-hover:scale-105">
+                      A
+                    </div>
+                    <div>
+                      <div className="text-base font-bold font-mono text-foreground uppercase tracking-tighter leading-none group-hover:text-accent transition-colors">
+                        APERTURE
                       </div>
-                    )}
+                      <div className="text-[9px] font-mono text-mutedForeground uppercase tracking-widest leading-none mt-1">
+                        SOLANA TREASURY v3
+                      </div>
+                    </div>
+                  </Link>
+
+                  {/* Desktop Categorized Navigation (De-cluttered) */}
+                  <nav className="hidden lg:flex items-center gap-1">
+                    <Link
+                      href="/"
+                      className={`px-3 py-2 text-xs font-mono font-bold tracking-tighter transition-all uppercase ${
+                        pathname === '/' ? 'text-accent bg-muted border-b-2 border-accent' : 'text-mutedForeground hover:text-foreground hover:bg-muted'
+                      }`}
+                    >
+                      HOME
+                    </Link>
+                    
+                    <Link
+                      href="/dashboard"
+                      className={`px-3 py-2 text-xs font-mono font-bold tracking-tighter transition-all uppercase ${
+                        pathname === '/dashboard' ? 'text-accent bg-muted border-b-2 border-accent' : 'text-mutedForeground hover:text-foreground hover:bg-muted'
+                      }`}
+                    >
+                      DASHBOARD
+                    </Link>
+
+                    {/* De-cluttered Categorized Dropdowns */}
+                    {navCategories.map((cat) => (
+                      <div key={cat.title} className="relative">
+                        <button
+                          onClick={() => toggleCategory(cat.title)}
+                          onBlur={() => setTimeout(() => setOpenCategory(null), 200)}
+                          className={`px-3 py-2 text-xs font-mono font-bold tracking-tighter transition-all uppercase flex items-center gap-1.5 ${
+                            openCategory === cat.title || cat.items.some((i) => i.href === pathname)
+                              ? 'text-accent bg-muted border-b-2 border-accent'
+                              : 'text-mutedForeground hover:text-foreground hover:bg-muted'
+                          }`}
+                        >
+                          {cat.title}
+                          <HiChevronDown className={`w-3.5 h-3.5 transition-transform ${openCategory === cat.title ? 'rotate-180 text-accent' : ''}`} />
+                        </button>
+
+                        {openCategory === cat.title && (
+                          <div className="absolute top-full left-0 mt-1 w-56 bg-background border-2 border-border p-1 shadow-2xl z-50">
+                            {cat.items.map((item) => (
+                              <Link
+                                key={item.href}
+                                href={item.href}
+                                className={`block px-3 py-2 text-xs font-mono font-bold tracking-tight uppercase transition-all ${
+                                  pathname === item.href
+                                    ? 'bg-accent text-accentForeground'
+                                    : 'text-mutedForeground hover:text-foreground hover:bg-muted'
+                                }`}
+                              >
+                                &gt; {item.label}
+                              </Link>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </nav>
+
+                  {/* Wallet & Mobile Toggle */}
+                  <div className="flex items-center gap-3">
+                    <WalletConnect />
+
+                    <button
+                      onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                      className="lg:hidden p-2 text-foreground border-2 border-border hover:bg-muted"
+                    >
+                      {mobileMenuOpen ? <HiX className="w-6 h-6" /> : <HiMenu className="w-6 h-6" />}
+                    </button>
                   </div>
-                </nav>
 
-                {/* Wallet Connect */}
-                <WalletConnect />
-              </div>
-            </div>
-          </header>
-
-          {/* Main Content */}
-          <main className="min-h-[calc(100vh-4rem)]">
-            {children}
-          </main>
-
-          {/* Footer */}
-          <footer className="bg-slate-950 border-t border-cyan-500/20">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-              <div className="flex flex-col md:flex-row items-center justify-between gap-4">
-                <div className="text-xs font-mono text-slate-400 uppercase tracking-wider">
-                  BUILT ON SOLANA ANCHOR • POWERED BY SPL TOKEN-2022 TRANSFER HOOKS
-                </div>
-                <div className="flex items-center gap-4">
-                  <a
-                    href="https://github.com/manav2701/Aperture"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-xs font-mono text-slate-300 hover:text-cyan-400 transition-colors uppercase tracking-wider"
-                  >
-                    GITHUB
-                  </a>
-                  <span className="text-slate-800">|</span>
-                  <a
-                    href="https://solana.com/docs"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-xs font-mono text-slate-300 hover:text-cyan-400 transition-colors uppercase tracking-wider"
-                  >
-                    SOLANA DOCS
-                  </a>
-                  <span className="text-slate-800">|</span>
-                  <a
-                    href="https://explorer.solana.com/?cluster=custom"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-xs font-mono text-slate-300 hover:text-cyan-400 transition-colors uppercase tracking-wider"
-                  >
-                    EXPLORER
-                  </a>
                 </div>
               </div>
-            </div>
-          </footer>
-        </>
-      )}
+
+              {/* Mobile Drawer Navigation */}
+              {mobileMenuOpen && (
+                <div className="lg:hidden bg-background border-b-2 border-border p-4 space-y-4">
+                  <div className="flex flex-col gap-2">
+                    <Link
+                      href="/"
+                      onClick={() => setMobileMenuOpen(false)}
+                      className="px-3 py-2 text-sm font-mono font-bold tracking-tighter text-foreground hover:bg-accent hover:text-black uppercase"
+                    >
+                      HOME
+                    </Link>
+                    <Link
+                      href="/dashboard"
+                      onClick={() => setMobileMenuOpen(false)}
+                      className="px-3 py-2 text-sm font-mono font-bold tracking-tighter text-foreground hover:bg-accent hover:text-black uppercase"
+                    >
+                      DASHBOARD
+                    </Link>
+                    {navCategories.map((cat) => (
+                      <div key={cat.title} className="space-y-1 pt-2 border-t border-border">
+                        <div className="text-[10px] font-mono text-accent font-bold uppercase tracking-widest px-3">
+                          {cat.title}
+                        </div>
+                        {cat.items.map((item) => (
+                          <Link
+                            key={item.href}
+                            href={item.href}
+                            onClick={() => setMobileMenuOpen(false)}
+                            className="block px-3 py-1.5 text-xs font-mono text-mutedForeground hover:text-foreground uppercase"
+                          >
+                            &gt; {item.label}
+                          </Link>
+                        ))}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </header>
+
+            {/* Main Content View */}
+            <main className="flex-1">
+              {children}
+            </main>
+
+            {/* Kinetic Footer */}
+            <footer className="bg-background border-t-2 border-border py-8">
+              <div className="max-w-[95vw] mx-auto px-4 sm:px-6">
+                <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+                  <div className="text-xs font-mono text-mutedForeground uppercase tracking-widest">
+                    APERTURE v3 • SOLANA ANCHOR SPENDING POLICIES & TREASURY
+                  </div>
+                  <div className="flex items-center gap-6 text-xs font-mono font-bold tracking-tight">
+                    <a
+                      href="https://github.com/manav2701/Aperture"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-mutedForeground hover:text-accent transition-colors uppercase"
+                    >
+                      GITHUB
+                    </a>
+                    <span className="text-border">|</span>
+                    <a
+                      href="https://solana.com/docs"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-mutedForeground hover:text-accent transition-colors uppercase"
+                    >
+                      SOLANA DOCS
+                    </a>
+                    <span className="text-border">|</span>
+                    <a
+                      href="https://explorer.solana.com/?cluster=devnet"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-mutedForeground hover:text-accent transition-colors uppercase"
+                    >
+                      EXPLORER
+                    </a>
+                  </div>
+                </div>
+              </div>
+            </footer>
+          </>
+        )}
+      </div>
     </SolanaProvider>
   );
 }

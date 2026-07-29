@@ -1,139 +1,140 @@
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap');
 @import "tailwindcss";
 
 :root {
-  --background: #0a0a0f;
-  --foreground: #e0e0e0;
+  --background: #09090B;
+  --foreground: #FAFAFA;
+  --accent: #DFE104;
+  --accent-foreground: #000000;
+  --muted: #27272A;
+  --muted-foreground: #A1A1AA;
+  --border: #3F3F46;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-border: var(--border);
+  --font-sans: 'Space Grotesk', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
 }
 
 body {
-  background: var(--background);
+  background-color: var(--background);
   color: var(--foreground);
-  font-family: 'JetBrains Mono', 'Consolas', monospace;
+  font-family: 'Space Grotesk', 'JetBrains Mono', sans-serif;
+  overflow-x: hidden;
+  border-radius: 0px !important;
 }
 
-/* Cyberpunk scanline overlay - only on landing page */
-.landing-page::after {
-  content: '';
+/* Force brutalist 0px border radius across all elements */
+*, *::before, *::after {
+  border-radius: 0px !important;
+}
+
+/* High contrast selection highlight */
+::selection {
+  background-color: #DFE104;
+  color: #000000;
+}
+
+/* Kinetic noise texture overlay */
+.kinetic-noise::before {
+  content: "";
   position: fixed;
   top: 0;
   left: 0;
-  width: 100%;
-  height: 100%;
-  background: repeating-linear-gradient(
-    0deg,
-    transparent,
-    transparent 2px,
-    rgba(0, 0, 0, 0.15) 2px,
-    rgba(0, 0, 0, 0.15) 4px
-  );
+  width: 100vw;
+  height: 100vh;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.03'/%3E%3C/svg%3E");
   pointer-events: none;
   z-index: 9999;
-  opacity: 0.15;
-}
-
-/* Selection styling */
-::selection {
-  background: #00ff88;
-  color: #0a0a0f;
+  mix-blend-mode: overlay;
 }
 
 /* Scrollbar styling */
 ::-webkit-scrollbar {
-  width: 10px;
+  width: 8px;
+  height: 8px;
 }
 
 ::-webkit-scrollbar-track {
-  background: #12121a;
+  background: #09090B;
+  border-left: 1px solid #3F3F46;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #00ff88;
-  border-radius: 0;
+  background: #DFE104;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #00d4ff;
-  box-shadow: 0 0 10px #00d4ff;
+  background: #FAFAFA;
 }
 
-/* Chamfered corner utility classes */
-.cyber-chamfer {
-  clip-path: polygon(
-    0 10px, 10px 0,
-    calc(100% - 10px) 0, 100% 10px,
-    100% calc(100% - 10px), calc(100% - 10px) 100%,
-    10px 100%, 0 calc(100% - 10px)
-  );
+/* Kinetic Hard Inversion Hover Card */
+.kinetic-card {
+  background-color: #09090B;
+  border: 2px solid #3F3F46;
+  transition: background-color 250ms ease, border-color 250ms ease, color 250ms ease;
 }
 
-.cyber-chamfer-sm {
-  clip-path: polygon(
-    0 6px, 6px 0,
-    calc(100% - 6px) 0, 100% 6px,
-    100% calc(100% - 6px), calc(100% - 6px) 100%,
-    6px 100%, 0 calc(100% - 6px)
-  );
+.kinetic-card:hover {
+  background-color: #DFE104 !important;
+  border-color: #DFE104 !important;
+  color: #000000 !important;
 }
 
-/* Glitch text effect */
-.cyber-glitch {
-  position: relative;
-  animation: glitch 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94) both infinite;
+.kinetic-card:hover * {
+  color: #000000 !important;
+  border-color: #000000 !important;
 }
 
-.cyber-glitch::before,
-.cyber-glitch::after {
-  content: attr(data-text);
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
+.kinetic-card:hover .kinetic-badge {
+  background-color: #000000 !important;
+  color: #DFE104 !important;
 }
 
-.cyber-glitch::before {
-  left: 2px;
-  text-shadow: -2px 0 #ff00ff;
-  clip: rect(44px, 450px, 56px, 0);
-  animation: glitch-anim 5s infinite linear alternate-reverse;
+/* Brutalist Button Inversion */
+.kinetic-btn-primary {
+  background-color: #DFE104;
+  color: #000000;
+  border: 2px solid #DFE104;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: -0.025em;
+  transition: transform 150ms ease, background-color 150ms ease, color 150ms ease;
 }
 
-.cyber-glitch::after {
-  left: -2px;
-  text-shadow: -2px 0 #00d4ff;
-  clip: rect(44px, 450px, 56px, 0);
-  animation: glitch-anim2 5s infinite linear alternate-reverse;
+.kinetic-btn-primary:hover {
+  transform: scale(1.03);
+  background-color: #FAFAFA;
+  color: #000000;
+  border-color: #FAFAFA;
 }
 
-@keyframes glitch-anim {
-  0% { clip: rect(31px, 9999px, 94px, 0); }
-  20% { clip: rect(60px, 9999px, 38px, 0); }
-  40% { clip: rect(20px, 9999px, 100px, 0); }
-  60% { clip: rect(50px, 9999px, 10px, 0); }
-  80% { clip: rect(70px, 9999px, 85px, 0); }
-  100% { clip: rect(40px, 9999px, 50px, 0); }
+.kinetic-btn-outline {
+  background-color: transparent;
+  color: #FAFAFA;
+  border: 2px solid #3F3F46;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: -0.025em;
+  transition: background-color 200ms ease, color 200ms ease, border-color 200ms ease;
 }
 
-@keyframes glitch-anim2 {
-  0% { clip: rect(65px, 9999px, 119px, 0); }
-  20% { clip: rect(90px, 9999px, 34px, 0); }
-  40% { clip: rect(10px, 9999px, 110px, 0); }
-  60% { clip: rect(45px, 9999px, 15px, 0); }
-  80% { clip: rect(80px, 9999px, 95px, 0); }
-  100% { clip: rect(30px, 9999px, 60px, 0); }
+.kinetic-btn-outline:hover {
+  background-color: #DFE104;
+  color: #000000;
+  border-color: #DFE104;
 }
 
-/* Circuit grid background */
-.circuit-grid {
-  background-image:
-    linear-gradient(rgba(0, 255, 136, 0.03) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(0, 255, 136, 0.03) 1px, transparent 1px);
-  background-size: 50px 50px;
+/* Hairline Grid Dividers */
+.hairline-grid {
+  display: grid;
+  gap: 1px;
+  background-color: #3F3F46;
 }

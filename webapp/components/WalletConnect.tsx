@@ -11,7 +11,7 @@ export function formatAddress(address: string, chars = 4): string {
 
 export default function WalletConnect() {
   const [mounted, setMounted] = useState(false);
-  const { publicKey, connected, disconnect, wallet } = useSolanaWallet();
+  const { publicKey, connected, disconnect } = useSolanaWallet();
   const { setVisible } = useWalletModal();
 
   useEffect(() => {
@@ -20,28 +20,28 @@ export default function WalletConnect() {
 
   if (!mounted) {
     return (
-      <div className="h-10 w-36 animate-pulse bg-muted/40 rounded-lg" />
+      <div className="h-11 w-40 animate-pulse bg-muted border border-border" />
     );
   }
 
   if (connected && publicKey) {
     return (
-      <div className="flex items-center gap-3">
-        <div className="flex items-center gap-2.5 px-4 py-2 bg-slate-900/80 border border-emerald-500/30 rounded-lg backdrop-blur-md shadow-lg shadow-emerald-950/20">
-          <div className="w-2 h-2 bg-emerald-400 rounded-full animate-ping" />
-          <span className="text-xs font-mono font-bold text-emerald-400 tracking-wider">
+      <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 px-3 py-2 bg-muted border-2 border-border">
+          <div className="w-2.5 h-2.5 bg-accent animate-pulse" />
+          <span className="text-xs font-mono font-bold text-accent tracking-tighter uppercase">
             SOL
           </span>
-          <span className="text-sm font-mono font-medium text-slate-200">
+          <span className="text-xs font-mono font-bold text-foreground tracking-tight">
             {formatAddress(publicKey.toBase58(), 4)}
           </span>
         </div>
 
         <button
           onClick={() => disconnect()}
-          className="px-4 py-2 text-xs font-mono font-semibold text-slate-400 hover:text-red-400 hover:bg-slate-800/80 border border-slate-800 hover:border-red-500/30 rounded-lg transition-all uppercase tracking-wider"
+          className="px-3 py-2 text-xs font-mono font-bold text-mutedForeground hover:text-foreground hover:bg-muted border-2 border-border transition-all uppercase tracking-wider"
         >
-          Disconnect
+          DISCONNECT
         </button>
       </div>
     );
@@ -50,9 +50,9 @@ export default function WalletConnect() {
   return (
     <button
       onClick={() => setVisible(true)}
-      className="px-5 py-2.5 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white text-sm font-mono font-bold rounded-lg shadow-lg shadow-cyan-500/20 transition-all uppercase tracking-wider flex items-center gap-2 border border-cyan-400/30"
+      className="kinetic-btn-primary px-5 py-2.5 text-xs font-mono tracking-tighter flex items-center gap-2"
     >
-      <span className="text-cyan-200">&gt;</span> Connect Solana Wallet
+      <span>[+]</span> CONNECT WALLET
     </button>
   );
 }

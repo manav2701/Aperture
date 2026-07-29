@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react';
 import { useWallet } from '@/components/WalletConnect';
 import { supabase } from '@/lib/supabase';
-import { HiOfficeBuilding, HiExclamationCircle, HiShieldCheck } from 'react-icons/hi';
 import Link from 'next/link';
 
 export const dynamic = 'force-dynamic';
@@ -42,7 +41,7 @@ export default function CompanyDashboard() {
               totalSpentSol: (p.spent_today || 0) / 1_000_000_000,
               dailyLimitSol: (p.daily_limit_stx || 100_000_000_000) / 1_000_000_000,
               status: p.is_paused ? 'PAUSED' : 'ACTIVE',
-              lastActivity: 'Active',
+              lastActivity: 'ACTIVE',
             }))
           );
         } else {
@@ -61,13 +60,13 @@ export default function CompanyDashboard() {
 
   if (!isConnected) {
     return (
-      <div className="min-h-screen bg-slate-950 flex items-center justify-center p-4">
-        <div className="max-w-md w-full bg-slate-900/80 backdrop-blur-xl border border-cyan-500/30 rounded-2xl p-10 text-center shadow-2xl shadow-cyan-950/30">
-          <div className="w-16 h-16 border-4 border-cyan-500/20 border-t-cyan-400 rounded-full animate-spin mx-auto mb-6"></div>
-          <h2 className="text-xl font-bold font-mono text-cyan-400 mb-3 uppercase tracking-wider">
+      <div className="min-h-[80vh] flex items-center justify-center p-6">
+        <div className="max-w-md w-full border-2 border-border p-10 text-center space-y-6 bg-background">
+          <div className="w-12 h-12 border-4 border-border border-t-accent animate-spin mx-auto" />
+          <h2 className="text-xl font-bold font-mono text-foreground uppercase tracking-tighter">
             SOLANA WALLET REQUIRED
           </h2>
-          <p className="text-slate-400 text-xs font-mono mb-6 leading-relaxed">
+          <p className="text-xs font-mono text-mutedForeground uppercase tracking-tight">
             Connect your wallet to monitor enterprise AI agent fleet metrics
           </p>
         </div>
@@ -76,97 +75,93 @@ export default function CompanyDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-950 p-6 sm:p-8">
-      <div className="max-w-6xl mx-auto space-y-8">
-        
-        {/* Header */}
-        <div className="bg-slate-900/90 border border-cyan-500/30 rounded-2xl p-8 backdrop-blur-xl shadow-2xl shadow-cyan-950/30">
-          <div className="flex items-center gap-3 mb-2">
-            <HiOfficeBuilding className="w-8 h-8 text-cyan-400" />
-            <h1 className="text-2xl font-black font-mono text-cyan-400 uppercase tracking-wider">
-              ENTERPRISE AGENT FLEET MONITOR
-            </h1>
-          </div>
-          <p className="text-slate-400 font-mono text-xs">
-            Organization-wide spending analytics, policy utilization, and transfer hook compliance across all agent wallets
-          </p>
+    <div className="py-10 px-4 sm:px-6 max-w-[95vw] mx-auto space-y-8">
+      
+      {/* Header */}
+      <div className="border-2 border-border p-6 sm:p-8 bg-background">
+        <span className="text-xs font-mono text-accent font-bold uppercase tracking-widest">[FLEET MONITOR]</span>
+        <h1 className="text-3xl sm:text-4xl font-black font-mono text-foreground uppercase tracking-tighter mt-1">
+          ENTERPRISE AGENT FLEET MONITOR
+        </h1>
+        <p className="text-mutedForeground font-mono text-xs uppercase tracking-widest mt-1">
+          ORGANIZATION-WIDE SPENDING ANALYTICS, UTILIZATION, AND COMPLIANCE ACROSS FLEET WALLETS
+        </p>
+      </div>
+
+      {/* Fleet Overview */}
+      <div className="border-2 border-border p-6 sm:p-8 bg-background space-y-6">
+        <div className="flex items-center justify-between border-b-2 border-border pb-4">
+          <h2 className="text-xl font-mono font-bold text-foreground uppercase tracking-tighter">
+            &gt; AGENT FLEET OVERVIEW
+          </h2>
+          <span className="text-xs font-mono text-accent font-bold uppercase">{agents.length} ACTIVE WALLETS</span>
         </div>
 
-        {/* Fleet Table */}
-        <div className="bg-slate-900/80 border border-cyan-500/20 rounded-2xl overflow-hidden backdrop-blur-xl">
-          <div className="p-6 border-b border-slate-800 flex items-center justify-between">
-            <h2 className="text-sm font-mono font-bold text-cyan-400 uppercase tracking-wider">
-              &gt; Agent Fleet Overview
-            </h2>
-            <span className="text-xs font-mono text-slate-500">{agents.length} active wallets</span>
+        {loading ? (
+          <div className="text-center py-16">
+            <div className="w-12 h-12 border-4 border-border border-t-accent animate-spin mx-auto mb-4" />
+            <p className="text-xs font-mono text-accent uppercase tracking-widest animate-pulse">
+              LOADING FLEET ANALYTICS...
+            </p>
           </div>
-
-          {loading ? (
-            <div className="text-center py-16">
-              <div className="w-12 h-12 border-4 border-cyan-500/20 border-t-cyan-400 rounded-full animate-spin mx-auto mb-4"></div>
-              <p className="text-xs font-mono text-slate-400">Loading enterprise fleet analytics...</p>
-            </div>
-          ) : agents.length > 0 ? (
-            <div className="divide-y divide-slate-800">
-              {agents.map((agent, i) => {
-                const util = Math.min((agent.totalSpentSol / (agent.dailyLimitSol || 1)) * 100, 100);
-                return (
-                  <div key={i} className="p-6 flex flex-col md:flex-row md:items-center justify-between gap-6">
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-3">
-                        <span className="font-mono text-sm font-bold text-slate-200">{agent.agent_address}</span>
-                        <span
-                          className={`text-[10px] font-mono px-2.5 py-0.5 rounded-full font-bold uppercase ${
-                            agent.status === 'ACTIVE'
-                              ? 'bg-emerald-500/10 border border-emerald-500/30 text-emerald-400'
-                              : 'bg-amber-500/10 border border-amber-500/30 text-amber-400'
-                          }`}
-                        >
-                          {agent.status}
-                        </span>
-                      </div>
-                      <span className="text-[10px] font-mono text-slate-500 block">Status: {agent.lastActivity}</span>
-                    </div>
-
-                    <div className="w-full md:w-64 space-y-2">
-                      <div className="flex justify-between text-xs font-mono">
-                        <span className="text-slate-400">Daily Utilization</span>
-                        <span className="text-cyan-400 font-bold">{util.toFixed(0)}%</span>
-                      </div>
-                      <div className="w-full bg-slate-950 h-2 rounded-full overflow-hidden border border-slate-800">
-                        <div
-                          className="bg-gradient-to-r from-cyan-400 to-purple-500 h-full"
-                          style={{ width: `${util}%` }}
-                        />
-                      </div>
-                      <div className="text-[10px] font-mono text-slate-500 text-right">
-                        {agent.totalSpentSol.toFixed(2)} / {agent.dailyLimitSol.toFixed(2)} SOL
-                      </div>
+        ) : agents.length > 0 ? (
+          <div className="divide-y-2 divide-border">
+            {agents.map((agent, i) => {
+              const util = Math.min((agent.totalSpentSol / (agent.dailyLimitSol || 1)) * 100, 100);
+              return (
+                <div key={i} className="p-6 flex flex-col md:flex-row md:items-center justify-between gap-6 hover:bg-muted transition-colors">
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-3">
+                      <span className="font-mono text-base font-bold text-foreground uppercase tracking-tight">{agent.agent_address}</span>
+                      <span
+                        className={`text-[10px] font-mono px-3 py-1 font-bold uppercase tracking-widest border-2 ${
+                          agent.status === 'ACTIVE'
+                            ? 'bg-accent text-accentForeground border-accent'
+                            : 'bg-destructive text-foreground border-destructive'
+                        }`}
+                      >
+                        {agent.status}
+                      </span>
                     </div>
                   </div>
-                );
-              })}
-            </div>
-          ) : (
-            <div className="p-12 text-center space-y-4">
-              <HiExclamationCircle className="w-12 h-12 text-cyan-400 mx-auto" />
-              <h3 className="font-mono text-lg font-bold text-cyan-400 uppercase tracking-wider">
-                No Enterprise Agent Fleet Configured
-              </h3>
-              <p className="text-xs font-mono text-slate-400 max-w-md mx-auto">
-                Configure your organization's AI agent wallet policies to monitor fleet spending and compliance metrics here.
-              </p>
+
+                  <div className="w-full md:w-64 space-y-2">
+                    <div className="flex justify-between text-xs font-mono uppercase">
+                      <span className="text-mutedForeground">DAILY UTILIZATION</span>
+                      <span className="text-accent font-bold">{util.toFixed(0)}%</span>
+                    </div>
+                    <div className="w-full bg-muted h-2 border border-border overflow-hidden">
+                      <div className="bg-accent h-full" style={{ width: `${util}%` }} />
+                    </div>
+                    <div className="text-[10px] font-mono text-mutedForeground text-right uppercase">
+                      {agent.totalSpentSol.toFixed(2)} / {agent.dailyLimitSol.toFixed(2)} SOL
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="p-12 text-center space-y-4">
+            <div className="text-3xl font-mono text-accent font-bold">[!]</div>
+            <h3 className="font-mono text-lg font-bold text-foreground uppercase tracking-tighter">
+              NO ENTERPRISE AGENT FLEET CONFIGURED
+            </h3>
+            <p className="text-xs font-mono text-mutedForeground max-w-md mx-auto uppercase">
+              Configure your organization's AI agent wallet policies to monitor fleet spending and compliance metrics here.
+            </p>
+            <div className="pt-2">
               <Link
                 href="/policies"
-                className="inline-block px-6 py-3 bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-mono font-bold text-xs rounded-xl transition-all uppercase tracking-wider shadow-lg shadow-cyan-500/20"
+                className="kinetic-btn-primary px-8 py-4 text-xs tracking-tighter"
               >
                 INITIALIZE AGENT FLEET
               </Link>
             </div>
-          )}
-        </div>
-
+          </div>
+        )}
       </div>
+
     </div>
   );
 }

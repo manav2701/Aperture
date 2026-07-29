@@ -2,10 +2,9 @@
 
 import { useState } from 'react';
 import { useWallet } from './WalletConnect';
-import { PublicKey } from '@solana/web3.js';
 
 export default function EmergencyControls() {
-  const { address, isConnected } = useWallet();
+  const { isConnected } = useWallet();
   const [loading, setLoading] = useState(false);
   const [agentAddress, setAgentAddress] = useState('');
   const [clawbackAmount, setClawbackAmount] = useState('');
@@ -65,35 +64,35 @@ export default function EmergencyControls() {
   };
 
   return (
-    <div className="bg-slate-900/90 border border-red-500/40 rounded-2xl p-8 backdrop-blur-xl shadow-2xl shadow-red-950/20">
-      <div className="flex items-center gap-3 mb-6">
-        <div className="w-3 h-3 bg-red-500 rounded-full animate-ping" />
-        <h2 className="font-mono text-xl font-bold text-red-400 uppercase tracking-wider">
-          &gt; Token-2022 Emergency Controls
+    <div className="bg-background border-2 border-destructive p-6 sm:p-8 space-y-6">
+      <div className="flex items-center gap-3 border-b-2 border-border pb-4">
+        <div className="w-3 h-3 bg-destructive animate-pulse" />
+        <h2 className="font-mono text-lg font-bold text-destructive uppercase tracking-tighter">
+          [!] TOKEN-2022 EMERGENCY CONTROLS
         </h2>
       </div>
 
       <div className="space-y-6">
-        {/* Pause Agent */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 bg-slate-950/60 border border-amber-500/30 rounded-xl">
+        {/* Pause / Resume Agent */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 bg-muted border-2 border-border">
           <div>
-            <h3 className="font-mono font-bold text-amber-400 uppercase tracking-wider text-sm">PAUSE AGENT POLICY</h3>
-            <p className="text-xs font-mono text-slate-400 uppercase tracking-wide mt-1">
-              Temporarily blocks transfer hook authorization
+            <h3 className="font-mono font-bold text-accent uppercase tracking-tighter text-sm">PAUSE AGENT POLICY</h3>
+            <p className="text-xs font-mono text-mutedForeground uppercase tracking-wide mt-1">
+              Temporarily block transfer hook authorization on-chain
             </p>
           </div>
           <div className="flex gap-2">
             <button
               onClick={handlePause}
               disabled={loading}
-              className="px-5 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 font-mono font-bold text-xs rounded-lg transition-all uppercase tracking-wider shadow-lg shadow-amber-500/20"
+              className="px-5 py-2.5 bg-accent text-accentForeground font-mono font-bold text-xs hover:bg-foreground hover:text-background transition-all uppercase tracking-tighter border-2 border-accent"
             >
               PAUSE
             </button>
             <button
               onClick={handleResume}
               disabled={loading}
-              className="px-5 py-2 bg-slate-800 hover:bg-slate-700 text-emerald-400 border border-emerald-500/30 font-mono font-bold text-xs rounded-lg transition-all uppercase tracking-wider"
+              className="px-5 py-2.5 bg-background text-foreground hover:bg-muted font-mono font-bold text-xs transition-all uppercase tracking-tighter border-2 border-border"
             >
               RESUME
             </button>
@@ -101,37 +100,37 @@ export default function EmergencyControls() {
         </div>
 
         {/* Permanent Delegate Clawback */}
-        <div className="p-5 bg-slate-950/80 border border-red-500/40 rounded-xl space-y-4">
+        <div className="p-5 bg-muted border-2 border-destructive space-y-4">
           <div>
-            <h3 className="font-mono font-bold text-red-400 uppercase tracking-wider text-sm flex items-center gap-2">
-              <span>⚡ PERMANENT DELEGATE CLAWBACK</span>
+            <h3 className="font-mono font-bold text-destructive uppercase tracking-tighter text-sm">
+              ⚡ PERMANENT DELEGATE CLAWBACK
             </h3>
-            <p className="text-xs font-mono text-slate-400 uppercase tracking-wide mt-1">
-              Bypasses transfer hook policy checks to reclaim agent tokens immediately
+            <p className="text-xs font-mono text-mutedForeground uppercase tracking-wide mt-1">
+              Bypasses policy limits to instantly reclaim agent tokens to treasury
             </p>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <input
               type="text"
-              placeholder="Agent Wallet Address (Pubkey)"
+              placeholder="AGENT WALLET PUBKEY"
               value={agentAddress}
               onChange={(e) => setAgentAddress(e.target.value)}
-              className="px-4 py-2.5 bg-slate-900 border border-slate-700 rounded-lg text-xs font-mono text-slate-200 placeholder-slate-500 focus:outline-none focus:border-red-500"
+              className="px-4 py-3 bg-background border-2 border-border text-xs font-mono text-foreground placeholder:text-mutedForeground focus:outline-none focus:border-accent uppercase"
             />
             <input
               type="number"
-              placeholder="Clawback Amount"
+              placeholder="CLAWBACK AMOUNT"
               value={clawbackAmount}
               onChange={(e) => setClawbackAmount(e.target.value)}
-              className="px-4 py-2.5 bg-slate-900 border border-slate-700 rounded-lg text-xs font-mono text-slate-200 placeholder-slate-500 focus:outline-none focus:border-red-500"
+              className="px-4 py-3 bg-background border-2 border-border text-xs font-mono text-foreground placeholder:text-mutedForeground focus:outline-none focus:border-accent uppercase"
             />
           </div>
 
           <button
             onClick={handleClawback}
             disabled={loading}
-            className="w-full py-3 bg-gradient-to-r from-red-600 to-rose-700 hover:from-red-500 hover:to-rose-600 text-white font-mono font-bold text-xs rounded-lg transition-all uppercase tracking-widest shadow-lg shadow-red-600/30"
+            className="w-full py-3.5 bg-destructive text-foreground hover:bg-foreground hover:text-background font-mono font-bold text-xs transition-all uppercase tracking-widest border-2 border-destructive"
           >
             EXECUTE EMERGENCY CLAWBACK
           </button>
