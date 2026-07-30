@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useWallet } from '@/components/WalletConnect';
-import { getSolanaConnection, getPolicyPDA, fetchPolicyAccountOnChain } from '@/lib/solana';
+import { supabase } from '@/lib/supabase';
 import Link from 'next/link';
 
 export const dynamic = 'force-dynamic';
@@ -31,22 +31,24 @@ export default function DelegationPage() {
     async function loadDelegationTree() {
       if (!publicKey) return;
       try {
-        const connection = getSolanaConnection();
-        const [pda] = getPolicyPDA(publicKey);
-        const policyOnChain = await fetchPolicyAccountOnChain(connection, pda);
+        const { data: dbPolicies, error } = await supabase
+          .from('policies')
+          .select('*')
+          .eq('owner_address', publicKey.toBase58());
 
-        if (policyOnChain && policyOnChain.delegatedBudget && policyOnChain.delegatedBudget.toNumber() > 0) {
-          setNodes([
-            {
-              id: pda.toBase58(),
-              name: 'Connected Orchestrator Agent',
-              pubkey: policyOnChain.agent.toBase58(),
-              depth: policyOnChain.delegationDepth || 0,
-              delegatedBudgetSol: (policyOnChain.delegatedBudget?.toNumber() || 0) / 1_000_000_000,
-              spentSol: policyOnChain.spentToday.toNumber() / 1_000_000_000,
-              canRedelegate: policyOnChain.canRedelegate || false,
-            },
-          ]);
+        if (error) throw error;
+
+        if (dbPolicies && dbPolicies.length > 0) {
+          const mappedNodes = dbPolicies.map((p: any, index: number) => ({
+            id: p.id || p.agent_address,
+            name: index === 0 ? 'Master Orchestrator Agent' : `Sub-Agent Node 0${index}`,
+            pubkey: p.agent_address,
+            depth: index === 0 ? 0 : 1,
+            delegatedBudgetSol: (p.daily_limit_sol || 100_000_000_000) / 1_000_000_000,
+            spentSol: 0,
+            canRedelegate: index === 0, // only master can redelegate in this mock
+          }));
+          setNodes(mappedNodes);
         } else {
           setNodes([]);
         }
