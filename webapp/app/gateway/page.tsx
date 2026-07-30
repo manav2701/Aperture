@@ -130,7 +130,8 @@ export default function GatewayPage() {
     setTesting(true);
     setTestResponse(null);
     try {
-      const res = await fetch('http://localhost:4000/api/v1/chat/completions', {
+      const gatewayBase = process.env.NEXT_PUBLIC_GATEWAY_URL || 'https://aperture-production-9c8c.up.railway.app';
+      const res = await fetch(`${gatewayBase}/api/v1/chat/completions`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
