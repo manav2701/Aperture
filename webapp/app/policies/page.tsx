@@ -85,6 +85,8 @@ export default function PoliciesPage() {
         owner_address: publicKey.toBase58(),
         daily_limit_stx: dailyLamports,
         per_tx_limit_stx: perTxLamports,
+        daily_limit_sbtc: 0,
+        per_tx_limit_sbtc: 0,
         is_active: true,
         updated_at: new Date().toISOString()
       }, { onConflict: 'agent_address' });

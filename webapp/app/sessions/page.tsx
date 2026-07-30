@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useWallet } from '@/components/WalletConnect';
+import { supabase } from '@/lib/supabase';
 import {
   getSolanaConnection,
   getPolicyPDA,
@@ -43,17 +44,42 @@ export default function SessionsPage() {
   }, [publicKey]);
 
   const handleOpenSession = async () => {
-    if (!isConnected) {
+    if (!isConnected || !publicKey) {
       alert('Please connect your Solana wallet first');
       return;
     }
 
     setLoading(true);
     try {
-      alert(`Instruction prepared to open autonomous session budget of ${sessionBudgetSol} SOL on Solana.`);
-    } catch (err) {
+      const budgetLamports = parseFloat(sessionBudgetSol) * 1_000_000_000;
+      
+      const { error } = await supabase.from('sessions').insert({
+        session_id: `sess_${Math.random().toString(36).substring(2, 15)}`,
+        agent_address: publicKey.toBase58(),
+        owner_address: publicKey.toBase58(),
+        budget_stx: budgetLamports,
+        budget_sbtc: 0,
+        spent_stx: 0,
+        spent_sbtc: 0,
+        is_active: true,
+        expires_at: new Date(Date.now() + 3600000).toISOString() // +1 hour for MVP
+      });
+      
+      if (error) throw error;
+      
+      alert(`Session budget of ${sessionBudgetSol} SOL opened successfully in Database!`);
+      // Update UI artificially for now since we rely on DB not just Solana chain
+      setSessionData({
+        sessionKey: new PublicKey(publicKey.toBase58()),
+        policyKey: new PublicKey(publicKey.toBase58()),
+        budget: { toNumber: () => budgetLamports },
+        spent: { toNumber: () => 0 },
+        expiresAt: { toNumber: () => Math.floor(Date.now() / 1000) + 3600 },
+        isActive: true,
+      } as any);
+    } catch (err: any) {
       console.error('Session error:', err);
-      alert('Failed to open session budget');
+      alert('Failed to open session budget: ' + err.message);
     } finally {
       setLoading(false);
     }
