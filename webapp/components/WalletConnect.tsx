@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useWallet as useSolanaWallet } from '@solana/wallet-adapter-react';
 import { useWalletModal } from '@solana/wallet-adapter-react-ui';
+import { supabase } from '@/lib/supabase';
 
 export function formatAddress(address: string, chars = 4): string {
   if (!address) return '';
@@ -13,10 +14,32 @@ export default function WalletConnect() {
   const [mounted, setMounted] = useState(false);
   const { publicKey, connected, disconnect } = useSolanaWallet();
   const { setVisible } = useWalletModal();
+  const [roleName, setRoleName] = useState<string>('GUEST');
 
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  useEffect(() => {
+    async function fetchRole() {
+      if (!publicKey) return;
+      const { data } = await supabase
+        .from('org_members')
+        .select('role')
+        .eq('member_address', publicKey.toBase58())
+        .single();
+      
+      if (data !== null && data.role !== undefined) {
+        const roles = ['OWNER', 'CFO', 'TEAM LEAD', 'DEVELOPER', 'AUDITOR'];
+        setRoleName(roles[data.role] || 'UNKNOWN');
+      } else {
+        setRoleName('GUEST');
+      }
+    }
+    if (connected && publicKey) {
+      fetchRole();
+    }
+  }, [publicKey, connected]);
 
   if (!mounted) {
     return (
@@ -30,10 +53,10 @@ export default function WalletConnect() {
         <div className="flex items-center gap-2 px-3 py-2 bg-muted border-2 border-border">
           <div className="w-2.5 h-2.5 bg-accent animate-pulse" />
           <span className="text-xs font-mono font-bold text-accent tracking-tighter uppercase">
-            SOL
+            {roleName}
           </span>
           <span className="text-xs font-mono font-bold text-foreground tracking-tight">
-            {formatAddress(publicKey.toBase58(), 4)}
+            ({formatAddress(publicKey.toBase58(), 4)})
           </span>
         </div>
 
