@@ -43,7 +43,7 @@ export default function OrgSettingsPage() {
           const { data: teamData } = await supabase
             .from('teams')
             .select('*')
-            .eq('org_pda', orgData.org_pda);
+            .eq('org_id', orgData.id);
 
           if (teamData) setTeams(teamData);
         }
@@ -74,36 +74,35 @@ export default function OrgSettingsPage() {
             global_daily_cap_sol: parseFloat(globalDailyCap),
             global_monthly_cap_sol: parseFloat(globalMonthlyCap)
           })
-          .eq('org_pda', existingOrg.org_pda);
+          .eq('id', existingOrg.id);
           
         if (error) throw error;
         alert(`Organization "${orgName}" updated successfully!`);
       } else {
-        // Create Org
-        const newOrgPda = `org_${Math.random().toString(36).substring(2, 15)}`;
-        const { error } = await supabase
+        // Create Org (let DB generate UUID)
+        const { data: newOrgData, error: orgError } = await supabase
           .from('orgs')
           .insert({
-            org_pda: newOrgPda,
             owner_address: ownerAddress,
             name: orgName,
             global_daily_cap_sol: parseFloat(globalDailyCap),
             global_monthly_cap_sol: parseFloat(globalMonthlyCap)
-          });
+          })
+          .select('id')
+          .single();
           
-        if (error) throw error;
+        if (orgError) throw orgError;
         
         // Also add the owner as an org_member automatically
         await supabase
           .from('org_members')
           .insert({
-            member_pda: `mem_${Math.random().toString(36).substring(2, 15)}`,
-            org_pda: newOrgPda,
+            org_id: newOrgData.id,
             member_address: ownerAddress,
             role: 0 // Owner
           });
           
-        setExistingOrg({ org_pda: newOrgPda, owner_address: ownerAddress, name: orgName });
+        setExistingOrg({ id: newOrgData.id, owner_address: ownerAddress, name: orgName });
         alert(`Organization "${orgName}" created successfully!`);
       }
     } catch (err: any) {

@@ -44,21 +44,21 @@ export default function RolesPage() {
         // 1. Find which org this user belongs to
         const { data: myMembership } = await supabase
           .from('org_members')
-          .select('org_pda')
+          .select('org_id')
           .eq('member_address', addr)
           .single();
           
-        let orgPda = myMembership?.org_pda;
+        let orgId = myMembership?.org_id;
         
-        if (!orgPda) {
+        if (!orgId) {
           // Check if they are an owner of an org but not in org_members for some reason
-          const { data: orgData } = await supabase.from('orgs').select('org_pda').eq('owner_address', addr).single();
-          if (orgData) orgPda = orgData.org_pda;
+          const { data: orgData } = await supabase.from('orgs').select('id').eq('owner_address', addr).single();
+          if (orgData) orgId = orgData.id;
         }
 
-        if (orgPda) {
-          setActiveOrg(orgPda);
-          const { data } = await supabase.from('org_members').select('*').eq('org_pda', orgPda);
+        if (orgId) {
+          setActiveOrg(orgId);
+          const { data } = await supabase.from('org_members').select('*').eq('org_id', orgId);
           
           if (data && data.length > 0) {
             setMembers(
@@ -104,8 +104,7 @@ export default function RolesPage() {
       const roleLevel = parseInt(selectedRole);
       
       const { error } = await supabase.from('org_members').insert({
-        member_pda: `mem_${Math.random().toString(36).substring(2, 15)}`,
-        org_pda: activeOrg,
+        org_id: activeOrg,
         member_address: memberWallet,
         role: roleLevel
       });
