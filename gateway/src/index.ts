@@ -283,6 +283,9 @@ const app = new Elysia()
     return status(403, { message: "Invalid API key or database unavailable" });
   }, {
     body: Conversation
-  }).listen(process.env.PORT || 4000);
+  }).listen({
+    port: Number(process.env.PORT) || 4000,
+    hostname: "0.0.0.0"
+  });
 
-console.log(`🦊 Aperture AI Gateway running on port ${app.server?.port}`);
+console.log(`🦊 Aperture AI Gateway running on port ${app.server?.port} (0.0.0.0)`);
