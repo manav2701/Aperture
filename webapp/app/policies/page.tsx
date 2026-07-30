@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useWallet } from '@/components/WalletConnect';
 import { getSolanaConnection, getPolicyPDA, fetchPolicyAccountOnChain } from '@/lib/solana';
 import { PublicKey } from '@solana/web3.js';
+import { supabase } from '@/lib/supabase';
 
 export const dynamic = 'force-dynamic';
 
@@ -64,7 +65,7 @@ export default function PoliciesPage() {
   };
 
   const handleSavePolicy = async () => {
-    if (!isConnected) {
+    if (!isConnected || !publicKey) {
       alert('Please connect your Solana wallet first');
       return;
     }
@@ -75,10 +76,26 @@ export default function PoliciesPage() {
 
     setLoading(true);
     try {
-      alert(`Instruction prepared to ${isExistingPolicy ? 'update' : 'initialize'} Policy Account for ${agentPubKey.slice(0, 6)}...${agentPubKey.slice(-4)} on Solana.`);
-    } catch (err) {
+      // Convert SOL to base units (lamports/stx) for DB storage
+      const dailyLamports = parseFloat(dailyLimitSol) * 1_000_000_000;
+      const perTxLamports = parseFloat(perTxLimitSol) * 1_000_000_000;
+
+      const { error } = await supabase.from('policies').upsert({
+        agent_address: agentPubKey,
+        owner_address: publicKey.toBase58(),
+        daily_limit_stx: dailyLamports,
+        per_tx_limit_stx: perTxLamports,
+        is_active: true,
+        updated_at: new Date().toISOString()
+      }, { onConflict: 'agent_address' });
+
+      if (error) throw error;
+      
+      setIsExistingPolicy(true);
+      alert(`Policy Account for ${agentPubKey.slice(0, 6)}... saved to database successfully!`);
+    } catch (err: any) {
       console.error('Policy error:', err);
-      alert('Failed to save policy');
+      alert('Failed to save policy: ' + err.message);
     } finally {
       setLoading(false);
     }
