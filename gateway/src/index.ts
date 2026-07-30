@@ -50,13 +50,46 @@ app.get('/health', (_req: Request, res: Response) => {
 });
 
 // --- API: List Agent Keys ---
-app.get('/api/v1/keys', async (_req: Request, res: Response) => {
+app.get('/api/v1/keys', async (req: Request, res: Response) => {
+  const wallet = req.query.wallet as string;
   let dbKeys: any[] = [];
+  
   try {
-    const { data, error } = await supabase
+    let query = supabase
       .from('agent_virtual_keys')
       .select('*')
       .order('created_at', { ascending: false });
+
+    // Implement RBAC filtering if wallet is provided
+    if (wallet) {
+      let isOwnerOrAdmin = false;
+      
+      const { data: myMembership } = await supabase
+        .from('org_members')
+        .select('role')
+        .eq('member_address', wallet)
+        .single();
+        
+      if (myMembership) {
+        if (myMembership.role <= 2) {
+          isOwnerOrAdmin = true; // 0=Owner, 1=CFO, 2=TeamLead
+        }
+      } else {
+        const { data: orgData } = await supabase
+          .from('orgs')
+          .select('id')
+          .eq('owner_address', wallet)
+          .single();
+        if (orgData) isOwnerOrAdmin = true;
+      }
+      
+      if (!isOwnerOrAdmin) {
+        // If developer/auditor or unregistered, only show their own keys
+        query = query.eq('creator_address', wallet);
+      }
+    }
+
+    const { data, error } = await query;
 
     if (error) {
       console.warn('⚠️ [SUPABASE KEYS FETCH ERROR]:', error.message);
@@ -83,11 +116,13 @@ app.get('/api/v1/keys', async (_req: Request, res: Response) => {
   const combined = [...dbKeys];
   for (const mem of inMemoryKeys) {
     if (!combined.some(k => k.virtualKey === mem.virtualKey)) {
-      combined.push(mem);
+      if (!wallet || mem.creatorAddress === wallet || mem.creatorAddress === undefined) {
+         combined.push(mem);
+      }
     }
   }
 
-  console.log(`[API GET /api/v1/keys] Returning ${combined.length} keys (${dbKeys.length} DB, ${inMemoryKeys.length} memory)`);
+  console.log(`[API GET /api/v1/keys] Returning ${combined.length} keys for wallet ${wallet || 'unknown'}`);
   return res.json({ success: true, keys: combined });
 });
 
@@ -99,7 +134,8 @@ app.post('/api/v1/keys', async (req: Request, res: Response) => {
     dailyLimitUsd = 100.0,
     perTxLimitUsd = 10.0,
     velocityMaxPerHour = 60,
-    allowedModels = ['openai/gpt-4o', 'anthropic/claude-3-5-sonnet']
+    allowedModels = ['openai/gpt-4o', 'anthropic/claude-3-5-sonnet'],
+    creatorAddress = ''
   } = req.body || {};
 
   const virtualApiKey = `aptr_live_${Math.random().toString(36).substring(2, 15)}${Math.random().toString(36).substring(2, 15)}`;
@@ -127,7 +163,8 @@ app.post('/api/v1/keys', async (req: Request, res: Response) => {
       virtual_api_key: virtualApiKey,
       daily_limit_usd: Number(dailyLimitUsd),
       per_tx_limit_usd: Number(perTxLimitUsd),
-      velocity_max_per_hour: Number(velocityMaxPerHour)
+      velocity_max_per_hour: Number(velocityMaxPerHour),
+      creator_address: creatorAddress || null
     });
 
     if (error) {

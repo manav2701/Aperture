@@ -28,6 +28,8 @@ export default function RolesPage() {
     4: 'AUDITOR (READ-ONLY COMPLIANCE)',
   };
 
+  const [activeOrg, setActiveOrg] = useState<any>(null);
+
   useEffect(() => {
     if (!publicKey) {
       setLoading(false);
@@ -37,37 +39,44 @@ export default function RolesPage() {
     async function loadMembers() {
       if (!publicKey) return;
       try {
-        const { data } = await supabase.from('org_members').select('*');
-
-        if (data && data.length > 0) {
-          setMembers(
-            data.map((m: any) => ({
-              id: m.id,
-              wallet: m.member_address,
-              role: roleNames[m.role] || 'MEMBER',
-              roleLevel: m.role,
-            }))
-          );
-        } else {
-          setMembers([
-            {
-              id: 'owner-1',
-              wallet: publicKey.toBase58(),
-              role: 'OWNER (MASTER AUTHORITY)',
-              roleLevel: 0,
-            },
-          ]);
+        const addr = publicKey.toBase58();
+        
+        // 1. Find which org this user belongs to
+        const { data: myMembership } = await supabase
+          .from('org_members')
+          .select('org_pda')
+          .eq('member_address', addr)
+          .single();
+          
+        let orgPda = myMembership?.org_pda;
+        
+        if (!orgPda) {
+          // Check if they are an owner of an org but not in org_members for some reason
+          const { data: orgData } = await supabase.from('orgs').select('org_pda').eq('owner_address', addr).single();
+          if (orgData) orgPda = orgData.org_pda;
         }
+
+        if (orgPda) {
+          setActiveOrg(orgPda);
+          const { data } = await supabase.from('org_members').select('*').eq('org_pda', orgPda);
+          
+          if (data && data.length > 0) {
+            setMembers(
+              data.map((m: any) => ({
+                id: m.id,
+                wallet: m.member_address,
+                role: roleNames[m.role] || 'MEMBER',
+                roleLevel: m.role,
+              }))
+            );
+            return;
+          }
+        }
+        
+        // Fallback if no org
+        setMembers([{ id: 'owner-1', wallet: addr, role: 'OWNER (MASTER AUTHORITY)', roleLevel: 0 }]);
       } catch (err) {
         console.warn('Error loading members:', err);
-        setMembers([
-          {
-            id: 'owner-1',
-            wallet: publicKey.toBase58(),
-            role: 'OWNER (MASTER AUTHORITY)',
-            roleLevel: 0,
-          },
-        ]);
       } finally {
         setLoading(false);
       }
@@ -85,10 +94,24 @@ export default function RolesPage() {
       alert('Please enter Member Wallet Address');
       return;
     }
+    if (!activeOrg) {
+      alert('No organization found. Please go to ORGANIZATION and create one first.');
+      return;
+    }
 
     setLoading(true);
     try {
       const roleLevel = parseInt(selectedRole);
+      
+      const { error } = await supabase.from('org_members').insert({
+        member_pda: `mem_${Math.random().toString(36).substring(2, 15)}`,
+        org_pda: activeOrg,
+        member_address: memberWallet,
+        role: roleLevel
+      });
+      
+      if (error) throw error;
+      
       setMembers([
         ...members,
         {
@@ -98,11 +121,11 @@ export default function RolesPage() {
           roleLevel,
         },
       ]);
-      alert(`Member ${memberWallet.slice(0, 6)}... added on-chain with role: ${roleNames[roleLevel]}`);
+      alert(`Member ${memberWallet.slice(0, 6)}... added with role: ${roleNames[roleLevel]}`);
       setMemberWallet('');
-    } catch (err) {
+    } catch (err: any) {
       console.error('Member error:', err);
-      alert('Failed to add member');
+      alert('Failed to add member: ' + err.message);
     } finally {
       setLoading(false);
     }

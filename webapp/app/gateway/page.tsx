@@ -55,7 +55,8 @@ export default function GatewayPage() {
         const localKeys: VirtualKeyItem[] = savedLocal ? JSON.parse(savedLocal) : [];
 
         const gatewayBase = process.env.NEXT_PUBLIC_GATEWAY_URL || 'https://aperture-production-9c8c.up.railway.app';
-        const res = await fetch(`${gatewayBase}/api/v1/keys`);
+        const walletParam = publicKey ? `?wallet=${publicKey.toBase58()}` : '';
+        const res = await fetch(`${gatewayBase}/api/v1/keys${walletParam}`);
         const result = await res.json();
 
         let apiKeys: VirtualKeyItem[] = [];
@@ -76,32 +77,15 @@ export default function GatewayPage() {
           if (combined[0]?.virtualKey) {
             setTestKey(combined[0].virtualKey);
           }
-          setLoading(false);
-          return;
-        }
-
-        // Fallback: try Supabase
-        const { data } = await supabase.from('agent_virtual_keys').select('*').order('created_at', { ascending: false });
-        if (data && data.length > 0) {
-          const dbItems = data.map((item: any) => ({
-            id: item.id,
-            agentAddress: item.agent_address,
-            virtualKey: item.virtual_api_key,
-            dailyLimitUsd: parseFloat(item.daily_limit_usd || 100),
-            perTxLimitUsd: parseFloat(item.per_tx_limit_usd || 10),
-            monthlyLimitUsd: parseFloat(item.monthly_limit_usd || 2000),
-            velocityMaxPerHour: item.velocity_max_per_hour || 60,
-            allowedModels: ['openai/gpt-4o', 'anthropic/claude-3-5-sonnet'],
-            createdAt: new Date(item.created_at).toLocaleTimeString(),
-          }));
-          setKeys(dbItems);
         } else {
           setKeys(localKeys);
         }
+        setLoading(false);
       } catch (err) {
-        console.warn('Error loading gateway keys:', err);
+        console.warn('Error loading keys:', err);
         const savedLocal = typeof window !== 'undefined' ? localStorage.getItem('aperture_virtual_keys') : null;
         setKeys(savedLocal ? JSON.parse(savedLocal) : []);
+        setLoading(false);
       } finally {
         setLoading(false);
       }
@@ -128,6 +112,7 @@ export default function GatewayPage() {
           perTxLimitUsd: parseFloat(perTxCapUsd),
           velocityMaxPerHour: parseInt(velocityCap),
           allowedModels: selectedModels,
+          creatorAddress: publicKey?.toBase58() || ''
         }),
       });
 

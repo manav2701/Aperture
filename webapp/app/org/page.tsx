@@ -63,10 +63,52 @@ export default function OrgSettingsPage() {
 
     setLoading(true);
     try {
-      alert(`Instruction prepared to create Organization "${orgName}" on Solana!`);
-    } catch (err) {
+      const ownerAddress = publicKey.toBase58();
+      
+      if (existingOrg) {
+        // Update
+        const { error } = await supabase
+          .from('orgs')
+          .update({
+            name: orgName,
+            global_daily_cap_sol: parseFloat(globalDailyCap),
+            global_monthly_cap_sol: parseFloat(globalMonthlyCap)
+          })
+          .eq('org_pda', existingOrg.org_pda);
+          
+        if (error) throw error;
+        alert(`Organization "${orgName}" updated successfully!`);
+      } else {
+        // Create Org
+        const newOrgPda = `org_${Math.random().toString(36).substring(2, 15)}`;
+        const { error } = await supabase
+          .from('orgs')
+          .insert({
+            org_pda: newOrgPda,
+            owner_address: ownerAddress,
+            name: orgName,
+            global_daily_cap_sol: parseFloat(globalDailyCap),
+            global_monthly_cap_sol: parseFloat(globalMonthlyCap)
+          });
+          
+        if (error) throw error;
+        
+        // Also add the owner as an org_member automatically
+        await supabase
+          .from('org_members')
+          .insert({
+            member_pda: `mem_${Math.random().toString(36).substring(2, 15)}`,
+            org_pda: newOrgPda,
+            member_address: ownerAddress,
+            role: 0 // Owner
+          });
+          
+        setExistingOrg({ org_pda: newOrgPda, owner_address: ownerAddress, name: orgName });
+        alert(`Organization "${orgName}" created successfully!`);
+      }
+    } catch (err: any) {
       console.error('Org creation error:', err);
-      alert('Failed to save organization');
+      alert('Failed to save organization: ' + err.message);
     } finally {
       setLoading(false);
     }
