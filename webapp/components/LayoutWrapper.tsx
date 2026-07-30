@@ -1,17 +1,37 @@
 'use client';
 
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import WalletConnect from './WalletConnect';
+import EmailAuth from './EmailAuth';
 import SolanaProvider from './SolanaProvider';
 import Link from 'next/link';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { HiChevronDown, HiMenu, HiX } from 'react-icons/hi';
+import { supabase } from '@/lib/supabase';
 
 export default function LayoutWrapper({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const router = useRouter();
   const isLandingPage = pathname === '/';
   const [openCategory, setOpenCategory] = useState<string | null>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [showEmailAuth, setShowEmailAuth] = useState(false);
+  const [emailUser, setEmailUser] = useState<string | null>(null);
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => {
+      setEmailUser(data.session?.user?.email || null);
+    });
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+      setEmailUser(session?.user?.email || null);
+    });
+    return () => listener.subscription.unsubscribe();
+  }, []);
+
+  const handleSignOut = async () => {
+    await supabase.auth.signOut();
+    setEmailUser(null);
+  };
 
   const toggleCategory = (cat: string) => {
     setOpenCategory(openCategory === cat ? null : cat);
@@ -19,29 +39,29 @@ export default function LayoutWrapper({ children }: { children: React.ReactNode 
 
   const navCategories = [
     {
-      title: 'POLICY & AGENTS',
+      title: 'AI AGENTS',
       items: [
-        { label: 'AGENTS FLEET', href: '/agents' },
-        { label: 'LLM GATEWAY', href: '/gateway' },
-        { label: 'SPENDING POLICIES', href: '/policies' },
-        { label: 'SESSION BUDGETS', href: '/sessions' },
+        { label: 'My Agents', href: '/agents' },
+        { label: 'AI Hub', href: '/gateway' },
+        { label: 'Spending Rules', href: '/policies' },
+        { label: 'Session Limits', href: '/sessions' },
       ],
     },
     {
       title: 'ORGANIZATION',
       items: [
-        { label: 'ORG SETTINGS', href: '/org' },
-        { label: 'ROLES & RBAC', href: '/roles' },
-        { label: 'DELEGATION TREE', href: '/delegation' },
-        { label: 'APPROVALS QUEUE', href: '/approvals' },
+        { label: 'Organization', href: '/org' },
+        { label: 'Team & Permissions', href: '/roles' },
+        { label: 'Delegation', href: '/delegation' },
+        { label: 'Approvals', href: '/approvals' },
       ],
     },
     {
-      title: 'FINANCE & AUDIT',
+      title: 'FINANCES',
       items: [
-        { label: 'TREASURY VAULT', href: '/treasury' },
-        { label: 'FLEET MONITOR', href: '/company' },
-        { label: 'AUDIT LOGS', href: '/audit' },
+        { label: 'Wallet & Funds', href: '/treasury' },
+        { label: 'Usage Overview', href: '/company' },
+        { label: 'Activity History', href: '/audit' },
       ],
     },
   ];
@@ -68,7 +88,7 @@ export default function LayoutWrapper({ children }: { children: React.ReactNode 
                         APERTURE
                       </div>
                       <div className="text-[9px] font-mono text-mutedForeground uppercase tracking-widest leading-none mt-1">
-                        SOLANA TREASURY v3
+                        AI Agent Control Center
                       </div>
                     </div>
                   </Link>
@@ -130,8 +150,35 @@ export default function LayoutWrapper({ children }: { children: React.ReactNode 
                     ))}
                   </nav>
 
-                  {/* Wallet & Mobile Toggle */}
-                  <div className="flex items-center gap-3">
+                  {/* Auth: Wallet + Email */}
+                  <div className="flex items-center gap-2">
+                    {/* Email login button */}
+                    {emailUser ? (
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] font-mono text-mutedForeground hidden sm:block">{emailUser.split('@')[0]}</span>
+                        <button
+                          onClick={handleSignOut}
+                          className="px-3 py-1.5 border-2 border-border text-[10px] font-mono font-bold uppercase hover:bg-muted transition-all"
+                        >
+                          Sign Out
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="relative">
+                        <button
+                          onClick={() => setShowEmailAuth(!showEmailAuth)}
+                          className="px-3 py-1.5 border-2 border-border text-[10px] font-mono font-bold uppercase hover:bg-muted transition-all"
+                        >
+                          Email Login
+                        </button>
+                        {showEmailAuth && (
+                          <div className="absolute top-full right-0 mt-2 w-72 z-50 shadow-2xl">
+                            <EmailAuth onSuccess={() => setShowEmailAuth(false)} />
+                          </div>
+                        )}
+                      </div>
+                    )}
+
                     <WalletConnect />
 
                     <button
@@ -195,7 +242,7 @@ export default function LayoutWrapper({ children }: { children: React.ReactNode 
               <div className="max-w-[95vw] mx-auto px-4 sm:px-6">
                 <div className="flex flex-col md:flex-row items-center justify-between gap-4">
                   <div className="text-xs font-mono text-mutedForeground uppercase tracking-widest">
-                    APERTURE v3 • SOLANA ANCHOR SPENDING POLICIES & TREASURY
+                    APERTURE • AI Agent Governance & Spending Controls
                   </div>
                   <div className="flex items-center gap-6 text-xs font-mono font-bold tracking-tight">
                     <a

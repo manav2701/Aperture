@@ -2,102 +2,74 @@
 
 import { useEffect, useState } from 'react';
 import { useWallet } from '@/components/WalletConnect';
-import EmergencyControls from '@/components/EmergencyControls';
-import BudgetForecastWidget from '@/components/BudgetForecastWidget';
-import {
-  getSolanaConnection,
-  getPolicyPDA,
-  getSessionPDA,
-  fetchPolicyAccountOnChain,
-  fetchSessionAccountOnChain,
-  PolicyAccountData,
-  SessionAccountData,
-} from '@/lib/solana';
 import { supabase } from '@/lib/supabase';
 import Link from 'next/link';
 
 export const dynamic = 'force-dynamic';
 
-interface ActivityLog {
+interface ActivityItem {
   id: string;
-  txHash: string;
-  amount: string;
-  recipient: string;
-  status: 'COMPLIANT' | 'REJECTED_CAP' | 'REJECTED_ALLOWLIST' | 'CLAWBACK';
+  agentName: string;
+  model: string;
+  cost: string;
+  status: string;
   timestamp: string;
+}
+
+interface Stats {
+  totalAgents: number;
+  totalKeysGenerated: number;
+  totalSpentUsd: number;
+  pendingApprovals: number;
 }
 
 export default function Dashboard() {
   const { isConnected, publicKey } = useWallet();
-  const [solBalance, setSolBalance] = useState<string>('0.00');
-  const [policyPDA, setPolicyPDA] = useState<string>('');
-  const [policyData, setPolicyData] = useState<PolicyAccountData | null>(null);
-  const [sessionData, setSessionData] = useState<SessionAccountData | null>(null);
-  const [activityLogs, setActivityLogs] = useState<ActivityLog[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
+  const [stats, setStats] = useState<Stats>({ totalAgents: 0, totalKeysGenerated: 0, totalSpentUsd: 0, pendingApprovals: 0 });
+  const [recentActivity, setRecentActivity] = useState<ActivityItem[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!isConnected || !publicKey) {
-      setLoading(false);
-      return;
-    }
-
-    async function loadDashboardData() {
-      if (!publicKey) return;
+    async function loadData() {
       try {
-        const connection = getSolanaConnection();
-        const balance = await connection.getBalance(publicKey);
-        setSolBalance((balance / 1_000_000_000).toFixed(4));
+        const [keysResult, logsResult, escalatedResult] = await Promise.all([
+          supabase.from('agent_virtual_keys').select('id, agent_address, daily_limit_usd', { count: 'exact' }),
+          supabase.from('agent_request_logs').select('*').order('created_at', { ascending: false }).limit(8),
+          supabase.from('agent_request_logs').select('id', { count: 'exact' }).eq('status', 'ESCALATED_PENDING'),
+        ]);
 
-        const [pda] = getPolicyPDA(publicKey);
-        setPolicyPDA(pda.toBase58());
+        const totalKeys = keysResult.count || 0;
+        const logs = logsResult.data || [];
+        const pending = escalatedResult.count || 0;
 
-        const onChainPolicy = await fetchPolicyAccountOnChain(connection, pda);
-        setPolicyData(onChainPolicy);
+        const totalSpent = logs.reduce((sum: number, l: any) => sum + (parseFloat(l.cost_usd) || 0), 0);
 
-        if (onChainPolicy) {
-          const [sessPDA] = getSessionPDA(pda);
-          const onChainSession = await fetchSessionAccountOnChain(connection, sessPDA);
-          setSessionData(onChainSession);
-        }
+        setStats({
+          totalAgents: totalKeys,
+          totalKeysGenerated: totalKeys,
+          totalSpentUsd: totalSpent,
+          pendingApprovals: pending,
+        });
 
-        try {
-          const { data: logsData } = await supabase
-            .from('payment_history')
-            .select('*')
-            .eq('agent_address', publicKey.toBase58())
-            .order('created_at', { ascending: false })
-            .limit(10);
-
-          if (logsData && logsData.length > 0) {
-            setActivityLogs(
-              logsData.map((item: any) => ({
-                id: item.id || String(Math.random()),
-                txHash: item.tx_id ? `${item.tx_id.slice(0, 6)}...${item.tx_id.slice(-4)}` : 'On-Chain',
-                amount: `${(item.amount / 1_000_000_000).toFixed(2)} SOL`,
-                recipient: item.recipient_address
-                  ? `${item.recipient_address.slice(0, 6)}...${item.recipient_address.slice(-4)}`
-                  : 'Contract',
-                status: item.status || 'COMPLIANT',
-                timestamp: new Date(item.created_at).toLocaleTimeString(),
-              }))
-            );
-          } else {
-            setActivityLogs([]);
-          }
-        } catch {
-          setActivityLogs([]);
-        }
-
-        setLoading(false);
+        setRecentActivity(
+          logs.map((l: any) => ({
+            id: l.id,
+            agentName: l.virtual_api_key ? `${l.virtual_api_key.slice(0, 12)}...` : 'AI Agent',
+            model: l.model_slug || 'openai/gpt-4o',
+            cost: `$${(parseFloat(l.cost_usd) || 0).toFixed(4)}`,
+            status: l.status || 'APPROVED',
+            timestamp: new Date(l.created_at).toLocaleTimeString(),
+          }))
+        );
       } catch (err) {
-        console.error('Error loading Solana dashboard data:', err);
+        console.warn('Dashboard load error:', err);
+      } finally {
         setLoading(false);
       }
     }
 
-    loadDashboardData();
-  }, [isConnected, publicKey]);
+    loadData();
+  }, [publicKey]);
 
   if (!isConnected) {
     return (
@@ -105,10 +77,10 @@ export default function Dashboard() {
         <div className="max-w-md w-full border-2 border-border p-10 text-center space-y-6 bg-background">
           <div className="w-12 h-12 border-4 border-border border-t-accent animate-spin mx-auto" />
           <h2 className="text-xl font-bold font-mono text-foreground uppercase tracking-tighter">
-            SOLANA WALLET REQUIRED
+            Connect Your Wallet to Continue
           </h2>
           <p className="text-xs font-mono text-mutedForeground uppercase tracking-tight">
-            Connect your Solana Devnet wallet (Phantom / Solflare / MetaMask) to access the Aperture policy engine
+            Connect your wallet to access your agent dashboard and spending controls.
           </p>
         </div>
       </div>
@@ -120,183 +92,157 @@ export default function Dashboard() {
       <div className="min-h-[80vh] flex items-center justify-center p-6">
         <div className="text-center space-y-4">
           <div className="w-12 h-12 border-4 border-border border-t-accent animate-spin mx-auto" />
-          <p className="text-accent font-mono text-xs uppercase tracking-widest animate-pulse">
-            QUERYING SOLANA DEVNET RPC &amp; ON-CHAIN ACCOUNTS...
-          </p>
+          <p className="text-accent font-mono text-xs uppercase tracking-widest animate-pulse">Loading your dashboard...</p>
         </div>
       </div>
     );
   }
 
-  const dailySpentNum = policyData ? policyData.spentToday.toNumber() / 1_000_000_000 : 0;
-  const dailyLimitNum = policyData ? policyData.dailyLimit.toNumber() / 1_000_000_000 : 0;
-  const spentPct = dailyLimitNum > 0 ? Math.min((dailySpentNum / dailyLimitNum) * 100, 100) : 0;
-
   return (
-    <div className="py-10 px-4 sm:px-6 max-w-[95vw] mx-auto space-y-10">
-      
-      {/* High-Impact Header Section */}
-      <div className="border-2 border-border p-6 sm:p-8 flex flex-col lg:flex-row lg:items-center justify-between gap-6 bg-background">
+    <div className="py-10 px-4 sm:px-6 max-w-[95vw] mx-auto space-y-8">
+
+      {/* Header */}
+      <div className="border-2 border-border p-6 sm:p-8 flex flex-col lg:flex-row lg:items-center justify-between gap-4 bg-background">
         <div>
-          <div className="flex items-center gap-3 mb-2">
+          <div className="flex items-center gap-3 mb-1">
             <div className="w-3 h-3 bg-accent animate-pulse" />
             <h1 className="text-3xl sm:text-4xl font-black font-mono text-foreground uppercase tracking-tighter">
-              SOLANA AGENT TREASURY DASHBOARD
+              Overview
             </h1>
           </div>
           <p className="text-mutedForeground font-mono text-xs uppercase tracking-widest">
-            REAL-TIME TOKEN-2022 TRANSFER HOOK ENFORCEMENT &amp; SESSION BUDGET MANAGEMENT
+            {publicKey ? `${publicKey.toBase58().slice(0, 6)}...${publicKey.toBase58().slice(-4)}` : 'Your Aperture Account'}
+            {' '}&bull; All AI agents across all providers
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-4">
-          <div className="px-4 py-2 bg-muted border-2 border-border">
-            <span className="text-[10px] font-mono text-mutedForeground uppercase tracking-widest block">WALLET BALANCE</span>
-            <span className="text-base font-mono font-bold text-accent">{solBalance} SOL</span>
-          </div>
-          <div className="px-4 py-2 bg-muted border-2 border-border">
-            <span className="text-[10px] font-mono text-mutedForeground uppercase tracking-widest block">POLICY PDA</span>
-            <span className="text-xs font-mono font-bold text-foreground">
-              {policyPDA ? `${policyPDA.slice(0, 6)}...${policyPDA.slice(-4)}` : 'DERIVED'}
-            </span>
-          </div>
-        </div>
-      </div>
-
-      {/* Warning Banner if No On-Chain Policy */}
-      {!policyData && (
-        <div className="border-2 border-accent p-6 flex flex-col sm:flex-row items-center justify-between gap-4 bg-muted">
-          <div>
-            <h3 className="font-mono text-sm font-bold text-accent uppercase tracking-tighter">
-              NO ON-CHAIN POLICY DETECTED FOR CONNECTED WALLET
-            </h3>
-            <p className="text-xs font-mono text-mutedForeground mt-1 uppercase">
-              Configure daily limits, per-tx caps, and recipient allowlists to activate transfer hook enforcement.
-            </p>
-          </div>
-          <Link
-            href="/policies"
-            className="kinetic-btn-primary px-6 py-3 text-xs tracking-tighter whitespace-nowrap"
-          >
-            CONFIGURE POLICY NOW
+        <div className="flex flex-wrap gap-3">
+          <Link href="/gateway" className="kinetic-btn-primary px-5 py-2.5 text-xs tracking-tighter">
+            + New AI Agent Key
+          </Link>
+          <Link href="/approvals" className="px-5 py-2.5 border-2 border-border text-xs font-mono font-bold uppercase hover:bg-muted transition-all">
+            Approvals {stats.pendingApprovals > 0 && <span className="text-accent">({stats.pendingApprovals})</span>}
           </Link>
         </div>
-      )}
-
-      {/* De-cluttered 4-Column Metric Grid with Massive Graphic Numbers */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-        
-        {/* Metric 01 */}
-        <div className="kinetic-card p-6 relative overflow-hidden group">
-          <span className="absolute -right-2 -bottom-6 text-[7rem] font-mono font-black text-muted/30 select-none group-hover:text-black/10 transition-colors">
-            01
-          </span>
-          <div className="relative z-10 space-y-2">
-            <span className="text-xs font-mono text-mutedForeground uppercase tracking-widest block">
-              SINGLE TX CAP
-            </span>
-            <div className="text-3xl font-mono font-bold text-accent tracking-tighter">
-              {policyData ? `${(policyData.perTxLimit.toNumber() / 1_000_000_000).toFixed(2)} SOL` : 'NOT SET'}
-            </div>
-            <p className="text-[10px] font-mono text-mutedForeground uppercase">MAX ALLOWED PER TRANSACTION</p>
-          </div>
-        </div>
-
-        {/* Metric 02 */}
-        <div className="kinetic-card p-6 relative overflow-hidden group">
-          <span className="absolute -right-2 -bottom-6 text-[7rem] font-mono font-black text-muted/30 select-none group-hover:text-black/10 transition-colors">
-            02
-          </span>
-          <div className="relative z-10 space-y-2">
-            <span className="text-xs font-mono text-mutedForeground uppercase tracking-widest block">
-              DAILY SPENT / LIMIT
-            </span>
-            <div className="text-3xl font-mono font-bold text-foreground tracking-tighter">
-              {policyData ? `${dailySpentNum.toFixed(2)} / ${dailyLimitNum.toFixed(2)} SOL` : 'NOT SET'}
-            </div>
-            <div className="w-full bg-border h-2 border border-border mt-2 overflow-hidden">
-              <div className="bg-accent h-full transition-all" style={{ width: `${spentPct}%` }} />
-            </div>
-          </div>
-        </div>
-
-        {/* Metric 03 */}
-        <div className="kinetic-card p-6 relative overflow-hidden group">
-          <span className="absolute -right-2 -bottom-6 text-[7rem] font-mono font-black text-muted/30 select-none group-hover:text-black/10 transition-colors">
-            03
-          </span>
-          <div className="relative z-10 space-y-2">
-            <span className="text-xs font-mono text-mutedForeground uppercase tracking-widest block">
-              SESSION BUDGET
-            </span>
-            <div className="text-3xl font-mono font-bold text-accent tracking-tighter">
-              {sessionData ? `${(sessionData.budget.toNumber() / 1_000_000_000).toFixed(2)} SOL` : 'NO SESSION'}
-            </div>
-            <p className="text-[10px] font-mono text-mutedForeground uppercase">
-              {sessionData ? (sessionData.autoRenew ? 'AUTO-RENEW ENABLED' : 'AUTO-RENEW OFF') : 'SUB-BUDGET INACTIVE'}
-            </p>
-          </div>
-        </div>
-
-        {/* Metric 04 */}
-        <div className="kinetic-card p-6 relative overflow-hidden group">
-          <span className="absolute -right-2 -bottom-6 text-[7rem] font-mono font-black text-muted/30 select-none group-hover:text-black/10 transition-colors">
-            04
-          </span>
-          <div className="relative z-10 space-y-2">
-            <span className="text-xs font-mono text-mutedForeground uppercase tracking-widest block">
-              TRANSFER HOOK STATUS
-            </span>
-            <div className={`text-2xl font-mono font-bold uppercase tracking-tighter ${
-              policyData && !policyData.isPaused ? 'text-accent' : 'text-destructive'
-            }`}>
-              {policyData ? (policyData.isPaused ? 'PAUSED' : 'ACTIVE') : 'UNINITIALIZED'}
-            </div>
-            <p className="text-[10px] font-mono text-mutedForeground uppercase">ON-CHAIN TOKEN-2022 ENFORCEMENT</p>
-          </div>
-        </div>
-
       </div>
 
-      {/* Core Action Grid (De-cluttered & High-Impact) */}
+      {/* Key Stats */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="kinetic-card p-6 relative overflow-hidden group">
+          <span className="absolute -right-2 -bottom-6 text-[6rem] font-mono font-black text-muted/20 select-none">01</span>
+          <div className="relative z-10 space-y-1">
+            <span className="text-xs font-mono text-mutedForeground uppercase tracking-widest block">Active Agents</span>
+            <div className="text-3xl font-mono font-bold text-accent">{stats.totalAgents}</div>
+            <p className="text-[10px] font-mono text-mutedForeground uppercase">AI agents with access keys</p>
+          </div>
+        </div>
+
+        <div className="kinetic-card p-6 relative overflow-hidden group">
+          <span className="absolute -right-2 -bottom-6 text-[6rem] font-mono font-black text-muted/20 select-none">02</span>
+          <div className="relative z-10 space-y-1">
+            <span className="text-xs font-mono text-mutedForeground uppercase tracking-widest block">Total Spent Today</span>
+            <div className="text-3xl font-mono font-bold text-foreground">${stats.totalSpentUsd.toFixed(4)}</div>
+            <p className="text-[10px] font-mono text-mutedForeground uppercase">Across all agents</p>
+          </div>
+        </div>
+
+        <div className="kinetic-card p-6 relative overflow-hidden group">
+          <span className="absolute -right-2 -bottom-6 text-[6rem] font-mono font-black text-muted/20 select-none">03</span>
+          <div className="relative z-10 space-y-1">
+            <span className="text-xs font-mono text-mutedForeground uppercase tracking-widest block">Pending Approvals</span>
+            <div className={`text-3xl font-mono font-bold ${stats.pendingApprovals > 0 ? 'text-amber-400' : 'text-accent'}`}>
+              {stats.pendingApprovals}
+            </div>
+            <p className="text-[10px] font-mono text-mutedForeground uppercase">Requests waiting for review</p>
+          </div>
+        </div>
+
+        <div className="kinetic-card p-6 relative overflow-hidden group">
+          <span className="absolute -right-2 -bottom-6 text-[6rem] font-mono font-black text-muted/20 select-none">04</span>
+          <div className="relative z-10 space-y-1">
+            <span className="text-xs font-mono text-mutedForeground uppercase tracking-widest block">AI Hub Status</span>
+            <div className="text-2xl font-mono font-bold text-accent uppercase tracking-tighter">Online</div>
+            <p className="text-[10px] font-mono text-mutedForeground uppercase">GPT-4o, Claude, Gemini ready</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Quick Actions */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        
-        <Link href="/policies" className="kinetic-card p-8 group">
-          <div className="text-xs font-mono text-accent font-bold uppercase tracking-widest mb-2">[+] DEPLOY</div>
-          <h3 className="font-mono text-2xl font-bold uppercase tracking-tighter mb-2">
-            &gt; POLICY MANAGER
-          </h3>
+        <Link href="/gateway" className="kinetic-card p-8 group">
+          <div className="text-xs font-mono text-accent font-bold uppercase tracking-widest mb-2">[→] CONNECT</div>
+          <h3 className="font-mono text-2xl font-bold uppercase tracking-tighter mb-2">AI Hub</h3>
           <p className="text-xs font-mono text-mutedForeground leading-relaxed uppercase">
-            CREATE, UPDATE, OR CONFIGURE DAILY SPENDING LIMITS, PER-TX CAPS, AND ALLOWLISTS.
+            Create and manage agent keys. Set daily budgets and choose which AI models each agent can use.
           </p>
         </Link>
 
-        <Link href="/sessions" className="kinetic-card p-8 group">
-          <div className="text-xs font-mono text-accent font-bold uppercase tracking-widest mb-2">[+] ALLOCATE</div>
-          <h3 className="font-mono text-2xl font-bold uppercase tracking-tighter mb-2">
-            &gt; SESSION BUDGETS
-          </h3>
+        <Link href="/policies" className="kinetic-card p-8 group">
+          <div className="text-xs font-mono text-accent font-bold uppercase tracking-widest mb-2">[→] CONTROL</div>
+          <h3 className="font-mono text-2xl font-bold uppercase tracking-tighter mb-2">Spending Rules</h3>
           <p className="text-xs font-mono text-mutedForeground leading-relaxed uppercase">
-            OPEN AUTONOMOUS AGENT SUB-BUDGETS WITH EXPIRATIONS AND AUTO-RENEWAL TRIGGERS.
+            Set daily limits, max per request, and require approval before agents can spend above a threshold.
           </p>
         </Link>
 
         <Link href="/audit" className="kinetic-card p-8 group">
-          <div className="text-xs font-mono text-accent font-bold uppercase tracking-widest mb-2">[+] COMPLIANCE</div>
-          <h3 className="font-mono text-2xl font-bold uppercase tracking-tighter mb-2">
-            &gt; AUDIT LOGS
-          </h3>
+          <div className="text-xs font-mono text-accent font-bold uppercase tracking-widest mb-2">[→] INSPECT</div>
+          <h3 className="font-mono text-2xl font-bold uppercase tracking-tighter mb-2">Activity History</h3>
           <p className="text-xs font-mono text-mutedForeground leading-relaxed uppercase">
-            INSPECT REAL-TIME TRANSFER HOOK EXECUTION LOGS, REJECTED TRANSACTIONS, AND CLAWBACKS.
+            Every AI request your agents make — model used, cost, whether it was approved or blocked.
           </p>
         </Link>
-
       </div>
 
-      {/* Budget Forecast & Emergency Controls Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        <BudgetForecastWidget />
-        <EmergencyControls />
+      {/* Recent Activity */}
+      <div className="border-2 border-border p-6 sm:p-8 bg-background space-y-6">
+        <div className="flex items-center justify-between border-b-2 border-border pb-4">
+          <h2 className="text-xl font-mono font-bold uppercase tracking-tighter">&gt; Recent Agent Requests</h2>
+          <Link href="/audit" className="text-xs font-mono text-accent font-bold uppercase hover:underline">View All</Link>
+        </div>
+
+        {recentActivity.length > 0 ? (
+          <div className="divide-y-2 divide-border">
+            {recentActivity.map((item) => (
+              <div key={item.id} className="py-4 flex items-center justify-between gap-4">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-3">
+                    <span
+                      className={`text-[10px] font-mono px-2 py-0.5 font-bold uppercase border ${
+                        item.status === 'APPROVED'
+                          ? 'border-accent text-accent bg-accent/10'
+                          : item.status.includes('ESCALATED')
+                          ? 'border-amber-400 text-amber-400 bg-amber-400/10'
+                          : 'border-destructive text-destructive bg-destructive/10'
+                      }`}
+                    >
+                      {item.status === 'APPROVED' ? 'Approved' :
+                       item.status.includes('ESCALATED') ? 'Needs Approval' :
+                       item.status.replace('BLOCKED_', '').replace(/_/g, ' ')}
+                    </span>
+                    <span className="text-sm font-mono font-bold">{item.agentName}</span>
+                  </div>
+                  <p className="text-[11px] font-mono text-mutedForeground">Model: {item.model}</p>
+                </div>
+                <div className="text-right">
+                  <div className="text-lg font-mono font-bold text-accent">{item.cost}</div>
+                  <div className="text-[10px] font-mono text-mutedForeground">{item.timestamp}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="py-12 text-center space-y-3">
+            <div className="text-3xl font-mono text-accent font-bold">[!]</div>
+            <h3 className="font-mono text-lg font-bold uppercase tracking-tighter">No Activity Yet</h3>
+            <p className="text-xs font-mono text-mutedForeground max-w-sm mx-auto uppercase">
+              Once your AI agents start making requests through the AI Hub, they'll appear here.
+            </p>
+            <Link href="/gateway" className="kinetic-btn-primary inline-block mt-2 px-6 py-3 text-xs tracking-tighter">
+              Set Up Your First Agent
+            </Link>
+          </div>
+        )}
       </div>
 
     </div>

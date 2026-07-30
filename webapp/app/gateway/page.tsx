@@ -168,12 +168,12 @@ export default function GatewayPage() {
       {/* Header */}
       <div className="border-2 border-border p-6 sm:p-8 flex flex-col sm:flex-row sm:items-center justify-between gap-6 bg-background">
         <div>
-          <span className="text-xs font-mono text-accent font-bold uppercase tracking-widest">[LLM GATEWAY]</span>
+          <span className="text-xs font-mono text-accent font-bold uppercase tracking-widest">[AI HUB]</span>
           <h1 className="text-3xl sm:text-4xl font-black font-mono text-foreground uppercase tracking-tighter mt-1">
-            GOVERNED OPENROUTER GATEWAY PROXY
+            AI Model Hub
           </h1>
           <p className="text-mutedForeground font-mono text-xs uppercase tracking-widest mt-1">
-            MULTI-PROVIDER PROXY (`/api/v1/chat/completions`), VIRTUAL AGENT KEYS, MODEL ALLOWLISTS &amp; GUARDRAILS
+            Create agent access keys, set spending budgets, choose permitted AI models, and track usage
           </p>
         </div>
 
@@ -181,28 +181,28 @@ export default function GatewayPage() {
           onClick={() => { setShowModal(true); setNewKeyGenerated(null); }}
           className="kinetic-btn-primary px-6 py-3 text-xs tracking-tighter self-start sm:self-auto"
         >
-          [+] GENERATE VIRTUAL KEY
+          [+] Create Agent Key
         </button>
       </div>
 
-      {/* Gateway Engine Specs */}
+      {/* How It Works Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="border-2 border-border p-6 bg-background">
-          <span className="text-[10px] font-mono text-accent font-bold uppercase tracking-widest block">PROXY ENDPOINT</span>
-          <code className="text-sm font-mono font-bold text-foreground block mt-1">http://localhost:4000/api/v1/chat/completions</code>
-          <p className="text-[11px] font-mono text-mutedForeground mt-2 uppercase">OpenAI SDK compatible drop-in URL</p>
+          <span className="text-[10px] font-mono text-accent font-bold uppercase tracking-widest block">HOW YOUR AGENTS CONNECT</span>
+          <div className="text-sm font-mono font-bold text-foreground block mt-1">Your Agent → Aperture Hub → AI Provider</div>
+          <p className="text-[11px] font-mono text-mutedForeground mt-2 uppercase">Agents send requests through Aperture. We enforce your spending rules before calling OpenAI / Anthropic / Google.</p>
         </div>
 
         <div className="border-2 border-border p-6 bg-background">
-          <span className="text-[10px] font-mono text-accent font-bold uppercase tracking-widest block">ACTIVE GUARDRAIL AXES</span>
-          <div className="text-lg font-mono font-bold text-foreground mt-1">7 POLICY AXES</div>
-          <p className="text-[11px] font-mono text-mutedForeground mt-1 uppercase">Time, Allowlist, Velocity, Daily Cap, Monthly Cap, Per-Tx Cap, Escalation</p>
+          <span className="text-[10px] font-mono text-accent font-bold uppercase tracking-widest block">ACTIVE SPENDING RULES</span>
+          <div className="text-lg font-mono font-bold text-foreground mt-1">7 Guardrail Checks</div>
+          <p className="text-[11px] font-mono text-mutedForeground mt-1 uppercase">Time of day, model permissions, speed limits, daily budget, monthly budget, per-request cap, approval escalation</p>
         </div>
 
         <div className="border-2 border-border p-6 bg-background">
-          <span className="text-[10px] font-mono text-accent font-bold uppercase tracking-widest block">SUPPORTED LLM PROVIDERS</span>
-          <div className="text-lg font-mono font-bold text-foreground mt-1">OPENAI, ANTHROPIC, GEMINI</div>
-          <p className="text-[11px] font-mono text-mutedForeground mt-1 uppercase">Dynamic fallback &amp; token spend tracking</p>
+          <span className="text-[10px] font-mono text-accent font-bold uppercase tracking-widest block">SUPPORTED AI MODELS</span>
+          <div className="text-lg font-mono font-bold text-foreground mt-1">OpenAI, Anthropic, Gemini</div>
+          <p className="text-[11px] font-mono text-mutedForeground mt-1 uppercase">Your agents use one key. We route to the right provider and track the cost automatically.</p>
         </div>
       </div>
 
@@ -211,7 +211,7 @@ export default function GatewayPage() {
         <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-50">
           <div className="bg-background border-2 border-border p-8 max-w-xl w-full space-y-6 max-h-[90vh] overflow-y-auto">
             <h2 className="text-xl font-mono font-bold uppercase tracking-tighter border-b-2 border-border pb-3">
-              GENERATE APERTURE VIRTUAL API KEY
+              CREATE AGENT ACCESS KEY
             </h2>
 
             {newKeyGenerated ? (
@@ -221,7 +221,7 @@ export default function GatewayPage() {
                   <code className="text-sm font-mono font-bold break-all block mt-1">{newKeyGenerated}</code>
                 </div>
                 <p className="text-xs font-mono text-mutedForeground">
-                  Configure your AI Agent code to point `baseURL` to <code className="text-accent">http://localhost:4000/api/v1</code> and use key above in `apiKey`.
+                  Add this key to your AI agent code as the API key. Point the base URL to the Aperture AI Hub endpoint.
                 </p>
                 <button
                   onClick={() => setShowModal(false)}
@@ -233,12 +233,12 @@ export default function GatewayPage() {
             ) : (
               <div className="space-y-4">
                 <div>
-                  <label className="text-xs font-mono text-mutedForeground block mb-1">AGENT NAME / IDENTIFIER</label>
+                  <label className="text-xs font-mono text-mutedForeground block mb-1">AGENT NAME</label>
                   <input
                     type="text"
                     value={agentName}
                     onChange={(e) => setAgentName(e.target.value)}
-                    placeholder="e.g. Solana-Trader-Agent"
+                    placeholder="e.g. Customer Support Bot"
                     className="w-full bg-muted border-2 border-border p-3 font-mono text-sm"
                   />
                 </div>
@@ -312,11 +312,11 @@ export default function GatewayPage() {
         </div>
       )}
 
-      {/* Interactive Gateway Playground */}
+      {/* Playground */}
       <div className="border-2 border-border p-6 sm:p-8 bg-background space-y-6">
         <h2 className="text-xl font-mono font-bold uppercase tracking-tighter border-b-2 border-border pb-4 flex items-center justify-between">
-          <span>&gt; INTERACTIVE GATEWAY TEST PLAYGROUND</span>
-          <span className="text-xs text-accent">TEST POLICY ENFORCEMENT IN REAL-TIME</span>
+          <span>&gt; Test Your Agent Key</span>
+          <span className="text-xs text-accent">Try sending a real request &amp; see policy enforcement</span>
         </h2>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -382,12 +382,12 @@ export default function GatewayPage() {
           </div>
 
           <div>
-            <label className="text-xs font-mono text-mutedForeground block mb-1">GATEWAY PROXY RESPONSE LOG</label>
+            <label className="text-xs font-mono text-mutedForeground block mb-1">YOUR AGENT RESPONSE LOG</label>
             <div className="h-[260px] bg-black text-green-400 font-mono text-xs p-4 border-2 border-border overflow-auto rounded-none">
               {testResponse ? (
                 <pre className="whitespace-pre-wrap">{testResponse}</pre>
               ) : (
-                <span className="text-mutedForeground italic">Response output from http://localhost:4000 will render here...</span>
+                <span className="text-mutedForeground italic">Response from the AI Hub will appear here...</span>
               )}
             </div>
           </div>
@@ -397,8 +397,8 @@ export default function GatewayPage() {
       {/* Keys List */}
       <div className="border-2 border-border p-6 sm:p-8 bg-background space-y-6">
         <div className="flex items-center justify-between border-b-2 border-border pb-4">
-          <h2 className="text-xl font-mono font-bold uppercase tracking-tighter">&gt; REGISTERED VIRTUAL API KEYS</h2>
-          <span className="text-xs font-mono text-accent font-bold uppercase">{keys.length} VIRTUAL KEYS</span>
+          <h2 className="text-xl font-mono font-bold uppercase tracking-tighter">&gt; Your Agent Keys</h2>
+          <span className="text-xs font-mono text-accent font-bold uppercase">{keys.length} Active Keys</span>
         </div>
 
         {loading ? (
@@ -416,22 +416,22 @@ export default function GatewayPage() {
                       {k.virtualKey}
                     </span>
                     <span className="text-[10px] font-mono px-2 py-0.5 border border-border text-mutedForeground">
-                      ACTIVE PROXY
+                      Active
                     </span>
                   </div>
                   <p className="text-xs font-mono text-mutedForeground uppercase">
-                    WALLET IDENTIFIER: <span className="text-foreground font-bold">{k.agentAddress}</span>
+                    Agent address: <span className="text-foreground font-bold">{k.agentAddress}</span>
                   </p>
                 </div>
 
                 <div className="flex items-center gap-6">
                   <div className="px-4 py-2 bg-muted border border-border">
-                    <span className="text-[10px] font-mono text-mutedForeground block uppercase tracking-widest">DAILY CAP</span>
+                    <span className="text-[10px] font-mono text-mutedForeground block uppercase tracking-widest">Daily Budget</span>
                     <span className="text-sm font-mono font-bold text-accent">${k.dailyLimitUsd} USD</span>
                   </div>
                   <div className="px-4 py-2 bg-muted border border-border">
-                    <span className="text-[10px] font-mono text-mutedForeground block uppercase tracking-widest">VELOCITY</span>
-                    <span className="text-sm font-mono font-bold text-foreground">{k.velocityMaxPerHour} REQ/HR</span>
+                    <span className="text-[10px] font-mono text-mutedForeground block uppercase tracking-widest">Speed Limit</span>
+                    <span className="text-sm font-mono font-bold text-foreground">{k.velocityMaxPerHour} / hr</span>
                   </div>
                 </div>
               </div>
@@ -439,7 +439,7 @@ export default function GatewayPage() {
           </div>
         ) : (
           <div className="py-12 text-center text-xs font-mono text-mutedForeground uppercase tracking-widest italic">
-            NO VIRTUAL KEYS REGISTERED YET. CLICK [+] GENERATE VIRTUAL KEY TO GET STARTED.
+            No agent keys yet. Click Create Agent Key to get started.
           </div>
         )}
       </div>
