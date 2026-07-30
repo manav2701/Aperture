@@ -295,3 +295,72 @@ ADD COLUMN IF NOT EXISTS agent_mnemonic TEXT;
 COMMENT ON COLUMN policies.agent_mnemonic IS 'BIP39 mnemonic for agent wallet recovery - KEEP SECURE!';
 ALTER TABLE policies ADD COLUMN IF NOT EXISTS agent_name TEXT;
 
+-- ============================================
+-- APERTURE GOVERNED LLM GATEWAY TABLES
+-- ============================================
+
+CREATE TABLE IF NOT EXISTS models (
+  id SERIAL PRIMARY KEY,
+  name TEXT NOT NULL,
+  slug TEXT UNIQUE NOT NULL,
+  company_id INT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS providers (
+  id SERIAL PRIMARY KEY,
+  name TEXT NOT NULL,
+  website TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS model_provider_mappings (
+  id SERIAL PRIMARY KEY,
+  model_id INT REFERENCES models(id),
+  provider_id INT REFERENCES providers(id),
+  input_token_cost INT NOT NULL,
+  output_token_cost INT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS agent_virtual_keys (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  agent_address TEXT NOT NULL,
+  virtual_api_key TEXT UNIQUE NOT NULL, -- aptr_live_...
+  daily_limit_usd NUMERIC DEFAULT 100.0,
+  per_tx_limit_usd NUMERIC DEFAULT 10.0,
+  monthly_limit_usd NUMERIC DEFAULT 2000.0,
+  velocity_max_per_hour INT DEFAULT 60,
+  escalation_threshold_usd NUMERIC,
+  allowed_hours_start INT,
+  allowed_hours_end INT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS agent_model_allowlists (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  agent_address TEXT NOT NULL,
+  model_slug TEXT NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  UNIQUE(agent_address, model_slug)
+);
+
+CREATE TABLE IF NOT EXISTS agent_request_logs (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  agent_address TEXT NOT NULL,
+  virtual_api_key TEXT NOT NULL,
+  model_slug TEXT NOT NULL,
+  input_tokens INT DEFAULT 0,
+  output_tokens INT DEFAULT 0,
+  cost_usd NUMERIC DEFAULT 0.0,
+  status TEXT NOT NULL, -- APPROVED, BLOCKED_*, ESCALATED_*
+  blocked_reason TEXT,
+  escalated BOOLEAN DEFAULT false,
+  approved_by TEXT,
+  tx_signature TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_agent_logs_address ON agent_request_logs(agent_address);
+CREATE INDEX IF NOT EXISTS idx_agent_logs_status ON agent_request_logs(status);
+CREATE INDEX IF NOT EXISTS idx_agent_keys_virtual ON agent_virtual_keys(virtual_api_key);
+
+
