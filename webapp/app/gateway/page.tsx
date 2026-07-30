@@ -51,11 +51,18 @@ export default function GatewayPage() {
   useEffect(() => {
     async function loadGatewayKeys() {
       try {
-        const { data } = await supabase
-          .from('agent_virtual_keys')
-          .select('*')
-          .order('created_at', { ascending: false });
+        const gatewayBase = process.env.NEXT_PUBLIC_GATEWAY_URL || 'https://aperture-production-9c8c.up.railway.app';
+        const res = await fetch(`${gatewayBase}/api/v1/keys`);
+        const result = await res.json();
 
+        if (result.success && result.keys && result.keys.length > 0) {
+          setKeys(result.keys);
+          setLoading(false);
+          return;
+        }
+
+        // Fallback: try Supabase
+        const { data } = await supabase.from('agent_virtual_keys').select('*').order('created_at', { ascending: false });
         if (data && data.length > 0) {
           setKeys(
             data.map((item: any) => ({
@@ -88,33 +95,64 @@ export default function GatewayPage() {
     if (!agentName) return;
     setCreating(true);
     try {
-      const generated = `aptr_live_${Math.random().toString(36).substring(2, 15)}${Math.random().toString(36).substring(2, 15)}`;
       const walletAddr = publicKey ? publicKey.toBase58() : `agent_${Math.random().toString(36).slice(2, 8)}`;
+      const gatewayBase = process.env.NEXT_PUBLIC_GATEWAY_URL || 'https://aperture-production-9c8c.up.railway.app';
 
-      await supabase.from('agent_virtual_keys').insert({
-        agent_address: walletAddr,
-        virtual_api_key: generated,
-        daily_limit_usd: parseFloat(dailyCapUsd),
-        per_tx_limit_usd: parseFloat(perTxCapUsd),
-        velocity_max_per_hour: parseInt(velocityCap),
-      });
-
-      setNewKeyGenerated(generated);
-      setTestKey(generated);
-      setKeys([
-        {
-          id: String(Date.now()),
+      // Primary: Post to Gateway API (Persists directly to Postgres DB via Prisma)
+      const res = await fetch(`${gatewayBase}/api/v1/keys`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: agentName,
           agentAddress: walletAddr,
-          virtualKey: generated,
           dailyLimitUsd: parseFloat(dailyCapUsd),
           perTxLimitUsd: parseFloat(perTxCapUsd),
-          monthlyLimitUsd: 2000,
           velocityMaxPerHour: parseInt(velocityCap),
           allowedModels: selectedModels,
-          createdAt: new Date().toLocaleTimeString(),
-        },
-        ...keys,
-      ]);
+        }),
+      });
+
+      const data = await res.json();
+
+      if (data.success && data.virtualKey) {
+        setNewKeyGenerated(data.virtualKey);
+        setTestKey(data.virtualKey);
+        if (data.agent) {
+          setKeys([data.agent, ...keys]);
+        }
+      } else {
+        // Fallback local key generation
+        const generated = `aptr_live_${Math.random().toString(36).substring(2, 15)}${Math.random().toString(36).substring(2, 15)}`;
+        setNewKeyGenerated(generated);
+        setTestKey(generated);
+        setKeys([
+          {
+            id: String(Date.now()),
+            agentAddress: walletAddr,
+            virtualKey: generated,
+            dailyLimitUsd: parseFloat(dailyCapUsd),
+            perTxLimitUsd: parseFloat(perTxCapUsd),
+            monthlyLimitUsd: 2000,
+            velocityMaxPerHour: parseInt(velocityCap),
+            allowedModels: selectedModels,
+            createdAt: new Date().toLocaleTimeString(),
+          },
+          ...keys,
+        ]);
+      }
+
+      // Backup: attempt Supabase insert asynchronously without throwing
+      try {
+        await supabase.from('agent_virtual_keys').insert({
+          agent_address: walletAddr,
+          virtual_api_key: newKeyGenerated || `aptr_live_${Date.now()}`,
+          daily_limit_usd: parseFloat(dailyCapUsd),
+          per_tx_limit_usd: parseFloat(perTxCapUsd),
+          velocity_max_per_hour: parseInt(velocityCap),
+        });
+      } catch (e) {
+        // Ignored — primary storage is Postgres via Gateway
+      }
     } catch (err) {
       console.error('Failed to create key:', err);
     } finally {
