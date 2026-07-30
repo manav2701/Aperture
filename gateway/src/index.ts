@@ -12,7 +12,7 @@ if (typeof globalThis.WebSocket === 'undefined') {
 dotenv.config();
 
 const app = express();
-const PORT = process.env.PORT || 4000;
+const PORT = process.env.PORT || 8080;
 
 // Supabase client (using URL and ANON/SERVICE_ROLE key)
 const supabaseUrl = process.env.SUPABASE_URL || 'https://fkvoweryeifabfebzsos.supabase.co';
