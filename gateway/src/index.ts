@@ -1,4 +1,5 @@
 import bearer from "@elysiajs/bearer";
+import cors from "@elysiajs/cors";
 import { PrismaClient } from "@prisma/client";
 import { Elysia } from "elysia";
 import { Conversation } from "./types";
@@ -8,6 +9,11 @@ import { evaluateAgentPolicy } from "./middleware/policyPipeline";
 const prisma = new PrismaClient();
 
 const app = new Elysia()
+  .use(cors({
+    origin: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  }))
   .use(bearer())
   .get("/", () => ({
     service: "Aperture AI Gateway",

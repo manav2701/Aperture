@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@elysiajs/bearer": "^1.4.2",
+    "@elysiajs/cors": "^1.2.0",
     "@prisma/client": "^5.22.0",
     "elysia": "^1.2.10"
   },
