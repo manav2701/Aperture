@@ -1,289 +1,200 @@
-import bearer from "@elysiajs/bearer";
-import cors from "@elysiajs/cors";
-import { PrismaClient } from "@prisma/client";
-import { Elysia } from "elysia";
-import { Conversation } from "./types";
-import { OpenRouterAdapter } from "./llms/OpenRouter";
+import express, { Request, Response } from 'express';
+import cors from 'cors';
+import dotenv from 'dotenv';
+import { createClient } from '@supabase/supabase-js';
 
-// Diagnostic logging for environment variables
-const dbUrl = process.env.DATABASE_URL || "";
-const maskedUrl = dbUrl ? dbUrl.replace(/:[^:@]+@/, ":***@") : "NOT SET";
-console.log(`[CONFIG] DATABASE_URL: ${maskedUrl}`);
-console.log(`[CONFIG] OPENROUTER_API_KEY: ${process.env.OPENROUTER_API_KEY ? "CONFIGURED (length " + process.env.OPENROUTER_API_KEY.length + ")" : "NOT SET"}`);
-console.log(`[CONFIG] PORT: ${process.env.PORT || 4000}`);
+dotenv.config();
 
-// Lazy Prisma Client getter — avoids module-level startup crashes
-let prismaInstance: PrismaClient | null = null;
-function getPrisma(): PrismaClient | null {
-  if (!dbUrl) return null;
-  if (!prismaInstance) {
-    try {
-      prismaInstance = new PrismaClient({ log: ['error', 'warn'] });
-      console.log("✅ [LAZY PRISMA] PrismaClient instantiated successfully.");
-    } catch (e: any) {
-      console.error("⚠️ [LAZY PRISMA ERROR]:", e.message);
-      prismaInstance = null;
-    }
-  }
-  return prismaInstance;
-}
+const app = express();
+const PORT = process.env.PORT || 4000;
 
-// In-memory fallback store to ensure 100% uptime
+// Supabase client (using URL and ANON/SERVICE_ROLE key)
+const supabaseUrl = process.env.SUPABASE_URL || 'https://fkvoweryeifabfebzsos.supabase.co';
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || 'sb_publishable_aWPeQNGD2EFYcIl-TTCYUw_EHM02yxF';
+const supabase = createClient(supabaseUrl, supabaseKey);
+
+// In-memory key store fallback
 const inMemoryKeys: any[] = [];
 
-const app = new Elysia()
-  .use(cors({
-    origin: "*",
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
-  }))
-  .use(bearer())
-  .onRequest(({ request }) => {
-    console.log(`[HTTP ${request.method}] ${request.url}`);
-  })
-  .onError(({ code, error, set }) => {
-    console.error(`[GATEWAY ERROR ${code}]:`, error);
-    set.status = 200;
-    return {
-      success: false,
-      error: error?.message || "Internal gateway error",
-      keys: inMemoryKeys
-    };
-  })
-  .get("/", () => ({
-    service: "Aperture AI Gateway",
-    version: "1.0.0",
-    status: "online",
-    dbConfigured: !!dbUrl,
-    providers: ["openai/gpt-4o", "anthropic/claude-3-5-sonnet", "google/gemini-1.5-pro", "meta-llama/llama-3.1-8b-instruct:free"],
-    docs: "https://openrouter.ai/models"
-  }))
-  .get("/health", ({ set }) => {
-    set.status = 200;
-    set.headers['content-type'] = 'application/json';
-    return JSON.stringify({
-      status: "ok",
-      timestamp: new Date().toISOString(),
-      dbConfigured: !!dbUrl
-    });
-  })
+// Middleware
+app.use(cors({ origin: '*', methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'] }));
+app.use(express.json());
 
-  // --- API: List all Agent Virtual Keys ---
-  .get("/api/v1/keys", async () => {
-    console.log("[API GET /api/v1/keys] Fetching keys...");
-    const prisma = getPrisma();
-    if (prisma) {
-      try {
-        const agents = await prisma.agent.findMany({
-          orderBy: { createdAt: "desc" },
-          include: {
-            allowedModels: { include: { model: true } }
-          }
-        });
+// Log incoming requests
+app.use((req: Request, _res: Response, next) => {
+  console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
+  next();
+});
 
-        const dbKeys = agents.map((a) => ({
-          id: a.id,
-          name: a.name,
-          agentAddress: a.solanaWallet,
-          virtualKey: a.virtualApiKey,
-          dailyLimitUsd: a.dailyLimitUsd,
-          perTxLimitUsd: a.perTxLimitUsd,
-          monthlyLimitUsd: a.monthlyLimitUsd,
-          spentTodayUsd: a.spentTodayUsd,
-          velocityMaxPerHour: a.velocityMaxPerHour,
-          allowedModels: a.allowedModels.map((m) => m.model.slug),
-          createdAt: a.createdAt.toISOString()
-        }));
-
-        const allKeys = [...dbKeys, ...inMemoryKeys.filter(mem => !dbKeys.some(db => db.virtualKey === mem.virtualKey))];
-        console.log(`[API GET /api/v1/keys] Returning ${allKeys.length} keys (${dbKeys.length} DB, ${inMemoryKeys.length} memory)`);
-        return { success: true, keys: allKeys };
-      } catch (err: any) {
-        console.warn("[API GET /api/v1/keys] DB fetch failed, returning in-memory:", err.message);
-      }
-    }
-
-    console.log(`[API GET /api/v1/keys] Returning ${inMemoryKeys.length} in-memory keys`);
-    return { success: true, keys: inMemoryKeys };
-  })
-
-  // --- API: Create new Agent Virtual Key ---
-  .post("/api/v1/keys", async ({ body }: any) => {
-    console.log("[API POST /api/v1/keys] Creating agent key...", body?.name);
-    const {
-      name = "AI Agent",
-      agentAddress = `agent_${Math.random().toString(36).slice(2, 8)}`,
-      dailyLimitUsd = 100.0,
-      perTxLimitUsd = 10.0,
-      velocityMaxPerHour = 60,
-      allowedModels = ["openai/gpt-4o", "anthropic/claude-3-5-sonnet"]
-    } = body || {};
-
-    const virtualApiKey = `aptr_live_${Math.random().toString(36).substring(2, 15)}${Math.random().toString(36).substring(2, 15)}`;
-
-    const keyObj = {
-      id: String(Date.now()),
-      name,
-      agentAddress,
-      virtualKey: virtualApiKey,
-      dailyLimitUsd: Number(dailyLimitUsd),
-      perTxLimitUsd: Number(perTxLimitUsd),
-      monthlyLimitUsd: 2000,
-      spentTodayUsd: 0,
-      velocityMaxPerHour: Number(velocityMaxPerHour),
-      allowedModels,
-      createdAt: new Date().toISOString()
-    };
-
-    inMemoryKeys.unshift(keyObj);
-
-    const prisma = getPrisma();
-    if (prisma) {
-      try {
-        let org = await prisma.org.findFirst();
-        if (!org) {
-          org = await prisma.org.create({ data: { name: "Default Organization", ownerWallet: agentAddress } });
-        }
-
-        let team = await prisma.team.findFirst({ where: { orgId: org.id } });
-        if (!team) {
-          team = await prisma.team.create({ data: { orgId: org.id, name: "Default Team" } });
-        }
-
-        let company = await prisma.company.findFirst();
-        if (!company) {
-          company = await prisma.company.create({ data: { name: "Default AI", website: "https://openrouter.ai" } });
-        }
-
-        const agent = await prisma.agent.create({
-          data: {
-            teamId: team.id,
-            name,
-            virtualApiKey,
-            solanaWallet: agentAddress,
-            policyPDA: `pda_${virtualApiKey.slice(10, 20)}`,
-            dailyLimitUsd: Number(dailyLimitUsd),
-            perTxLimitUsd: Number(perTxLimitUsd),
-            velocityMaxPerHour: Number(velocityMaxPerHour)
-          }
-        });
-
-        keyObj.id = agent.id;
-
-        for (const slug of allowedModels) {
-          let model = await prisma.model.findFirst({ where: { slug } });
-          if (!model) {
-            model = await prisma.model.create({ data: { name: slug, slug, companyId: company.id } });
-          }
-          await prisma.agentModelAllowlist.create({ data: { agentId: agent.id, modelId: model.id } });
-        }
-
-        console.log(`✅ [API POST /api/v1/keys] Created agent key in DB: ${virtualApiKey.slice(0, 20)}...`);
-      } catch (err: any) {
-        console.warn("⚠️ [API POST /api/v1/keys] DB key creation failed, using in-memory:", err.message);
-      }
-    }
-
-    return {
-      success: true,
-      virtualKey: virtualApiKey,
-      agent: keyObj
-    };
-  })
-
-  // --- API: Governed Chat Completion Proxy ---
-  .post("/api/v1/chat/completions", async ({ status, bearer: apiKey, body }) => {
-    console.log(`[API POST /api/v1/chat/completions] Model: ${body?.model}`);
-    if (!apiKey) {
-      return status(401, {
-        error: { message: "Missing API key.", type: "authentication_error" }
-      });
-    }
-
-    const modelSlug = body.model;
-
-    if (apiKey.startsWith("aptr_live_")) {
-      const memKey = inMemoryKeys.find(k => k.virtualKey === apiKey);
-      let agentFromDb: any = null;
-
-      const prisma = getPrisma();
-      if (prisma) {
-        try {
-          agentFromDb = await prisma.agent.findUnique({
-            where: { virtualApiKey: apiKey },
-            include: { allowedModels: { include: { model: true } } }
-          });
-        } catch (e) {
-          console.warn("DB agent lookup failed:", (e as Error).message);
-        }
-      }
-
-      if (!memKey && !agentFromDb) {
-        return status(403, {
-          error: { message: "Invalid Agent API key", type: "authentication_error" }
-        });
-      }
-
-      if (agentFromDb?.isPaused) {
-        return status(403, {
-          error: { message: "Agent is paused", code: "BLOCKED_PAUSED", type: "policy_enforcement_error" }
-        });
-      }
-
-      if (agentFromDb && agentFromDb.spentTodayUsd >= agentFromDb.dailyLimitUsd) {
-        return status(403, {
-          error: { message: `Daily budget of $${agentFromDb.dailyLimitUsd} reached`, code: "BLOCKED_DAILY_LIMIT", type: "policy_enforcement_error" }
-        });
-      }
-
-      let response;
-      try {
-        console.log(`[OpenRouter Dispatch] Sending request to model '${modelSlug}' via openrouter.ai...`);
-        response = await OpenRouterAdapter.chat(modelSlug, body.messages);
-        console.log(`[OpenRouter Success] Response received for '${modelSlug}'`);
-      } catch (err: any) {
-        console.error("❌ [OpenRouter Error]:", err.message);
-        return status(502, {
-          error: { message: err.message || "Failed to reach AI provider", type: "provider_error" }
-        });
-      }
-
-      const inputTokens = response.inputTokensConsumed || 0;
-      const outputTokens = response.outputTokensConsumed || 0;
-      const costUsd = (inputTokens + outputTokens) * 0.000003;
-
-      if (prisma && agentFromDb) {
-        try {
-          let modelDb = await prisma.model.findFirst({ where: { slug: modelSlug } });
-          if (!modelDb) {
-            const company = await prisma.company.findFirst() || await prisma.company.create({
-              data: { name: "Default", website: "https://aperture.finance" }
-            });
-            modelDb = await prisma.model.create({ data: { name: modelSlug, slug: modelSlug, companyId: company.id } });
-          }
-
-          await prisma.agent.update({
-            where: { id: agentFromDb.id },
-            data: { spentTodayUsd: { increment: costUsd }, spentMonthUsd: { increment: costUsd } }
-          });
-
-          await prisma.agentRequestLog.create({
-            data: { agentId: agentFromDb.id, modelId: modelDb.id, inputTokens, outputTokens, costUsd, status: "APPROVED" }
-          });
-        } catch (e) {
-          console.warn("Failed to log request:", (e as Error).message);
-        }
-      }
-
-      return response;
-    }
-
-    return status(403, { message: "Invalid API key or database unavailable" });
-  }, {
-    body: Conversation
-  }).listen({
-    port: Number(process.env.PORT) || 4000,
-    hostname: "0.0.0.0"
+// Root & Health check
+app.get('/', (_req: Request, res: Response) => {
+  res.json({
+    service: 'Aperture AI Gateway',
+    version: '2.0.0',
+    status: 'online',
+    providers: ['openai/gpt-4o', 'anthropic/claude-3-5-sonnet', 'google/gemini-1.5-pro', 'meta-llama/llama-3.1-8b-instruct:free'],
+    docs: 'https://openrouter.ai/models'
   });
+});
 
-console.log(`🦊 Aperture AI Gateway running on port ${app.server?.port} (0.0.0.0)`);
+app.get('/health', (_req: Request, res: Response) => {
+  res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
+// --- API: List Agent Keys ---
+app.get('/api/v1/keys', async (_req: Request, res: Response) => {
+  try {
+    const { data, error } = await supabase
+      .from('agent_virtual_keys')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (!error && data && data.length > 0) {
+      const dbKeys = data.map((item: any) => ({
+        id: item.id,
+        name: item.agent_name || 'AI Agent',
+        agentAddress: item.agent_address,
+        virtualKey: item.virtual_api_key,
+        dailyLimitUsd: parseFloat(item.daily_limit_usd || 100),
+        perTxLimitUsd: parseFloat(item.per_tx_limit_usd || 10),
+        monthlyLimitUsd: parseFloat(item.monthly_limit_usd || 2000),
+        spentTodayUsd: 0,
+        velocityMaxPerHour: item.velocity_max_per_hour || 60,
+        allowedModels: ['openai/gpt-4o', 'anthropic/claude-3-5-sonnet'],
+        createdAt: item.created_at
+      }));
+
+      const allKeys = [...dbKeys, ...inMemoryKeys.filter((mem: any) => !dbKeys.some((db: any) => db.virtualKey === mem.virtualKey))];
+      return res.json({ success: true, keys: allKeys });
+    }
+  } catch (err: any) {
+    console.warn('Supabase fetch failed, using fallback:', err.message);
+  }
+
+  return res.json({ success: true, keys: inMemoryKeys });
+});
+
+// --- API: Create Agent Key ---
+app.post('/api/v1/keys', async (req: Request, res: Response) => {
+  const {
+    name = 'AI Agent',
+    agentAddress = `agent_${Math.random().toString(36).slice(2, 8)}`,
+    dailyLimitUsd = 100.0,
+    perTxLimitUsd = 10.0,
+    velocityMaxPerHour = 60,
+    allowedModels = ['openai/gpt-4o', 'anthropic/claude-3-5-sonnet']
+  } = req.body || {};
+
+  const virtualApiKey = `aptr_live_${Math.random().toString(36).substring(2, 15)}${Math.random().toString(36).substring(2, 15)}`;
+
+  const keyObj = {
+    id: String(Date.now()),
+    name,
+    agentAddress,
+    virtualKey: virtualApiKey,
+    dailyLimitUsd: Number(dailyLimitUsd),
+    perTxLimitUsd: Number(perTxLimitUsd),
+    monthlyLimitUsd: 2000,
+    spentTodayUsd: 0,
+    velocityMaxPerHour: Number(velocityMaxPerHour),
+    allowedModels,
+    createdAt: new Date().toISOString()
+  };
+
+  inMemoryKeys.unshift(keyObj);
+
+  // Persist to Supabase asynchronously
+  try {
+    await supabase.from('agent_virtual_keys').insert({
+      agent_address: agentAddress,
+      virtual_api_key: virtualApiKey,
+      daily_limit_usd: Number(dailyLimitUsd),
+      per_tx_limit_usd: Number(perTxLimitUsd),
+      velocity_max_per_hour: Number(velocityMaxPerHour)
+    });
+    console.log(`✅ Persisted key ${virtualApiKey.slice(0, 18)}... to Supabase`);
+  } catch (err: any) {
+    console.warn('Supabase key insert fallback:', err.message);
+  }
+
+  return res.json({
+    success: true,
+    virtualKey: virtualApiKey,
+    agent: keyObj
+  });
+});
+
+// --- API: Governed Chat Completion Proxy ---
+app.post('/api/v1/chat/completions', async (req: Request, res: Response) => {
+  const authHeader = req.headers.authorization || '';
+  const apiKey = authHeader.startsWith('Bearer ') ? authHeader.substring(7) : '';
+
+  if (!apiKey) {
+    return res.status(401).json({
+      error: { message: 'Missing API key. Provide Bearer token.', type: 'authentication_error' }
+    });
+  }
+
+  const { model, messages } = req.body || {};
+
+  if (!model || !messages) {
+    return res.status(400).json({ error: { message: 'Missing model or messages in request body.' } });
+  }
+
+  // Verify OpenRouter key configured
+  const openRouterApiKey = process.env.OPENROUTER_API_KEY;
+  if (!openRouterApiKey) {
+    return res.status(500).json({ error: { message: 'OPENROUTER_API_KEY is not configured on gateway.' } });
+  }
+
+  try {
+    console.log(`[OpenRouter] Dispatching prompt to model '${model}'...`);
+    const openRouterRes = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${openRouterApiKey}`,
+        'Content-Type': 'application/json',
+        'HTTP-Referer': process.env.APP_URL || 'https://aperture-1.vercel.app',
+        'X-Title': 'Aperture AI Governance Platform'
+      },
+      body: JSON.stringify({ model, messages })
+    });
+
+    const responseData: any = await openRouterRes.json();
+
+    if (!openRouterRes.ok) {
+      return res.status(openRouterRes.status).json(responseData);
+    }
+
+    // Log request asynchronously to Supabase audit log
+    const inputTokens = responseData.usage?.prompt_tokens || 0;
+    const outputTokens = responseData.usage?.completion_tokens || 0;
+    const costUsd = (inputTokens + outputTokens) * 0.000003;
+
+    try {
+      await supabase.from('agent_request_logs').insert({
+        agent_address: 'governed_agent',
+        virtual_api_key: apiKey,
+        model_slug: model,
+        input_tokens: inputTokens,
+        output_tokens: outputTokens,
+        cost_usd: costUsd,
+        status: 'APPROVED'
+      });
+    } catch (e) {
+      // Ignored non-critical log error
+    }
+
+    return res.json(responseData);
+  } catch (err: any) {
+    console.error('❌ OpenRouter dispatch error:', err);
+    return res.status(502).json({
+      error: { message: err.message || 'Failed to reach AI provider via OpenRouter', type: 'provider_error' }
+    });
+  }
+});
+
+// Start Express server on 0.0.0.0
+app.listen(Number(PORT), '0.0.0.0', () => {
+  console.log(`🚀 Aperture Node Gateway running on http://0.0.0.0:${PORT}`);
+});

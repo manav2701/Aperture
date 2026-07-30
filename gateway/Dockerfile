@@ -1,25 +1,27 @@
-FROM oven/bun:1 AS base
+FROM node:20-alpine AS builder
 
 WORKDIR /app
 
-# Copy package files
 COPY package.json ./
 
-# Install dependencies
-RUN bun install
+RUN npm install
 
-# Copy source
 COPY . .
 
-# Generate Prisma client
-RUN bunx prisma generate
+RUN npm run build
 
-# Push schema to database at build time (Railway provides DATABASE_URL at build)
-# If this fails, the server will still start with in-memory fallback
-RUN bunx prisma db push --accept-data-loss --skip-generate 2>/dev/null || echo "DB push deferred to runtime"
+FROM node:20-alpine AS runner
+
+WORKDIR /app
+
+ENV NODE_ENV=production
+ENV PORT=4000
+
+COPY package.json ./
+RUN npm install --only=production
+
+COPY --from=builder /app/dist ./dist
 
 EXPOSE 4000
 
-ENV PORT=4000
-
-CMD ["bun", "run", "src/index.ts"]
+CMD ["node", "dist/index.js"]
