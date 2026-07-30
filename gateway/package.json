@@ -9,12 +9,9 @@
     "prisma:db-push": "prisma db push"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.39.0",
     "@elysiajs/bearer": "^1.4.2",
-    "@google/genai": "^0.1.2",
     "@prisma/client": "^5.22.0",
-    "elysia": "^1.2.10",
-    "openai": "^4.85.4"
+    "elysia": "^1.2.10"
   },
   "devDependencies": {
     "@types/bun": "latest",
