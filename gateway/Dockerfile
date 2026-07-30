@@ -1,4 +1,4 @@
-FROM node:20-alpine AS builder
+FROM node:22-alpine AS builder
 
 WORKDIR /app
 
@@ -10,7 +10,7 @@ COPY . .
 
 RUN npm run build
 
-FROM node:20-alpine AS runner
+FROM node:22-alpine AS runner
 
 WORKDIR /app
 
@@ -21,5 +21,4 @@ RUN npm ci --only=production
 
 COPY --from=builder /app/dist ./dist
 
-# Railway provides PORT dynamically at runtime
 CMD ["node", "dist/index.js"]

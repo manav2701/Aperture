@@ -11,7 +11,9 @@ const PORT = process.env.PORT || 4000;
 // Supabase client (using URL and ANON/SERVICE_ROLE key)
 const supabaseUrl = process.env.SUPABASE_URL || 'https://fkvoweryeifabfebzsos.supabase.co';
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || 'sb_publishable_aWPeQNGD2EFYcIl-TTCYUw_EHM02yxF';
-const supabase = createClient(supabaseUrl, supabaseKey);
+const supabase = createClient(supabaseUrl, supabaseKey, {
+  auth: { persistSession: false, autoRefreshToken: false }
+});
 
 // In-memory key store fallback
 const inMemoryKeys: any[] = [];
