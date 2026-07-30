@@ -5,19 +5,32 @@ import { Elysia } from "elysia";
 import { Conversation } from "./types";
 import { OpenRouterAdapter } from "./llms/OpenRouter";
 
+// Diagnostic logging for environment variables
+const dbUrl = process.env.DATABASE_URL || "";
+const maskedUrl = dbUrl ? dbUrl.replace(/:[^:@]+@/, ":***@") : "NOT SET";
+console.log(`[CONFIG] DATABASE_URL: ${maskedUrl}`);
+console.log(`[CONFIG] OPENROUTER_API_KEY: ${process.env.OPENROUTER_API_KEY ? "CONFIGURED (length " + process.env.OPENROUTER_API_KEY.length + ")" : "NOT SET"}`);
+console.log(`[CONFIG] PORT: ${process.env.PORT || 4000}`);
+
 // Lazy Prisma — won't crash on startup if DB isn't ready
 let prisma: PrismaClient | null = null;
 try {
-  prisma = new PrismaClient();
-  // Test connection immediately
-  prisma.$connect().then(() => {
-    console.log("✅ Database connected successfully");
-  }).catch((e: any) => {
-    console.warn("⚠️ Database connection deferred:", e.message);
-    prisma = null;
-  });
-} catch (e) {
-  console.warn("⚠️ Prisma init deferred:", (e as Error).message);
+  if (dbUrl) {
+    prisma = new PrismaClient({
+      log: ['error', 'warn']
+    });
+    prisma.$connect().then(() => {
+      console.log("✅ [DATABASE] Successfully connected to PostgreSQL!");
+    }).catch((e: any) => {
+      console.error("⚠️ [DATABASE FAIL] Connection error details:", e);
+      console.warn("⚠️ [DATABASE FALLBACK] Enabling in-memory fallback store.");
+      prisma = null;
+    });
+  } else {
+    console.warn("⚠️ [DATABASE WARNING] DATABASE_URL is not set. Running in in-memory mode.");
+  }
+} catch (e: any) {
+  console.error("⚠️ [DATABASE CRITICAL] Prisma init error:", e.message);
   prisma = null;
 }
 
@@ -31,8 +44,11 @@ const app = new Elysia()
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
   }))
   .use(bearer())
+  .onRequest(({ request }) => {
+    console.log(`[HTTP ${request.method}] ${request.url}`);
+  })
   .onError(({ code, error, set }) => {
-    console.error(`[Gateway Error ${code}]:`, error);
+    console.error(`[GATEWAY ERROR ${code}]:`, error);
     set.status = 200;
     return {
       success: false,
@@ -45,14 +61,20 @@ const app = new Elysia()
     version: "1.0.0",
     status: "online",
     dbConnected: prisma !== null,
+    dbUrlConfigured: maskedUrl,
     providers: ["openai/gpt-4o", "anthropic/claude-3-5-sonnet", "google/gemini-1.5-pro", "meta-llama/llama-3.1-8b-instruct:free"],
     docs: "https://openrouter.ai/models"
   }))
-  .get("/health", () => ({ status: "ok", timestamp: new Date().toISOString(), dbConnected: prisma !== null }))
+  .get("/health", () => ({
+    status: "ok",
+    timestamp: new Date().toISOString(),
+    dbConnected: prisma !== null,
+    databaseUrlHost: maskedUrl.split("@")[1] || "none"
+  }))
 
   // --- API: List all Agent Virtual Keys ---
   .get("/api/v1/keys", async () => {
-    // Try database first
+    console.log("[API GET /api/v1/keys] Fetching keys...");
     if (prisma) {
       try {
         const agents = await prisma.agent.findMany({
@@ -77,17 +99,20 @@ const app = new Elysia()
         }));
 
         const allKeys = [...dbKeys, ...inMemoryKeys.filter(mem => !dbKeys.some(db => db.virtualKey === mem.virtualKey))];
+        console.log(`[API GET /api/v1/keys] Returning ${allKeys.length} keys (${dbKeys.length} DB, ${inMemoryKeys.length} memory)`);
         return { success: true, keys: allKeys };
       } catch (err: any) {
-        console.warn("DB keys fetch failed, using in-memory:", err.message);
+        console.warn("[API GET /api/v1/keys] DB fetch failed, returning in-memory:", err.message);
       }
     }
 
+    console.log(`[API GET /api/v1/keys] Returning ${inMemoryKeys.length} in-memory keys`);
     return { success: true, keys: inMemoryKeys };
   })
 
   // --- API: Create new Agent Virtual Key ---
   .post("/api/v1/keys", async ({ body }: any) => {
+    console.log("[API POST /api/v1/keys] Creating agent key...", body?.name);
     const {
       name = "AI Agent",
       agentAddress = `agent_${Math.random().toString(36).slice(2, 8)}`,
@@ -113,10 +138,8 @@ const app = new Elysia()
       createdAt: new Date().toISOString()
     };
 
-    // Always store in memory first (instant, guaranteed)
     inMemoryKeys.unshift(keyObj);
 
-    // Attempt to persist to database
     if (prisma) {
       try {
         let org = await prisma.org.findFirst();
@@ -157,9 +180,9 @@ const app = new Elysia()
           await prisma.agentModelAllowlist.create({ data: { agentId: agent.id, modelId: model.id } });
         }
 
-        console.log(`✅ Agent key created in DB: ${virtualApiKey.slice(0, 20)}...`);
+        console.log(`✅ [API POST /api/v1/keys] Created agent key in DB: ${virtualApiKey.slice(0, 20)}...`);
       } catch (err: any) {
-        console.warn("DB key creation fallback to in-memory:", err.message);
+        console.warn("⚠️ [API POST /api/v1/keys] DB key creation failed, using in-memory:", err.message);
       }
     }
 
@@ -172,6 +195,7 @@ const app = new Elysia()
 
   // --- API: Governed Chat Completion Proxy ---
   .post("/api/v1/chat/completions", async ({ status, bearer: apiKey, body }) => {
+    console.log(`[API POST /api/v1/chat/completions] Model: ${body?.model}`);
     if (!apiKey) {
       return status(401, {
         error: { message: "Missing API key.", type: "authentication_error" }
@@ -181,7 +205,6 @@ const app = new Elysia()
     const modelSlug = body.model;
 
     if (apiKey.startsWith("aptr_live_")) {
-      // Check if key exists (in-memory or DB)
       const memKey = inMemoryKeys.find(k => k.virtualKey === apiKey);
       let agentFromDb: any = null;
 
@@ -202,32 +225,30 @@ const app = new Elysia()
         });
       }
 
-      // Check paused
       if (agentFromDb?.isPaused) {
         return status(403, {
           error: { message: "Agent is paused", code: "BLOCKED_PAUSED", type: "policy_enforcement_error" }
         });
       }
 
-      // Check daily limit from DB agent
       if (agentFromDb && agentFromDb.spentTodayUsd >= agentFromDb.dailyLimitUsd) {
         return status(403, {
           error: { message: `Daily budget of $${agentFromDb.dailyLimitUsd} reached`, code: "BLOCKED_DAILY_LIMIT", type: "policy_enforcement_error" }
         });
       }
 
-      // Route through OpenRouter.ai
       let response;
       try {
+        console.log(`[OpenRouter Dispatch] Sending request to model '${modelSlug}' via openrouter.ai...`);
         response = await OpenRouterAdapter.chat(modelSlug, body.messages);
+        console.log(`[OpenRouter Success] Response received for '${modelSlug}'`);
       } catch (err: any) {
-        console.error("OpenRouter call failed:", err);
+        console.error("❌ [OpenRouter Error]:", err.message);
         return status(502, {
           error: { message: err.message || "Failed to reach AI provider", type: "provider_error" }
         });
       }
 
-      // Update spend counters in DB if available
       const inputTokens = response.inputTokensConsumed || 0;
       const outputTokens = response.outputTokensConsumed || 0;
       const costUsd = (inputTokens + outputTokens) * 0.000003;
@@ -239,7 +260,7 @@ const app = new Elysia()
             const company = await prisma.company.findFirst() || await prisma.company.create({
               data: { name: "Default", website: "https://aperture.finance" }
             });
-            modelDb = await prisma.model.create({ data: { name: modelSlug, slug: modelSlug, companyId: company.id } });
+            modelDb = await prisma.model.create({ data: { name: slug, slug: modelSlug, companyId: company.id } });
           }
 
           await prisma.agent.update({
@@ -258,41 +279,7 @@ const app = new Elysia()
       return response;
     }
 
-    // --- FALLBACK: Standard API Key path ---
-    if (prisma) {
-      try {
-        const apiKeyDb = await prisma.apiKey.findFirst({
-          where: { apiKey, disabled: false, deleted: false },
-          select: { user: true }
-        });
-
-        if (!apiKeyDb) {
-          return status(403, { message: "Invalid API key" });
-        }
-
-        if (apiKeyDb.user.credits <= 0) {
-          return status(403, { message: "Insufficient credits" });
-        }
-
-        let response;
-        try {
-          response = await OpenRouterAdapter.chat(modelSlug, body.messages);
-        } catch (err: any) {
-          return status(502, { error: { message: err.message, type: "provider_error" } });
-        }
-
-        const creditsUsed = Math.ceil((response.inputTokensConsumed + response.outputTokensConsumed) * 0.003);
-        await prisma.user.update({
-          where: { id: apiKeyDb.user.id },
-          data: { credits: { decrement: creditsUsed } }
-        });
-
-        return response;
-      } catch (e) {
-        console.warn("Standard key path error:", (e as Error).message);
-      }
-    }
-
+    // Fallback standard key path
     return status(403, { message: "Invalid API key or database unavailable" });
   }, {
     body: Conversation

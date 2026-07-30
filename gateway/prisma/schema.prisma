@@ -7,198 +7,175 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model User {
-  id                 Int                 @id @default(autoincrement())
-  email              String              @unique
-  password           String
-  credits            Int                 @default(1000)
-  apiKeys            ApiKey[]
-  onrampTransactions OnrampTransaction[]
-  conversations      Conversation[]
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model agent_model_allowlists {
+  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  agent_address String
+  model_slug    String
+  created_at    DateTime? @default(now()) @db.Timestamptz(6)
+
+  @@unique([agent_address, model_slug])
 }
 
-model ApiKey {
-  id              Int            @id @default(autoincrement())
-  userId          Int
-  name            String
-  apiKey          String         @unique
-  disabled        Boolean        @default(false)
-  deleted         Boolean        @default(false)
-  lastUsed        DateTime?
-  creditsConsumed Int            @default(0)
-  user            User           @relation(fields: [userId], references: [id])
-  conversations   Conversation[]
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model agent_request_logs {
+  id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  agent_address   String
+  virtual_api_key String
+  model_slug      String
+  input_tokens    Int?      @default(0)
+  output_tokens   Int?      @default(0)
+  cost_usd        Decimal?  @default(0.0) @db.Decimal
+  status          String
+  blocked_reason  String?
+  escalated       Boolean?  @default(false)
+  approved_by     String?
+  tx_signature    String?
+  created_at      DateTime? @default(now()) @db.Timestamptz(6)
+
+  @@index([agent_address], map: "idx_agent_logs_address")
+  @@index([status], map: "idx_agent_logs_status")
 }
 
-model Company {
-  id      Int     @id @default(autoincrement())
-  name    String
-  website String
-  models  Model[]
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model agent_virtual_keys {
+  id                       String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  agent_address            String
+  virtual_api_key          String    @unique
+  daily_limit_usd          Decimal?  @default(100.0) @db.Decimal
+  per_tx_limit_usd         Decimal?  @default(10.0) @db.Decimal
+  monthly_limit_usd        Decimal?  @default(2000.0) @db.Decimal
+  velocity_max_per_hour    Int?      @default(60)
+  escalation_threshold_usd Decimal?  @db.Decimal
+  allowed_hours_start      Int?
+  allowed_hours_end        Int?
+  created_at               DateTime? @default(now()) @db.Timestamptz(6)
+
+  @@index([virtual_api_key], map: "idx_agent_keys_virtual")
 }
 
-model Model {
-  id                    Int                    @id @default(autoincrement())
-  name                  String
-  slug                  String                 @unique
-  companyId             Int
-  company               Company                @relation(fields: [companyId], references: [id])
-  modelProviderMappings ModelProviderMapping[]
-  agentModelAllowlists  AgentModelAllowlist[]
-  requestLogs           AgentRequestLog[]
+model approved_facilitators {
+  id                  String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  agent_address       String
+  facilitator_address String
+  approved            Boolean?  @default(true)
+  created_at          DateTime? @default(now()) @db.Timestamptz(6)
+
+  @@unique([agent_address, facilitator_address])
 }
 
-model Provider {
-  id                    Int                    @id @default(autoincrement())
-  name                  String
-  website               String
-  modelProviderMappings ModelProviderMapping[]
+model approved_services {
+  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  agent_address String
+  service_url   String
+  approved      Boolean?  @default(true)
+  created_at    DateTime? @default(now()) @db.Timestamptz(6)
+
+  @@unique([agent_address, service_url])
+  @@index([agent_address], map: "idx_services_agent")
 }
 
-model ModelProviderMapping {
-  id              Int            @id @default(autoincrement())
-  modelId         Int
-  providerId      Int
-  inputTokenCost  Int
-  outputTokenCost Int
-  model           Model          @relation(fields: [modelId], references: [id])
-  provider        Provider       @relation(fields: [providerId], references: [id])
-  conversations   Conversation[]
+model daily_spending {
+  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  agent_address String
+  day           DateTime  @db.Date
+  stx_spent     BigInt?   @default(0)
+  sbtc_spent    BigInt?   @default(0)
+  updated_at    DateTime? @default(now()) @db.Timestamptz(6)
+
+  @@unique([agent_address, day])
+  @@index([agent_address, day], map: "idx_daily_spending_agent")
+  @@index([agent_address, day], map: "idx_daily_spending_agent_day")
 }
 
-model OnrampTransaction {
-  id     Int    @id @default(autoincrement())
-  userId Int
-  amount Int
-  status String
-  user   User   @relation(fields: [userId], references: [id])
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model org_members {
+  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  org_id         String?   @db.Uuid
+  member_address String
+  role           Int       @default(1)
+  joined_at      DateTime? @default(now()) @db.Timestamptz(6)
+  orgs           orgs?     @relation(fields: [org_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([org_id, member_address])
 }
 
-model Conversation {
-  id                     Int                  @id @default(autoincrement())
-  userId                 Int
-  apiKeyId               Int
-  modelProviderMappingId Int
-  input                  String
-  output                 String
-  inputTokenCount        Int
-  outputTokenCount       Int
-  user                   User                 @relation(fields: [userId], references: [id])
-  apiKey                 ApiKey               @relation(fields: [apiKeyId], references: [id])
-  modelProviderMapping   ModelProviderMapping @relation(fields: [modelProviderMappingId], references: [id])
-}
-
-// ============================================
-// APERTURE GOVERNANCE SCHEMAS
-// ============================================
-
-model Org {
-  id                  String      @id @default(cuid())
-  name                String
-  ownerWallet         String
-  globalDailyCapUsd   Float       @default(1000.0)
-  globalMonthlyCapUsd Float       @default(10000.0)
-  createdAt           DateTime    @default(now())
-  teams               Team[]
-  members             OrgMember[]
-}
-
-model Team {
-  id              String   @id @default(cuid())
-  orgId           String
-  org             Org      @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  name            String
-  teamDailyCapUsd Float    @default(500.0)
-  createdAt       DateTime @default(now())
-  agents          Agent[]
-}
-
-enum OrgRole {
-  OWNER
-  CFO
-  TEAM_LEAD
-  DEVELOPER
-  AUDITOR
-}
-
-model OrgMember {
-  id           String   @id @default(cuid())
-  orgId        String
-  org          Org      @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  memberWallet String
-  role         OrgRole  @default(DEVELOPER)
-  joinedAt     DateTime @default(now())
-
-  @@unique([orgId, memberWallet])
-}
-
-model Agent {
-  id                     String                @id @default(cuid())
-  teamId                 String
-  team                   Team                  @relation(fields: [teamId], references: [id], onDelete: Cascade)
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model orgs {
+  id                     String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  owner_address          String        @unique
   name                   String
-  virtualApiKey          String                @unique // aptr_live_...
-  solanaWallet           String
-  policyPDA              String
-  isActive               Boolean               @default(true)
-  isPaused               Boolean               @default(false)
-
-  // Guardrails
-  dailyLimitUsd          Float                 @default(100.0)
-  perTxLimitUsd          Float                 @default(10.0)
-  monthlyLimitUsd        Float                 @default(2000.0)
-  spentTodayUsd          Float                 @default(0.0)
-  spentMonthUsd          Float                 @default(0.0)
-  lastSpendResetDay      String?               // YYYY-MM-DD
-  velocityMaxPerHour     Int                   @default(60)
-  escalationThresholdUsd Float?
-  allowedHoursStart      Int?                  // 0-23 UTC
-  allowedHoursEnd        Int?                  // 0-23 UTC
-  parentAgentId          String?
-  createdAt              DateTime              @default(now())
-  updatedAt              DateTime              @updatedAt
-
-  allowedModels          AgentModelAllowlist[]
-  requestLogs            AgentRequestLog[]
+  global_daily_cap_sol   Decimal?      @default(1000) @db.Decimal
+  global_monthly_cap_sol Decimal?      @default(10000) @db.Decimal
+  is_kill_switch_active  Boolean?      @default(false)
+  created_at             DateTime?     @default(now()) @db.Timestamptz(6)
+  org_members            org_members[]
+  teams                  teams[]
 }
 
-model AgentModelAllowlist {
-  id      String @id @default(cuid())
-  agentId String
-  agent   Agent  @relation(fields: [agentId], references: [id], onDelete: Cascade)
-  modelId Int
-  model   Model  @relation(fields: [modelId], references: [id], onDelete: Cascade)
+model payment_history {
+  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  agent_address  String
+  amount         BigInt
+  asset_type     String
+  service_url    String
+  transaction_id String?
+  approved       Boolean
+  block_height   BigInt?
+  created_at     DateTime? @default(now()) @db.Timestamptz(6)
 
-  @@unique([agentId, modelId])
+  @@index([agent_address], map: "idx_payment_history_agent")
+  @@index([agent_address], map: "idx_payments_agent")
+  @@index([created_at], map: "idx_payments_created")
 }
 
-enum RequestStatus {
-  APPROVED
-  BLOCKED_DAILY_LIMIT
-  BLOCKED_MONTHLY_LIMIT
-  BLOCKED_PER_TX_LIMIT
-  BLOCKED_MODEL_NOT_ALLOWED
-  BLOCKED_VELOCITY
-  BLOCKED_TIME_WINDOW
-  BLOCKED_PAUSED
-  ESCALATED_PENDING
-  ESCALATED_APPROVED
-  ESCALATED_DENIED
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model policies {
+  id                String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  agent_address     String    @unique
+  owner_address     String
+  daily_limit_stx   BigInt
+  daily_limit_sbtc  BigInt
+  per_tx_limit_stx  BigInt
+  per_tx_limit_sbtc BigInt
+  is_active         Boolean?  @default(true)
+  is_paused         Boolean?  @default(false)
+  is_revoked        Boolean?  @default(false)
+  created_at        DateTime? @default(now()) @db.Timestamptz(6)
+  updated_at        DateTime? @default(now()) @db.Timestamptz(6)
+  agent_mnemonic    String?
+  agent_name        String?
+
+  @@index([agent_address], map: "idx_policies_agent")
+  @@index([owner_address], map: "idx_policies_owner")
 }
 
-model AgentRequestLog {
-  id            String        @id @default(cuid())
-  agentId       String
-  agent         Agent         @relation(fields: [agentId], references: [id], onDelete: Cascade)
-  modelId       Int
-  model         Model         @relation(fields: [modelId], references: [id])
-  inputTokens   Int           @default(0)
-  outputTokens  Int           @default(0)
-  costUsd       Float         @default(0.0)
-  status        RequestStatus
-  blockedReason String?
-  escalated     Boolean       @default(false)
-  approvedBy    String?
-  txSignature   String?       // Solana settlement tx hash
-  createdAt     DateTime      @default(now())
+model sessions {
+  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  session_id    String    @unique
+  agent_address String
+  owner_address String
+  budget_stx    BigInt?   @default(0)
+  budget_sbtc   BigInt?   @default(0)
+  spent_stx     BigInt?   @default(0)
+  spent_sbtc    BigInt?   @default(0)
+  is_active     Boolean?  @default(true)
+  payment_count Int?      @default(0)
+  expires_at    DateTime  @db.Timestamptz(6)
+  created_at    DateTime? @default(now()) @db.Timestamptz(6)
+
+  @@index([agent_address], map: "idx_sessions_agent")
+  @@index([session_id], map: "idx_sessions_session_id")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model teams {
+  id                 String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  org_id             String?   @db.Uuid
+  team_id            Int
+  name               String
+  team_lead_address  String
+  team_daily_cap_sol Decimal?  @default(500) @db.Decimal
+  created_at         DateTime? @default(now()) @db.Timestamptz(6)
+  orgs               orgs?     @relation(fields: [org_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 }
