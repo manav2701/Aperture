@@ -43,9 +43,13 @@ graph TD
 ## Repository Layout
 
 ```text
+├── gateway/               # Governed OpenRouter LLM Gateway proxy engine (ElysiaJS + Prisma)
+│   ├── src/                 # Gateway router & policy enforcement pipeline
+│   └── prisma/              # Prisma schema for models, providers, logs & policies
 ├── programs/
 │   ├── policy-manager/      # Anchor program for agent policies & SPL transfer hook
 │   └── session-tracker/     # Anchor program for time-bounded session budgets
+├── webapp/                  # Governed Next.js dashboard & fleet management
 ├── sdk/
 │   ├── src/                 # TypeScript SDK source code
 │   │   ├── policy.ts        # PolicyManagerClient

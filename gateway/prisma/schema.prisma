@@ -1,0 +1,204 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                 Int                 @id @default(autoincrement())
+  email              String              @unique
+  password           String
+  credits            Int                 @default(1000)
+  apiKeys            ApiKey[]
+  onrampTransactions OnrampTransaction[]
+  conversations      Conversation[]
+}
+
+model ApiKey {
+  id              Int            @id @default(autoincrement())
+  userId          Int
+  name            String
+  apiKey          String         @unique
+  disabled        Boolean        @default(false)
+  deleted         Boolean        @default(false)
+  lastUsed        DateTime?
+  creditsConsumed Int            @default(0)
+  user            User           @relation(fields: [userId], references: [id])
+  conversations   Conversation[]
+}
+
+model Company {
+  id      Int     @id @default(autoincrement())
+  name    String
+  website String
+  models  Model[]
+}
+
+model Model {
+  id                    Int                    @id @default(autoincrement())
+  name                  String
+  slug                  String                 @unique
+  companyId             Int
+  company               Company                @relation(fields: [companyId], references: [id])
+  modelProviderMappings ModelProviderMapping[]
+  agentModelAllowlists  AgentModelAllowlist[]
+  requestLogs           AgentRequestLog[]
+}
+
+model Provider {
+  id                    Int                    @id @default(autoincrement())
+  name                  String
+  website               String
+  modelProviderMappings ModelProviderMapping[]
+}
+
+model ModelProviderMapping {
+  id              Int            @id @default(autoincrement())
+  modelId         Int
+  providerId      Int
+  inputTokenCost  Int
+  outputTokenCost Int
+  model           Model          @relation(fields: [modelId], references: [id])
+  provider        Provider       @relation(fields: [providerId], references: [id])
+  conversations   Conversation[]
+}
+
+model OnrampTransaction {
+  id     Int    @id @default(autoincrement())
+  userId Int
+  amount Int
+  status String
+  user   User   @relation(fields: [userId], references: [id])
+}
+
+model Conversation {
+  id                     Int                  @id @default(autoincrement())
+  userId                 Int
+  apiKeyId               Int
+  modelProviderMappingId Int
+  input                  String
+  output                 String
+  inputTokenCount        Int
+  outputTokenCount       Int
+  user                   User                 @relation(fields: [userId], references: [id])
+  apiKey                 ApiKey               @relation(fields: [apiKeyId], references: [id])
+  modelProviderMapping   ModelProviderMapping @relation(fields: [modelProviderMappingId], references: [id])
+}
+
+// ============================================
+// APERTURE GOVERNANCE SCHEMAS
+// ============================================
+
+model Org {
+  id                  String      @id @default(cuid())
+  name                String
+  ownerWallet         String
+  globalDailyCapUsd   Float       @default(1000.0)
+  globalMonthlyCapUsd Float       @default(10000.0)
+  createdAt           DateTime    @default(now())
+  teams               Team[]
+  members             OrgMember[]
+}
+
+model Team {
+  id              String   @id @default(cuid())
+  orgId           String
+  org             Org      @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  name            String
+  teamDailyCapUsd Float    @default(500.0)
+  createdAt       DateTime @default(now())
+  agents          Agent[]
+}
+
+enum OrgRole {
+  OWNER
+  CFO
+  TEAM_LEAD
+  DEVELOPER
+  AUDITOR
+}
+
+model OrgMember {
+  id           String   @id @default(cuid())
+  orgId        String
+  org          Org      @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  memberWallet String
+  role         OrgRole  @default(DEVELOPER)
+  joinedAt     DateTime @default(now())
+
+  @@unique([orgId, memberWallet])
+}
+
+model Agent {
+  id                     String                @id @default(cuid())
+  teamId                 String
+  team                   Team                  @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  name                   String
+  virtualApiKey          String                @unique // aptr_live_...
+  solanaWallet           String
+  policyPDA              String
+  isActive               Boolean               @default(true)
+  isPaused               Boolean               @default(false)
+
+  // Guardrails
+  dailyLimitUsd          Float                 @default(100.0)
+  perTxLimitUsd          Float                 @default(10.0)
+  monthlyLimitUsd        Float                 @default(2000.0)
+  spentTodayUsd          Float                 @default(0.0)
+  spentMonthUsd          Float                 @default(0.0)
+  lastSpendResetDay      String?               // YYYY-MM-DD
+  velocityMaxPerHour     Int                   @default(60)
+  escalationThresholdUsd Float?
+  allowedHoursStart      Int?                  // 0-23 UTC
+  allowedHoursEnd        Int?                  // 0-23 UTC
+  parentAgentId          String?
+  createdAt              DateTime              @default(now())
+  updatedAt              DateTime              @updatedAt
+
+  allowedModels          AgentModelAllowlist[]
+  requestLogs            AgentRequestLog[]
+}
+
+model AgentModelAllowlist {
+  id      String @id @default(cuid())
+  agentId String
+  agent   Agent  @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  modelId Int
+  model   Model  @relation(fields: [modelId], references: [id], onDelete: Cascade)
+
+  @@unique([agentId, modelId])
+}
+
+enum RequestStatus {
+  APPROVED
+  BLOCKED_DAILY_LIMIT
+  BLOCKED_MONTHLY_LIMIT
+  BLOCKED_PER_TX_LIMIT
+  BLOCKED_MODEL_NOT_ALLOWED
+  BLOCKED_VELOCITY
+  BLOCKED_TIME_WINDOW
+  BLOCKED_PAUSED
+  ESCALATED_PENDING
+  ESCALATED_APPROVED
+  ESCALATED_DENIED
+}
+
+model AgentRequestLog {
+  id            String        @id @default(cuid())
+  agentId       String
+  agent         Agent         @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  modelId       Int
+  model         Model         @relation(fields: [modelId], references: [id])
+  inputTokens   Int           @default(0)
+  outputTokens  Int           @default(0)
+  costUsd       Float         @default(0.0)
+  status        RequestStatus
+  blockedReason String?
+  escalated     Boolean       @default(false)
+  approvedBy    String?
+  txSignature   String?       // Solana settlement tx hash
+  createdAt     DateTime      @default(now())
+}
