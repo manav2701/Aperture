@@ -51,12 +51,31 @@ export default function GatewayPage() {
   useEffect(() => {
     async function loadGatewayKeys() {
       try {
+        const savedLocal = typeof window !== 'undefined' ? localStorage.getItem('aperture_virtual_keys') : null;
+        const localKeys: VirtualKeyItem[] = savedLocal ? JSON.parse(savedLocal) : [];
+
         const gatewayBase = process.env.NEXT_PUBLIC_GATEWAY_URL || 'https://aperture-production-9c8c.up.railway.app';
         const res = await fetch(`${gatewayBase}/api/v1/keys`);
         const result = await res.json();
 
-        if (result.success && result.keys && result.keys.length > 0) {
-          setKeys(result.keys);
+        let apiKeys: VirtualKeyItem[] = [];
+        if (result.success && Array.isArray(result.keys)) {
+          apiKeys = result.keys;
+        }
+
+        // Merge API keys and local cached keys
+        const combined = [...apiKeys];
+        for (const loc of localKeys) {
+          if (!combined.some(k => k.virtualKey === loc.virtualKey)) {
+            combined.push(loc);
+          }
+        }
+
+        if (combined.length > 0) {
+          setKeys(combined);
+          if (combined[0]?.virtualKey) {
+            setTestKey(combined[0].virtualKey);
+          }
           setLoading(false);
           return;
         }
@@ -64,25 +83,25 @@ export default function GatewayPage() {
         // Fallback: try Supabase
         const { data } = await supabase.from('agent_virtual_keys').select('*').order('created_at', { ascending: false });
         if (data && data.length > 0) {
-          setKeys(
-            data.map((item: any) => ({
-              id: item.id,
-              agentAddress: item.agent_address,
-              virtualKey: item.virtual_api_key,
-              dailyLimitUsd: parseFloat(item.daily_limit_usd || 100),
-              perTxLimitUsd: parseFloat(item.per_tx_limit_usd || 10),
-              monthlyLimitUsd: parseFloat(item.monthly_limit_usd || 2000),
-              velocityMaxPerHour: item.velocity_max_per_hour || 60,
-              allowedModels: ['openai/gpt-4o', 'anthropic/claude-3-5-sonnet'],
-              createdAt: new Date(item.created_at).toLocaleTimeString(),
-            }))
-          );
+          const dbItems = data.map((item: any) => ({
+            id: item.id,
+            agentAddress: item.agent_address,
+            virtualKey: item.virtual_api_key,
+            dailyLimitUsd: parseFloat(item.daily_limit_usd || 100),
+            perTxLimitUsd: parseFloat(item.per_tx_limit_usd || 10),
+            monthlyLimitUsd: parseFloat(item.monthly_limit_usd || 2000),
+            velocityMaxPerHour: item.velocity_max_per_hour || 60,
+            allowedModels: ['openai/gpt-4o', 'anthropic/claude-3-5-sonnet'],
+            createdAt: new Date(item.created_at).toLocaleTimeString(),
+          }));
+          setKeys(dbItems);
         } else {
-          setKeys([]);
+          setKeys(localKeys);
         }
       } catch (err) {
         console.warn('Error loading gateway keys:', err);
-        setKeys([]);
+        const savedLocal = typeof window !== 'undefined' ? localStorage.getItem('aperture_virtual_keys') : null;
+        setKeys(savedLocal ? JSON.parse(savedLocal) : []);
       } finally {
         setLoading(false);
       }
@@ -114,31 +133,36 @@ export default function GatewayPage() {
 
       const data = await res.json();
 
+      let createdKeyObj: VirtualKeyItem | null = null;
       if (data.success && data.virtualKey) {
         setNewKeyGenerated(data.virtualKey);
         setTestKey(data.virtualKey);
         if (data.agent) {
-          setKeys([data.agent, ...keys]);
+          createdKeyObj = data.agent;
         }
       } else {
-        // Fallback local key generation
         const generated = `aptr_live_${Math.random().toString(36).substring(2, 15)}${Math.random().toString(36).substring(2, 15)}`;
         setNewKeyGenerated(generated);
         setTestKey(generated);
-        setKeys([
-          {
-            id: String(Date.now()),
-            agentAddress: walletAddr,
-            virtualKey: generated,
-            dailyLimitUsd: parseFloat(dailyCapUsd),
-            perTxLimitUsd: parseFloat(perTxCapUsd),
-            monthlyLimitUsd: 2000,
-            velocityMaxPerHour: parseInt(velocityCap),
-            allowedModels: selectedModels,
-            createdAt: new Date().toLocaleTimeString(),
-          },
-          ...keys,
-        ]);
+        createdKeyObj = {
+          id: String(Date.now()),
+          agentAddress: walletAddr,
+          virtualKey: generated,
+          dailyLimitUsd: parseFloat(dailyCapUsd),
+          perTxLimitUsd: parseFloat(perTxCapUsd),
+          monthlyLimitUsd: 2000,
+          velocityMaxPerHour: parseInt(velocityCap),
+          allowedModels: selectedModels,
+          createdAt: new Date().toLocaleTimeString(),
+        };
+      }
+
+      if (createdKeyObj) {
+        const updatedList = [createdKeyObj, ...keys.filter(k => k.virtualKey !== createdKeyObj?.virtualKey)];
+        setKeys(updatedList);
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('aperture_virtual_keys', JSON.stringify(updatedList));
+        }
       }
 
       // Backup: attempt Supabase insert asynchronously without throwing

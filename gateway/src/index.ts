@@ -51,16 +51,19 @@ app.get('/health', (_req: Request, res: Response) => {
 
 // --- API: List Agent Keys ---
 app.get('/api/v1/keys', async (_req: Request, res: Response) => {
+  let dbKeys: any[] = [];
   try {
     const { data, error } = await supabase
       .from('agent_virtual_keys')
       .select('*')
       .order('created_at', { ascending: false });
 
-    if (!error && data && data.length > 0) {
-      const dbKeys = data.map((item: any) => ({
+    if (error) {
+      console.warn('⚠️ [SUPABASE KEYS FETCH ERROR]:', error.message);
+    } else if (data) {
+      dbKeys = data.map((item: any) => ({
         id: item.id,
-        name: item.agent_name || 'AI Agent',
+        name: item.agent_name || item.name || 'AI Agent',
         agentAddress: item.agent_address,
         virtualKey: item.virtual_api_key,
         dailyLimitUsd: parseFloat(item.daily_limit_usd || 100),
@@ -71,15 +74,21 @@ app.get('/api/v1/keys', async (_req: Request, res: Response) => {
         allowedModels: ['openai/gpt-4o', 'anthropic/claude-3-5-sonnet'],
         createdAt: item.created_at
       }));
-
-      const allKeys = [...dbKeys, ...inMemoryKeys.filter((mem: any) => !dbKeys.some((db: any) => db.virtualKey === mem.virtualKey))];
-      return res.json({ success: true, keys: allKeys });
     }
   } catch (err: any) {
-    console.warn('Supabase fetch failed, using fallback:', err.message);
+    console.warn('Supabase fetch catch:', err.message);
   }
 
-  return res.json({ success: true, keys: inMemoryKeys });
+  // Deduplicate combined keys by virtualKey
+  const combined = [...dbKeys];
+  for (const mem of inMemoryKeys) {
+    if (!combined.some(k => k.virtualKey === mem.virtualKey)) {
+      combined.push(mem);
+    }
+  }
+
+  console.log(`[API GET /api/v1/keys] Returning ${combined.length} keys (${dbKeys.length} DB, ${inMemoryKeys.length} memory)`);
+  return res.json({ success: true, keys: combined });
 });
 
 // --- API: Create Agent Key ---
@@ -111,18 +120,23 @@ app.post('/api/v1/keys', async (req: Request, res: Response) => {
 
   inMemoryKeys.unshift(keyObj);
 
-  // Persist to Supabase asynchronously
+  // Persist to Supabase
   try {
-    await supabase.from('agent_virtual_keys').insert({
+    const { error } = await supabase.from('agent_virtual_keys').insert({
       agent_address: agentAddress,
       virtual_api_key: virtualApiKey,
       daily_limit_usd: Number(dailyLimitUsd),
       per_tx_limit_usd: Number(perTxLimitUsd),
       velocity_max_per_hour: Number(velocityMaxPerHour)
     });
-    console.log(`✅ Persisted key ${virtualApiKey.slice(0, 18)}... to Supabase`);
+
+    if (error) {
+      console.warn('⚠️ [SUPABASE KEY INSERT ERROR]:', error.message);
+    } else {
+      console.log(`✅ [SUPABASE KEY INSERT SUCCESS]: ${virtualApiKey.slice(0, 18)}...`);
+    }
   } catch (err: any) {
-    console.warn('Supabase key insert fallback:', err.message);
+    console.warn('Supabase key insert catch:', err.message);
   }
 
   return res.json({
