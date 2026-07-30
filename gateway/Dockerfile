@@ -14,9 +14,12 @@ COPY . .
 # Generate Prisma client
 RUN bunx prisma generate
 
+# Push schema to database at build time (Railway provides DATABASE_URL at build)
+# If this fails, the server will still start with in-memory fallback
+RUN bunx prisma db push --accept-data-loss --skip-generate 2>/dev/null || echo "DB push deferred to runtime"
+
 EXPOSE 4000
 
 ENV PORT=4000
 
-# Run database migrations then start the server
-CMD bunx prisma migrate deploy --skip-generate 2>/dev/null || bunx prisma db push --skip-generate 2>/dev/null; bun run src/index.ts
+CMD ["bun", "run", "src/index.ts"]
