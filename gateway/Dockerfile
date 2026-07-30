@@ -18,4 +18,5 @@ EXPOSE 4000
 
 ENV PORT=4000
 
-CMD ["bun", "run", "src/index.ts"]
+# Run database migrations then start the server
+CMD bunx prisma migrate deploy --skip-generate 2>/dev/null || bunx prisma db push --skip-generate 2>/dev/null; bun run src/index.ts
