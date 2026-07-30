@@ -80,8 +80,8 @@ model daily_spending {
   id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   agent_address String
   day           DateTime  @db.Date
-  stx_spent     BigInt?   @default(0)
-  sbtc_spent    BigInt?   @default(0)
+  sol_spent     BigInt?   @default(0)
+  usdc_spent    BigInt?   @default(0)
   updated_at    DateTime? @default(now()) @db.Timestamptz(6)
 
   @@unique([agent_address, day])
@@ -135,10 +135,10 @@ model policies {
   id                String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   agent_address     String    @unique
   owner_address     String
-  daily_limit_stx   BigInt
-  daily_limit_sbtc  BigInt
-  per_tx_limit_stx  BigInt
-  per_tx_limit_sbtc BigInt
+  daily_limit_sol   BigInt
+  per_tx_limit_sol  BigInt
+  daily_limit_usdc  BigInt
+  per_tx_limit_usdc BigInt
   is_active         Boolean?  @default(true)
   is_paused         Boolean?  @default(false)
   is_revoked        Boolean?  @default(false)
@@ -156,10 +156,10 @@ model sessions {
   session_id    String    @unique
   agent_address String
   owner_address String
-  budget_stx    BigInt?   @default(0)
-  budget_sbtc   BigInt?   @default(0)
-  spent_stx     BigInt?   @default(0)
-  spent_sbtc    BigInt?   @default(0)
+  budget_sol    BigInt?   @default(0)
+  budget_usdc   BigInt?   @default(0)
+  spent_sol     BigInt?   @default(0)
+  spent_usdc    BigInt?   @default(0)
   is_active     Boolean?  @default(true)
   payment_count Int?      @default(0)
   expires_at    DateTime  @db.Timestamptz(6)

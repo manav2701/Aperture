@@ -76,17 +76,17 @@ export default function PoliciesPage() {
 
     setLoading(true);
     try {
-      // Convert SOL to base units (lamports/stx) for DB storage
+      // Convert SOL to base units (lamports) for DB storage
       const dailyLamports = parseFloat(dailyLimitSol) * 1_000_000_000;
       const perTxLamports = parseFloat(perTxLimitSol) * 1_000_000_000;
 
       const { error } = await supabase.from('policies').upsert({
         agent_address: agentPubKey,
         owner_address: publicKey.toBase58(),
-        daily_limit_stx: dailyLamports,
-        per_tx_limit_stx: perTxLamports,
-        daily_limit_sbtc: 0,
-        per_tx_limit_sbtc: 0,
+        daily_limit_sol: dailyLamports,
+        per_tx_limit_sol: perTxLamports,
+        daily_limit_usdc: 0,
+        per_tx_limit_usdc: 0,
         is_active: true,
         updated_at: new Date().toISOString()
       }, { onConflict: 'agent_address' });

@@ -119,21 +119,16 @@ async function handleProxyRequest(request: NextRequest, method: string) {
 interface PolicyRecord {
   daily_limit_sol?: number;
   per_tx_limit_sol?: number;
-  daily_limit_stx?: number;    // legacy compat
-  per_tx_limit_stx?: number;   // legacy compat
   [key: string]: unknown;
 }
 
 async function checkPolicyLimits(agentAddress: string, amountLamports: number, policy: PolicyRecord) {
-  // Support both old STX-named columns and new SOL columns
   const dailyLimitLamports =
     (policy.daily_limit_sol as number) ||
-    (policy.daily_limit_stx as number) ||
     100_000_000_000; // 100 SOL default
 
   const perTxLimitLamports =
     (policy.per_tx_limit_sol as number) ||
-    (policy.per_tx_limit_stx as number) ||
     20_000_000_000; // 20 SOL default
 
   // Query today's payment_history for spend total

@@ -57,10 +57,10 @@ export default function SessionsPage() {
         session_id: `sess_${Math.random().toString(36).substring(2, 15)}`,
         agent_address: publicKey.toBase58(),
         owner_address: publicKey.toBase58(),
-        budget_stx: budgetLamports,
-        budget_sbtc: 0,
-        spent_stx: 0,
-        spent_sbtc: 0,
+        budget_sol: budgetLamports,
+        budget_usdc: 0,
+        spent_sol: 0,
+        spent_usdc: 0,
         is_active: true,
         expires_at: new Date(Date.now() + 3600000).toISOString() // +1 hour for MVP
       });

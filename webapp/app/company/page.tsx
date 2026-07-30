@@ -39,7 +39,7 @@ export default function CompanyDashboard() {
             policies.map((p: any) => ({
               agent_address: p.agent_address,
               totalSpentSol: (p.spent_today || 0) / 1_000_000_000,
-              dailyLimitSol: (p.daily_limit_stx || 100_000_000_000) / 1_000_000_000,
+              dailyLimitSol: (p.daily_limit_sol || 100_000_000_000) / 1_000_000_000,
               status: p.is_paused ? 'PAUSED' : 'ACTIVE',
               lastActivity: 'ACTIVE',
             }))

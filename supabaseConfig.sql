@@ -14,10 +14,10 @@ CREATE TABLE IF NOT EXISTS policies (
   agent_address TEXT UNIQUE NOT NULL,
   agent_mnemonic TEXT,                -- For wallet recovery
   owner_address TEXT NOT NULL,
-  daily_limit_stx BIGINT DEFAULT 10000000,
-  daily_limit_sbtc BIGINT DEFAULT 100000000,
-  per_tx_limit_stx BIGINT DEFAULT 1000000,
-  per_tx_limit_sbtc BIGINT DEFAULT 10000000,
+  daily_limit_sol BIGINT DEFAULT 10000000,
+  daily_limit_usdc BIGINT DEFAULT 100000000,
+  per_tx_limit_sol BIGINT DEFAULT 1000000,
+  per_tx_limit_usdc BIGINT DEFAULT 10000000,
   is_active BOOLEAN DEFAULT true,
   is_paused BOOLEAN DEFAULT false,
   is_revoked BOOLEAN DEFAULT false,
@@ -30,7 +30,7 @@ CREATE TABLE IF NOT EXISTS payment_history (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   agent_address TEXT NOT NULL,
   amount BIGINT NOT NULL,
-  asset_type TEXT DEFAULT 'STX',
+  asset_type TEXT DEFAULT 'SOL',
   service_url TEXT NOT NULL,
   approved BOOLEAN DEFAULT true,
   transaction_id TEXT,
@@ -42,8 +42,8 @@ CREATE TABLE IF NOT EXISTS daily_spending (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   agent_address TEXT NOT NULL,
   day DATE NOT NULL,
-  stx_spent BIGINT DEFAULT 0,
-  sbtc_spent BIGINT DEFAULT 0,
+  sol_spent BIGINT DEFAULT 0,
+  usdc_spent BIGINT DEFAULT 0,
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   UNIQUE(agent_address, day)
 );
@@ -108,10 +108,10 @@ CREATE TABLE IF NOT EXISTS sessions (
   session_id TEXT UNIQUE NOT NULL,
   agent_address TEXT NOT NULL,
   owner_address TEXT NOT NULL,
-  budget_stx BIGINT DEFAULT 0,
-  budget_sbtc BIGINT DEFAULT 0,
-  spent_stx BIGINT DEFAULT 0,
-  spent_sbtc BIGINT DEFAULT 0,
+  budget_sol BIGINT DEFAULT 0,
+  budget_usdc BIGINT DEFAULT 0,
+  spent_sol BIGINT DEFAULT 0,
+  spent_usdc BIGINT DEFAULT 0,
   expires_at TIMESTAMP WITH TIME ZONE,
   is_active BOOLEAN DEFAULT true,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
@@ -125,17 +125,17 @@ CREATE TABLE IF NOT EXISTS sessions (
 CREATE OR REPLACE FUNCTION increment_daily_spending(
   p_agent_address TEXT,
   p_day DATE,
-  p_stx_amount BIGINT DEFAULT 0,
-  p_sbtc_amount BIGINT DEFAULT 0
+  p_sol_amount BIGINT DEFAULT 0,
+  p_usdc_amount BIGINT DEFAULT 0
 )
 RETURNS void AS $$
 BEGIN
-  INSERT INTO daily_spending (agent_address, day, stx_spent, sbtc_spent)
-  VALUES (p_agent_address, p_day, p_stx_amount, p_sbtc_amount)
+  INSERT INTO daily_spending (agent_address, day, sol_spent, usdc_spent)
+  VALUES (p_agent_address, p_day, p_sol_amount, p_usdc_amount)
   ON CONFLICT (agent_address, day)
   DO UPDATE SET
-    stx_spent = daily_spending.stx_spent + p_stx_amount,
-    sbtc_spent = daily_spending.sbtc_spent + p_sbtc_amount,
+    sol_spent = daily_spending.sol_spent + p_sol_amount,
+    usdc_spent = daily_spending.usdc_spent + p_usdc_amount,
     updated_at = NOW();
 END;
 $$ LANGUAGE plpgsql;
@@ -174,10 +174,10 @@ CREATE TABLE policies (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   agent_address TEXT NOT NULL UNIQUE,
   owner_address TEXT NOT NULL,
-  daily_limit_stx BIGINT NOT NULL,
-  daily_limit_sbtc BIGINT NOT NULL,
-  per_tx_limit_stx BIGINT NOT NULL,
-  per_tx_limit_sbtc BIGINT NOT NULL,
+  daily_limit_sol BIGINT NOT NULL,
+  daily_limit_usdc BIGINT NOT NULL,
+  per_tx_limit_sol BIGINT NOT NULL,
+  per_tx_limit_usdc BIGINT NOT NULL,
   is_active BOOLEAN DEFAULT true,
   is_paused BOOLEAN DEFAULT false,
   is_revoked BOOLEAN DEFAULT false,
@@ -190,8 +190,8 @@ CREATE TABLE daily_spending (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   agent_address TEXT NOT NULL,
   day DATE NOT NULL,
-  stx_spent BIGINT DEFAULT 0,
-  sbtc_spent BIGINT DEFAULT 0,
+  sol_spent BIGINT DEFAULT 0,
+  usdc_spent BIGINT DEFAULT 0,
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   UNIQUE(agent_address, day)
 );
@@ -221,7 +221,7 @@ CREATE TABLE payment_history (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   agent_address TEXT NOT NULL,
   amount BIGINT NOT NULL,
-  asset_type TEXT NOT NULL, -- 'STX' or 'sBTC'
+  asset_type TEXT NOT NULL, -- 'SOL' or 'USDC'
   service_url TEXT NOT NULL,
   transaction_id TEXT,
   approved BOOLEAN NOT NULL,
@@ -235,10 +235,10 @@ CREATE TABLE sessions (
   session_id TEXT NOT NULL UNIQUE,
   agent_address TEXT NOT NULL,
   owner_address TEXT NOT NULL,
-  budget_stx BIGINT DEFAULT 0,
-  budget_sbtc BIGINT DEFAULT 0,
-  spent_stx BIGINT DEFAULT 0,
-  spent_sbtc BIGINT DEFAULT 0,
+  budget_sol BIGINT DEFAULT 0,
+  budget_usdc BIGINT DEFAULT 0,
+  spent_sol BIGINT DEFAULT 0,
+  spent_usdc BIGINT DEFAULT 0,
   is_active BOOLEAN DEFAULT true,
   payment_count INTEGER DEFAULT 0,
   expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
@@ -259,23 +259,23 @@ ALTER PUBLICATION supabase_realtime ADD TABLE sessions;
 
 
 
--- Drop old function and create improved version (handles both STX and sBTC)
+-- Drop old function and create improved version (handles both SOL and USDC)
 DROP FUNCTION IF EXISTS increment_daily_spending(TEXT, DATE, BIGINT);
 
 CREATE OR REPLACE FUNCTION increment_daily_spending(
   p_agent_address TEXT,
   p_day DATE,
-  p_stx_amount BIGINT DEFAULT 0,
-  p_sbtc_amount BIGINT DEFAULT 0
+  p_sol_amount BIGINT DEFAULT 0,
+  p_usdc_amount BIGINT DEFAULT 0
 )
 RETURNS void AS $$
 BEGIN
-  INSERT INTO daily_spending (agent_address, day, stx_spent, sbtc_spent)
-  VALUES (p_agent_address, p_day, p_stx_amount, p_sbtc_amount)
+  INSERT INTO daily_spending (agent_address, day, sol_spent, usdc_spent)
+  VALUES (p_agent_address, p_day, p_sol_amount, p_usdc_amount)
   ON CONFLICT (agent_address, day)
   DO UPDATE SET
-    stx_spent = daily_spending.stx_spent + p_stx_amount,
-    sbtc_spent = daily_spending.sbtc_spent + p_sbtc_amount,
+    sol_spent = daily_spending.sol_spent + p_sol_amount,
+    usdc_spent = daily_spending.usdc_spent + p_usdc_amount,
     updated_at = NOW();
 END;
 $$ LANGUAGE plpgsql;

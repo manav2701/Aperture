@@ -5,10 +5,10 @@ export interface Policy {
   id: string;
   agent_address: string;
   owner_address: string;
-  daily_limit_stx: number;
-  daily_limit_sbtc: number;
-  per_tx_limit_stx: number;
-  per_tx_limit_sbtc: number;
+  daily_limit_sol: number;
+  daily_limit_usdc: number;
+  per_tx_limit_sol: number;
+  per_tx_limit_usdc: number;
   is_active: boolean;
   is_paused: boolean;
   is_revoked: boolean;
@@ -20,8 +20,8 @@ export interface DailySpending {
   id: string;
   agent_address: string;
   day: string;
-  stx_spent: number;
-  sbtc_spent: number;
+  sol_spent: number;
+  usdc_spent: number;
   updated_at: string;
 }
 
@@ -45,7 +45,7 @@ export interface PaymentHistory {
   id: string;
   agent_address: string;
   amount: number;
-  asset_type: 'STX' | 'sBTC';
+  asset_type: 'SOL' | 'USDC';
   service_url: string;
   transaction_id: string | null;
   approved: boolean;
@@ -58,10 +58,10 @@ export interface Session {
   session_id: string;
   agent_address: string;
   owner_address: string;
-  budget_stx: number;
-  budget_sbtc: number;
-  spent_stx: number;
-  spent_sbtc: number;
+  budget_sol: number;
+  budget_usdc: number;
+  spent_sol: number;
+  spent_usdc: number;
   is_active: boolean;
   payment_count: number;
   expires_at: string;
@@ -70,23 +70,23 @@ export interface Session {
 
 export interface CreatePolicyInput {
   agent_address: string;
-  daily_limit_stx: number;
-  daily_limit_sbtc: number;
-  per_tx_limit_stx: number;
-  per_tx_limit_sbtc: number;
+  daily_limit_sol: number;
+  daily_limit_usdc: number;
+  per_tx_limit_sol: number;
+  per_tx_limit_usdc: number;
 }
 
 export interface UpdatePolicyInput {
-  daily_limit_stx?: number;
-  daily_limit_sbtc?: number;
-  per_tx_limit_stx?: number;
-  per_tx_limit_sbtc?: number;
+  daily_limit_sol?: number;
+  daily_limit_usdc?: number;
+  per_tx_limit_sol?: number;
+  per_tx_limit_usdc?: number;
 }
 
 export interface CreateSessionInput {
   agent_address: string;
-  budget_stx: number;
-  budget_sbtc: number;
+  budget_sol: number;
+  budget_usdc: number;
   timeout_hours: number;
 }
 
@@ -126,7 +126,7 @@ export interface StacksTransaction {
 // x402 payment types
 export interface X402PaymentRequest {
   amount: number;
-  asset: 'STX' | 'sBTC';
+  asset: 'SOL' | 'USDC';
   service: string;
   facilitator: string;
 }
@@ -145,8 +145,8 @@ export interface DashboardStats {
   activeSessions: number;
   paymentsToday: number;
   totalSpentToday: {
-    stx: number;
-    sbtc: number;
+    sol: number;
+    usdc: number;
   };
   recentPayments: PaymentHistory[];
 }
@@ -154,8 +154,8 @@ export interface DashboardStats {
 // Chart data
 export interface ChartDataPoint {
   date: string;
-  stx: number;
-  sbtc: number;
+  sol: number;
+  usdc: number;
 }
 
 // Notification types
@@ -185,6 +185,6 @@ export interface ValidationError {
 }
 
 // Utility types
-export type AssetType = 'STX' | 'sBTC';
+export type AssetType = 'SOL' | 'USDC';
 export type NetworkType = 'mainnet' | 'testnet';
 export type AgentStatus = 'active' | 'paused' | 'revoked';
