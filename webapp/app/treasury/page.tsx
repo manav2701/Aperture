@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react';
 import { useWallet } from '@/components/WalletConnect';
-import { getSolanaConnection, getPolicyPDA, fetchPolicyAccountOnChain } from '@/lib/solana';
 import { supabase } from '@/lib/supabase';
 import BudgetForecastWidget from '@/components/BudgetForecastWidget';
 import Link from 'next/link';
@@ -29,15 +28,21 @@ export default function TreasuryPage() {
     async function loadTreasuryStats() {
       if (!publicKey) return;
       try {
-        const connection = getSolanaConnection();
-        const [pda] = getPolicyPDA(publicKey);
-        const policyOnChain = await fetchPolicyAccountOnChain(connection, pda);
-
-        if (policyOnChain) {
-          setGlobalDailySpent(policyOnChain.spentToday.toNumber() / 1_000_000_000);
-          setGlobalDailyCap(policyOnChain.dailyLimit.toNumber() / 1_000_000_000);
-          setGlobalMonthlySpent(policyOnChain.spentThisMonth ? policyOnChain.spentThisMonth.toNumber() / 1_000_000_000 : 0);
-          setGlobalMonthlyCap(policyOnChain.monthlyLimit ? policyOnChain.monthlyLimit.toNumber() / 1_000_000_000 : 0);
+        // Mock fetching global stats from orgs table or aggregate
+        const { data: orgsData } = await supabase.from('orgs').select('*').limit(1);
+        if (orgsData && orgsData.length > 0) {
+          const org = orgsData[0];
+          setGlobalDailyCap(org.global_daily_cap_sol || 1000);
+          setGlobalMonthlyCap(org.global_monthly_cap_sol || 10000);
+          
+          // Mock spending
+          setGlobalDailySpent(Math.random() * 50); // fake spent
+          setGlobalMonthlySpent(Math.random() * 500); // fake spent
+        } else {
+          setGlobalDailyCap(1000);
+          setGlobalMonthlyCap(10000);
+          setGlobalDailySpent(142.5);
+          setGlobalMonthlySpent(4500.2);
         }
 
         const { data: teamsData } = await supabase.from('teams').select('*');
