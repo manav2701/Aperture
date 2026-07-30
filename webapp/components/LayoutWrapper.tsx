@@ -22,6 +22,7 @@ export default function LayoutWrapper({ children }: { children: React.ReactNode 
       title: 'POLICY & AGENTS',
       items: [
         { label: 'AGENTS FLEET', href: '/agents' },
+        { label: 'LLM GATEWAY', href: '/gateway' },
         { label: 'SPENDING POLICIES', href: '/policies' },
         { label: 'SESSION BUDGETS', href: '/sessions' },
       ],
