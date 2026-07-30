@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useWallet } from '@/components/WalletConnect';
+import { PublicKey } from '@solana/web3.js';
 import { supabase } from '@/lib/supabase';
 import {
   getSolanaConnection,
