@@ -65,12 +65,16 @@ const app = new Elysia()
     providers: ["openai/gpt-4o", "anthropic/claude-3-5-sonnet", "google/gemini-1.5-pro", "meta-llama/llama-3.1-8b-instruct:free"],
     docs: "https://openrouter.ai/models"
   }))
-  .get("/health", () => ({
-    status: "ok",
-    timestamp: new Date().toISOString(),
-    dbConnected: prisma !== null,
-    databaseUrlHost: maskedUrl.split("@")[1] || "none"
-  }))
+  .get("/health", ({ set }) => {
+    set.status = 200;
+    set.headers['content-type'] = 'application/json';
+    console.log(`[HEALTH CHECK SUCCESS] ${new Date().toISOString()}`);
+    return JSON.stringify({
+      status: "ok",
+      timestamp: new Date().toISOString(),
+      dbConnected: prisma !== null
+    });
+  })
 
   // --- API: List all Agent Virtual Keys ---
   .get("/api/v1/keys", async () => {
