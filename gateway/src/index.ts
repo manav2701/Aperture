@@ -12,29 +12,23 @@ console.log(`[CONFIG] DATABASE_URL: ${maskedUrl}`);
 console.log(`[CONFIG] OPENROUTER_API_KEY: ${process.env.OPENROUTER_API_KEY ? "CONFIGURED (length " + process.env.OPENROUTER_API_KEY.length + ")" : "NOT SET"}`);
 console.log(`[CONFIG] PORT: ${process.env.PORT || 4000}`);
 
-// Lazy Prisma — won't crash on startup if DB isn't ready
-let prisma: PrismaClient | null = null;
-try {
-  if (dbUrl) {
-    prisma = new PrismaClient({
-      log: ['error', 'warn']
-    });
-    prisma.$connect().then(() => {
-      console.log("✅ [DATABASE] Successfully connected to PostgreSQL!");
-    }).catch((e: any) => {
-      console.error("⚠️ [DATABASE FAIL] Connection error details:", e);
-      console.warn("⚠️ [DATABASE FALLBACK] Enabling in-memory fallback store.");
-      prisma = null;
-    });
-  } else {
-    console.warn("⚠️ [DATABASE WARNING] DATABASE_URL is not set. Running in in-memory mode.");
+// Lazy Prisma Client getter — avoids module-level startup crashes
+let prismaInstance: PrismaClient | null = null;
+function getPrisma(): PrismaClient | null {
+  if (!dbUrl) return null;
+  if (!prismaInstance) {
+    try {
+      prismaInstance = new PrismaClient({ log: ['error', 'warn'] });
+      console.log("✅ [LAZY PRISMA] PrismaClient instantiated successfully.");
+    } catch (e: any) {
+      console.error("⚠️ [LAZY PRISMA ERROR]:", e.message);
+      prismaInstance = null;
+    }
   }
-} catch (e: any) {
-  console.error("⚠️ [DATABASE CRITICAL] Prisma init error:", e.message);
-  prisma = null;
+  return prismaInstance;
 }
 
-// In-memory fallback store
+// In-memory fallback store to ensure 100% uptime
 const inMemoryKeys: any[] = [];
 
 const app = new Elysia()
@@ -60,25 +54,24 @@ const app = new Elysia()
     service: "Aperture AI Gateway",
     version: "1.0.0",
     status: "online",
-    dbConnected: prisma !== null,
-    dbUrlConfigured: maskedUrl,
+    dbConfigured: !!dbUrl,
     providers: ["openai/gpt-4o", "anthropic/claude-3-5-sonnet", "google/gemini-1.5-pro", "meta-llama/llama-3.1-8b-instruct:free"],
     docs: "https://openrouter.ai/models"
   }))
   .get("/health", ({ set }) => {
     set.status = 200;
     set.headers['content-type'] = 'application/json';
-    console.log(`[HEALTH CHECK SUCCESS] ${new Date().toISOString()}`);
     return JSON.stringify({
       status: "ok",
       timestamp: new Date().toISOString(),
-      dbConnected: prisma !== null
+      dbConfigured: !!dbUrl
     });
   })
 
   // --- API: List all Agent Virtual Keys ---
   .get("/api/v1/keys", async () => {
     console.log("[API GET /api/v1/keys] Fetching keys...");
+    const prisma = getPrisma();
     if (prisma) {
       try {
         const agents = await prisma.agent.findMany({
@@ -144,6 +137,7 @@ const app = new Elysia()
 
     inMemoryKeys.unshift(keyObj);
 
+    const prisma = getPrisma();
     if (prisma) {
       try {
         let org = await prisma.org.findFirst();
@@ -212,6 +206,7 @@ const app = new Elysia()
       const memKey = inMemoryKeys.find(k => k.virtualKey === apiKey);
       let agentFromDb: any = null;
 
+      const prisma = getPrisma();
       if (prisma) {
         try {
           agentFromDb = await prisma.agent.findUnique({
@@ -264,7 +259,7 @@ const app = new Elysia()
             const company = await prisma.company.findFirst() || await prisma.company.create({
               data: { name: "Default", website: "https://aperture.finance" }
             });
-            modelDb = await prisma.model.create({ data: { name: slug, slug: modelSlug, companyId: company.id } });
+            modelDb = await prisma.model.create({ data: { name: modelSlug, slug: modelSlug, companyId: company.id } });
           }
 
           await prisma.agent.update({
@@ -283,7 +278,6 @@ const app = new Elysia()
       return response;
     }
 
-    // Fallback standard key path
     return status(403, { message: "Invalid API key or database unavailable" });
   }, {
     body: Conversation
