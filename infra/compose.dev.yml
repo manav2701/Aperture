@@ -5,7 +5,7 @@ name: aperture-dev
 
 services:
   postgres:
-    image: postgres:17-alpine
+    image: postgres:18-alpine
     environment:
       POSTGRES_USER: aperture
       POSTGRES_PASSWORD: aperture
@@ -13,7 +13,7 @@ services:
     ports:
       - '127.0.0.1:5432:5432'
     volumes:
-      - postgres-data:/var/lib/postgresql/data
+      - postgres-data:/var/lib/postgresql
     healthcheck:
       test: ['CMD-SHELL', 'pg_isready -U aperture -d aperture']
       interval: 5s

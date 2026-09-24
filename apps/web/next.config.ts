@@ -1,7 +1,7 @@
 import type { NextConfig } from 'next';
 
-// Baseline security headers. A nonce-based Content-Security-Policy is added in Phase 3,
-// when the app starts rendering authenticated data.
+// Static security headers. The Content-Security-Policy needs a per-request nonce, so it is set in
+// proxy.ts instead.
 const securityHeaders = [
   { key: 'X-Content-Type-Options', value: 'nosniff' },
   { key: 'X-Frame-Options', value: 'DENY' },
@@ -10,11 +10,19 @@ const securityHeaders = [
   { key: 'Strict-Transport-Security', value: 'max-age=63072000; includeSubDomains; preload' },
 ];
 
+// Where the control-plane API listens. The browser only ever talks to this app's origin; /api/*
+// is proxied, so auth cookies are first-party and there is no CORS surface.
+const apiUrl = process.env.API_INTERNAL_URL ?? 'http://localhost:4000';
+
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
+  transpilePackages: ['@aperture/core'],
   headers() {
     return Promise.resolve([{ source: '/:path*', headers: securityHeaders }]);
+  },
+  rewrites() {
+    return Promise.resolve([{ source: '/api/:path*', destination: `${apiUrl}/api/:path*` }]);
   },
 };
 

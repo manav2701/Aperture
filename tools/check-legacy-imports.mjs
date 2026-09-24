@@ -1,11 +1,12 @@
 // Fails if any source file outside legacy/ imports from legacy/.
 // The archived hackathon code is reference material and must never become a dependency again.
 import { execFileSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 
 const files = execFileSync('git', ['ls-files', '--cached', '--others', '--exclude-standard'], { encoding: 'utf8' })
   .split('\n')
-  .filter((file) => /\.(c|m)?(j|t)sx?$/.test(file) && !file.startsWith('legacy/'));
+  // Tracked files deleted in the working tree are skipped: there is nothing left to import from.
+  .filter((file) => /\.(c|m)?(j|t)sx?$/.test(file) && !file.startsWith('legacy/') && existsSync(file));
 
 const importFromLegacy = /(?:from\s+|import\s*\(\s*|require\s*\(\s*)['"](?:(?:\.\.?\/)+|\/)?(?:[^'"]*\/)?legacy\//;
 

@@ -94,3 +94,14 @@ Staging live at `staging-app.<domain>` with auto-deploy from `main`. Nightly dat
 ## Risks / open questions
 
 - Better Auth version churn: pin the version; upgrade deliberately with the changelog.
+
+## Results (2026-09-25)
+
+Built on branch `phase-3/identity-control-plane`. Deviations from the tasks above are recorded in [ADR 0013](../../../docs/adr/0013-phase-3-identity-and-tenancy.md):
+
+- No `packages/auth` and no Better Auth organization plugin. Auth sits in `apps/api/src/auth.ts`; orgs, roles and invitations are Aperture's own routes and tables.
+- No Caddy: the Next.js rewrite of `/api/*` gives the browser a single origin on Vercel and Render.
+- The dashboard is built from small in-repo components (`apps/web/components/ui`) instead of the shadcn CLI. Policies are edited as JSON, with typed examples for all 15 rule types.
+- Two-factor and Playwright end-to-end tests move to Phase 10. The flow is covered by API integration tests and was smoke-tested end to end locally through the web proxy.
+
+Tests: 21 API integration tests (route registry, tenancy, the role matrix, the owner guard, invitations, team-lead scoping, policy versioning and the simulator, audit export and verification), 6 row-level-security tests, 4 connection tests, 19 crypto tests, 9 RBAC tests, and 5 web tests (money formatting, open-redirect guard, rule examples, generated types drift).

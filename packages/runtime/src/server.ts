@@ -1,9 +1,13 @@
 import { serve, type ServerType } from '@hono/node-server';
-import type { Hono } from 'hono';
 import type { Logger } from './logger';
 
+/** Anything with a Web-standard fetch handler (a Hono or OpenAPIHono app). */
+export interface FetchApp {
+  fetch: (request: Request) => Response | Promise<Response>;
+}
+
 export interface RunServiceOptions {
-  app: Hono;
+  app: FetchApp;
   port: number;
   logger: Logger;
   /** Runs after the server stops accepting connections (close DB pools, flush queues). */
@@ -19,7 +23,7 @@ export function runService({
   onShutdown,
   shutdownTimeoutMs = 10_000,
 }: RunServiceOptions): ServerType {
-  const server = serve({ fetch: app.fetch, port }, (info) => {
+  const server = serve({ fetch: (request) => app.fetch(request), port }, (info) => {
     logger.info({ port: info.port }, 'listening');
   });
 

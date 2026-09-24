@@ -8,3 +8,12 @@ export {
   type ChainRecord,
   type ChainVerification,
 } from './chain';
+export {
+  EnvelopeError,
+  decryptSecret,
+  encryptSecret,
+  keyRingFromEnv,
+  rewrapSecret,
+  type Envelope,
+  type KeyRing,
+} from './envelope';

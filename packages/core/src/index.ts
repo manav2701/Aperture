@@ -68,3 +68,14 @@ export {
   type ParentAllowance,
   type WithinResult,
 } from './mandate';
+export {
+  PERMISSIONS,
+  ROLES,
+  ROLE_GRANTS,
+  can,
+  canAssignRole,
+  grantFor,
+  type Grant,
+  type Permission,
+  type Role,
+} from './rbac';

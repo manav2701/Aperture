@@ -6,8 +6,8 @@
   "type": "module",
   "scripts": {
     "dev": "tsx watch src/index.ts",
-    "build": "esbuild src/index.ts --bundle --platform=node --target=node24 --format=cjs --sourcemap --outfile=dist/index.cjs",
-    "start": "node dist/index.cjs",
+    "build": "node ../../tools/build-service.mjs",
+    "start": "node dist/index.mjs",
     "typecheck": "tsc -p tsconfig.json",
     "test": "vitest run"
   },
@@ -16,7 +16,6 @@
   },
   "devDependencies": {
     "@aperture/config": "workspace:*",
-    "esbuild": "^0.28.2",
     "tsx": "^4.23.15"
   }
 }

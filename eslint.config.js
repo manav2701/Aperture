@@ -32,6 +32,7 @@ export default defineConfig(
       '**/.turbo/**',
       '**/coverage/**',
       '**/next-env.d.ts',
+      'apps/web/lib/api/schema.d.ts',
     ],
   },
   js.configs.recommended,
@@ -48,6 +49,8 @@ export default defineConfig(
       'no-restricted-syntax': ['error', ...restrictedSyntax],
       '@typescript-eslint/consistent-type-imports': 'error',
       '@typescript-eslint/no-explicit-any': 'error',
+      // `const { secret, ...rest } = row` is how a field is dropped from an object.
+      '@typescript-eslint/no-unused-vars': ['error', { ignoreRestSiblings: true }],
     },
   },
   {

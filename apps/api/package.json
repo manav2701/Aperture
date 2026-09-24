@@ -5,18 +5,27 @@
   "description": "Aperture control-plane API: orgs, members, budgets, policies, approvals, audit, inbound webhooks",
   "type": "module",
   "scripts": {
-    "dev": "tsx watch src/index.ts",
-    "build": "esbuild src/index.ts --bundle --platform=node --target=node24 --format=cjs --sourcemap --outfile=dist/index.cjs",
-    "start": "node dist/index.cjs",
+    "dev": "node --env-file-if-exists=../../.env --import tsx --watch src/index.ts",
+    "build": "node ../../tools/build-service.mjs --with-migrations",
+    "start": "node dist/index.mjs",
     "typecheck": "tsc -p tsconfig.json",
     "test": "vitest run"
   },
   "dependencies": {
-    "@aperture/runtime": "workspace:*"
+    "@aperture/core": "workspace:*",
+    "@aperture/crypto": "workspace:*",
+    "@aperture/db": "workspace:*",
+    "@aperture/runtime": "workspace:*",
+    "@hono/zod-openapi": "^1.6.3",
+    "better-auth": "^1.7.5",
+    "hono": "^4.13.8",
+    "pg": "^8.23.0",
+    "uuid": "^14.0.2",
+    "zod": "^4.6.5"
   },
   "devDependencies": {
     "@aperture/config": "workspace:*",
-    "esbuild": "^0.28.2",
+    "@types/pg": "^8.23.1",
     "tsx": "^4.23.15"
   }
 }

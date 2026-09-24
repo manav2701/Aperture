@@ -80,7 +80,7 @@ async function withAdmin(statement: string) {
 
 async function run() {
   await withAdmin(`create database ${simDatabase}`);
-  const handle = connect(simUrl.toString(), { max: 50 });
+  const handle = connect(simUrl.toString(), { max: 50, systemAccess: true });
   try {
     await runMigrations(handle.db);
     await simulate(handle.db);

@@ -1,3 +1,5 @@
+import Link from 'next/link';
+
 const rails = [
   { name: 'AI providers', detail: 'OpenRouter, OpenAI, Anthropic, Google, Hugging Face, image and video models' },
   { name: 'Cards', detail: 'Real-time authorization on your own card program' },
@@ -25,9 +27,14 @@ export default function HomePage() {
         ))}
       </ul>
 
-      <p className="border-l-2 border-accent pl-4 text-sm text-muted-foreground">
-        We are rebuilding the product. The previous demo has been retired.
-      </p>
+      <div className="flex gap-3">
+        <Link href="/signup" className="bg-accent px-5 py-2.5 font-medium text-accent-foreground hover:bg-accent/90">
+          Get started
+        </Link>
+        <Link href="/login" className="border border-border px-5 py-2.5 hover:bg-muted">
+          Sign in
+        </Link>
+      </div>
     </main>
   );
 }

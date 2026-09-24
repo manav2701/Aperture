@@ -1,13 +1,15 @@
 # @aperture/web
 
-Next.js (App Router) dashboard and workspace.
+Next.js (App Router) dashboard: sign-up and sign-in (password, magic link, Google), invitations, onboarding, and a role-aware org shell with Overview, Budgets, Policies (editor and simulator), Audit log, and Settings (organization, members, teams).
 
-**Today:** a static landing page with the Aperture palette and fonts carried over from the legacy dashboard, plus baseline security headers in `next.config.ts`.
-**Built in:** Phase 3 (dashboard shell, auth, budgets, policies), Phase 5–6 (workspace chat, images, video) — see [plan/frontend](../../plan/frontend/README.md).
+- Reads happen in server components through `lib/api/server.ts`, which forwards the session cookie to `API_INTERNAL_URL`. Writes run in the browser through `lib/api/browser.ts`, and `/api/*` is proxied to the API (`next.config.ts`).
+- API types are generated from [docs/api/openapi.json](../../docs/api/openapi.json) into `lib/api/schema.d.ts` with `pnpm --filter @aperture/web api:types`. A test fails when the file is stale.
+- A strict Content-Security-Policy with a per-request nonce is set in `proxy.ts`. Don't use inline `style` attributes.
 
 ```bash
-pnpm --filter @aperture/web dev     # http://localhost:3000
+pnpm --filter @aperture/web dev     # http://localhost:3000 (API expected on :4000)
 pnpm --filter @aperture/web build
+pnpm --filter @aperture/web test
 ```
 
-On Vercel, set the project's Root Directory to `apps/web`; Vercel detects pnpm from the lockfile.
+On Vercel: Root Directory `apps/web`, and set `API_INTERNAL_URL` to the API's public URL (for example the Render service URL).

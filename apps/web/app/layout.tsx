@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { JetBrains_Mono, Space_Grotesk } from 'next/font/google';
+import { connection } from 'next/server';
 import type { ReactNode } from 'react';
 import './globals.css';
 
@@ -12,7 +13,9 @@ export const metadata: Metadata = {
     'One control plane for who — person or AI agent — may spend how much on AI, through which rail, with a tamper-evident record of every decision.',
 };
 
-export default function RootLayout({ children }: { children: ReactNode }) {
+export default async function RootLayout({ children }: { children: ReactNode }) {
+  // Render per request so Next.js can stamp the CSP nonce from proxy.ts onto its scripts.
+  await connection();
   return (
     <html lang="en" className={`${spaceGrotesk.variable} ${jetbrainsMono.variable}`}>
       <body className="min-h-screen font-sans antialiased">{children}</body>

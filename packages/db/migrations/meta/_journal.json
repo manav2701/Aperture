@@ -15,6 +15,20 @@
       "when": 1790253409947,
       "tag": "0001_append_only_and_app_role",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1790281538682,
+      "tag": "0002_identity_and_orgs",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1790281551083,
+      "tag": "0003_tenant_row_level_security",
+      "breakpoints": true
     }
   ]
 }

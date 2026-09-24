@@ -5,12 +5,15 @@
   "description": "Postgres schema, migrations, the budget ledger, and the audit chain",
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./testing": "./test/testing.ts",
+    "./testing/global-setup": "./test/global-setup.ts"
   },
   "scripts": {
     "typecheck": "tsc -p tsconfig.json",
     "test": "vitest run",
-    "db:generate": "drizzle-kit generate"
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "node --env-file-if-exists=../../.env --import tsx src/migrate-cli.ts"
   },
   "dependencies": {
     "@aperture/core": "workspace:*",
@@ -24,6 +27,7 @@
     "@testcontainers/postgresql": "^12.1.0",
     "@types/pg": "^8.23.1",
     "drizzle-kit": "^0.31.11",
-    "fast-check": "^4.10.2"
+    "fast-check": "^4.10.2",
+    "tsx": "^4.23.15"
   }
 }

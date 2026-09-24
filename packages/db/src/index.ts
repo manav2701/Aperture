@@ -1,7 +1,10 @@
 export {
-  MIGRATIONS_FOLDER,
   connect,
+  defaultMigrationsFolder,
   runMigrations,
+  withOrg,
+  withSystem,
+  type ConnectOptions,
   type Database,
   type DatabaseHandle,
   type DbOrTx,
@@ -40,3 +43,12 @@ export {
   type ThresholdCrossing,
 } from './ledger';
 export { appendAuditEvent, auditRoot, exportAuditEvents, type AuditEventInput } from './audit';
+export {
+  createConnection,
+  listConnections,
+  readConnectionSecret,
+  rewrapConnectionSecrets,
+  type ConnectionSummary,
+} from './connections';
+// Query helpers, re-exported so every package uses this package's single drizzle-orm instance.
+export { and, asc, count, desc, eq, gt, gte, inArray, isNull, lt, lte, ne, or, sql } from 'drizzle-orm';

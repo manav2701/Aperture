@@ -2,7 +2,7 @@ import { randomBytes } from 'node:crypto';
 import pg from 'pg';
 import { inject } from 'vitest';
 import { connect, type DatabaseHandle } from '../src/client';
-import { TEMPLATE_DATABASE } from './global-setup';
+import { APP_ROLE, TEMPLATE_DATABASE } from './global-setup';
 
 function withDatabase(url: string, database: string): string {
   const parsed = new URL(url);
@@ -24,6 +24,18 @@ export async function createTestDatabase(
     await admin.end();
   }
   const url = withDatabase(baseUrl, name);
-  const options_ = options.maxConnections === undefined ? {} : { max: options.maxConnections };
-  return { ...connect(url, options_), url };
+  // Tests exercise the ledger directly, like background jobs do, so they see every org.
+  const connectOptions = {
+    systemAccess: true,
+    ...(options.maxConnections === undefined ? {} : { max: options.maxConnections }),
+  };
+  return { ...connect(url, connectOptions), url };
+}
+
+/** A URL for the same database as `url`, logged in as the non-superuser app role. */
+export function appRoleUrl(url: string): string {
+  const parsed = new URL(url);
+  parsed.username = APP_ROLE;
+  parsed.password = APP_ROLE;
+  return parsed.toString();
 }

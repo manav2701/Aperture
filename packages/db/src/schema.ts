@@ -1,6 +1,8 @@
+import { ROLES } from '@aperture/core';
 import { sql } from 'drizzle-orm';
 import {
   bigint,
+  boolean,
   check,
   index,
   integer,
@@ -53,10 +55,14 @@ export const principals = pgTable(
       .notNull()
       .default('active'),
     parentPrincipalId: uuid('parent_principal_id').references((): AnyPgColumn => principals.id),
+    /** Set for `user` principals: the person this principal spends as. */
+    userId: text('user_id').references((): AnyPgColumn => users.id),
+    teamId: uuid('team_id').references((): AnyPgColumn => teams.id),
     createdAt: createdAt(),
   },
   (table) => [
     index('principals_org_idx').on(table.orgId),
+    unique('principals_org_user_unique').on(table.orgId, table.userId),
     check('principals_kind_check', inList('kind', ['user', 'agent'])),
     check('principals_status_check', inList('status', ['active', 'paused', 'revoked'])),
   ],
@@ -228,3 +234,198 @@ export const auditOrgCounters = pgTable('audit_org_counters', {
   lastSeq: bigint('last_seq', { mode: 'number' }).notNull(),
   lastHash: text('last_hash').notNull(),
 });
+
+// ---------------------------------------------------------------------------------------------
+// Authentication (Better Auth). Property names are the ones Better Auth expects. These tables
+// are global (a person can belong to several orgs), so they have no org_id and no row-level
+// security; only the API's auth layer touches them.
+
+const authTimestamp = (name: string) => timestamp(name, { withTimezone: true, mode: 'date' });
+
+export const users = pgTable('users', {
+  id: text('id').primaryKey(),
+  name: text('name').notNull(),
+  email: text('email').notNull().unique(),
+  emailVerified: boolean('email_verified').notNull().default(false),
+  image: text('image'),
+  createdAt: authTimestamp('created_at').notNull().defaultNow(),
+  updatedAt: authTimestamp('updated_at').notNull().defaultNow(),
+});
+
+export const sessions = pgTable(
+  'sessions',
+  {
+    id: text('id').primaryKey(),
+    expiresAt: authTimestamp('expires_at').notNull(),
+    token: text('token').notNull().unique(),
+    createdAt: authTimestamp('created_at').notNull().defaultNow(),
+    updatedAt: authTimestamp('updated_at').notNull().defaultNow(),
+    ipAddress: text('ip_address'),
+    userAgent: text('user_agent'),
+    userId: text('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+  },
+  (table) => [index('sessions_user_idx').on(table.userId)],
+);
+
+export const accounts = pgTable(
+  'accounts',
+  {
+    id: text('id').primaryKey(),
+    accountId: text('account_id').notNull(),
+    providerId: text('provider_id').notNull(),
+    userId: text('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    accessToken: text('access_token'),
+    refreshToken: text('refresh_token'),
+    idToken: text('id_token'),
+    accessTokenExpiresAt: authTimestamp('access_token_expires_at'),
+    refreshTokenExpiresAt: authTimestamp('refresh_token_expires_at'),
+    scope: text('scope'),
+    password: text('password'),
+    createdAt: authTimestamp('created_at').notNull().defaultNow(),
+    updatedAt: authTimestamp('updated_at').notNull().defaultNow(),
+  },
+  (table) => [index('accounts_user_idx').on(table.userId)],
+);
+
+export const verifications = pgTable(
+  'verifications',
+  {
+    id: text('id').primaryKey(),
+    identifier: text('identifier').notNull(),
+    value: text('value').notNull(),
+    expiresAt: authTimestamp('expires_at').notNull(),
+    createdAt: authTimestamp('created_at').notNull().defaultNow(),
+    updatedAt: authTimestamp('updated_at').notNull().defaultNow(),
+  },
+  (table) => [index('verifications_identifier_idx').on(table.identifier)],
+);
+
+export const rateLimits = pgTable('rate_limits', {
+  id: text('id').primaryKey(),
+  key: text('key').notNull().unique(),
+  count: integer('count').notNull(),
+  lastRequest: bigint('last_request', { mode: 'number' }).notNull(),
+});
+
+// ---------------------------------------------------------------------------------------------
+// Organizations: teams, members, invitations, policies, connections.
+
+export const teams = pgTable(
+  'teams',
+  {
+    id: uuid('id').primaryKey(),
+    orgId: uuid('org_id')
+      .notNull()
+      .references(() => orgs.id),
+    name: text('name').notNull(),
+    archivedAt: timestamp('archived_at', { withTimezone: true, mode: 'date' }),
+    createdAt: createdAt(),
+  },
+  (table) => [unique('teams_org_name_unique').on(table.orgId, table.name)],
+);
+
+export const members = pgTable(
+  'members',
+  {
+    id: uuid('id').primaryKey(),
+    orgId: uuid('org_id')
+      .notNull()
+      .references(() => orgs.id),
+    userId: text('user_id')
+      .notNull()
+      .references(() => users.id),
+    role: text('role', { enum: ROLES }).notNull(),
+    teamId: uuid('team_id').references(() => teams.id),
+    createdAt: createdAt(),
+  },
+  (table) => [
+    unique('members_org_user_unique').on(table.orgId, table.userId),
+    index('members_user_idx').on(table.userId),
+    check('members_role_check', inList('role', ROLES)),
+  ],
+);
+
+export const invitations = pgTable(
+  'invitations',
+  {
+    id: uuid('id').primaryKey(),
+    orgId: uuid('org_id')
+      .notNull()
+      .references(() => orgs.id),
+    /** Lower-cased. Only a verified account with this email can accept. */
+    email: text('email').notNull(),
+    role: text('role', { enum: ROLES }).notNull(),
+    teamId: uuid('team_id').references(() => teams.id),
+    /** SHA-256 of the token sent by email; the token itself is never stored. */
+    tokenHash: text('token_hash').notNull().unique(),
+    invitedBy: text('invited_by')
+      .notNull()
+      .references(() => users.id),
+    expiresAt: timestamp('expires_at', { withTimezone: true, mode: 'date' }).notNull(),
+    acceptedAt: timestamp('accepted_at', { withTimezone: true, mode: 'date' }),
+    acceptedBy: text('accepted_by').references(() => users.id),
+    revokedAt: timestamp('revoked_at', { withTimezone: true, mode: 'date' }),
+    createdAt: createdAt(),
+  },
+  (table) => [
+    index('invitations_org_idx').on(table.orgId),
+    check('invitations_role_check', inList('role', ROLES)),
+    check('invitations_email_lower_check', sql`email = lower(email)`),
+  ],
+);
+
+/** Versioned policy documents; the highest version for a scope is the active one. */
+export const policies = pgTable(
+  'policies',
+  {
+    id: uuid('id').primaryKey(),
+    orgId: uuid('org_id')
+      .notNull()
+      .references(() => orgs.id),
+    scope: text('scope', { enum: ['org', 'team', 'principal'] }).notNull(),
+    scopeId: uuid('scope_id').notNull(),
+    version: integer('version').notNull(),
+    /** Stored form (amounts as decimal strings); validated by @aperture/core on write and on use. */
+    document: jsonb('document').notNull(),
+    createdBy: text('created_by')
+      .notNull()
+      .references(() => users.id),
+    createdAt: createdAt(),
+  },
+  (table) => [
+    unique('policies_scope_version_unique').on(table.orgId, table.scope, table.scopeId, table.version),
+    check('policies_scope_check', inList('scope', ['org', 'team', 'principal'])),
+    check('policies_version_check', sql`version >= 1`),
+  ],
+);
+
+/** Links to external systems (providers, card programs, wallets). Secrets are envelope-encrypted. */
+export const connections = pgTable(
+  'connections',
+  {
+    id: uuid('id').primaryKey(),
+    orgId: uuid('org_id')
+      .notNull()
+      .references(() => orgs.id),
+    provider: text('provider').notNull(),
+    name: text('name').notNull(),
+    status: text('status', { enum: ['active', 'broken', 'disabled'] })
+      .notNull()
+      .default('active'),
+    /** The provider-side account id, so one provider account is connected once per org. */
+    fingerprint: text('fingerprint'),
+    /** Envelope-encrypted secret (see @aperture/crypto); never returned by the API. */
+    secret: jsonb('secret').notNull(),
+    config: jsonb('config').notNull().default({}),
+    createdAt: createdAt(),
+    updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
+  },
+  (table) => [
+    unique('connections_fingerprint_unique').on(table.orgId, table.provider, table.fingerprint),
+    check('connections_status_check', inList('status', ['active', 'broken', 'disabled'])),
+  ],
+);
