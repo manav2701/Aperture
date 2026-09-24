@@ -57,7 +57,7 @@ export function keyRingFromEnv(env: Readonly<Record<string, string | undefined>>
 
 function seal(key: Buffer, plaintext: Buffer, aad: string): string {
   const iv = randomBytes(IV_BYTES);
-  const cipher = createCipheriv('aes-256-gcm', key, iv);
+  const cipher = createCipheriv('aes-256-gcm', key, iv, { authTagLength: TAG_BYTES });
   cipher.setAAD(Buffer.from(aad, 'utf8'));
   const ciphertext = Buffer.concat([cipher.update(plaintext), cipher.final()]);
   return Buffer.concat([iv, cipher.getAuthTag(), ciphertext]).toString('base64');
@@ -67,7 +67,7 @@ function open(key: Buffer, sealed: string, aad: string): Buffer {
   const bytes = Buffer.from(sealed, 'base64');
   if (bytes.length < IV_BYTES + TAG_BYTES) throw new EnvelopeError('invalid_envelope', 'ciphertext too short');
   try {
-    const decipher = createDecipheriv('aes-256-gcm', key, bytes.subarray(0, IV_BYTES));
+    const decipher = createDecipheriv('aes-256-gcm', key, bytes.subarray(0, IV_BYTES), { authTagLength: TAG_BYTES });
     decipher.setAAD(Buffer.from(aad, 'utf8'));
     decipher.setAuthTag(bytes.subarray(IV_BYTES, IV_BYTES + TAG_BYTES));
     return Buffer.concat([decipher.update(bytes.subarray(IV_BYTES + TAG_BYTES)), decipher.final()]);

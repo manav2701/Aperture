@@ -1,7 +1,7 @@
 # Builds one Aperture service (api, gateway, worker, signer) into a minimal runtime image.
 #   docker build -f infra/docker/service.Dockerfile --build-arg APP=gateway -t aperture-gateway .
-# Services are bundled by esbuild into a single dist/index.cjs, so the runtime stage needs
-# no node_modules and no package manager.
+# Services are bundled by esbuild into a single dist/index.mjs (the API also ships dist/migrations),
+# so the runtime stage needs no node_modules and no package manager.
 
 ARG NODE_VERSION=24
 
