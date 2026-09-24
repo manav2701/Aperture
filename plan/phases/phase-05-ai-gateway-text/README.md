@@ -35,6 +35,11 @@ Ledger, policy, orgs/budgets UI, connectors with encrypted provider credentials,
 - Fail mode: `closed` → 503 when the DB is unavailable; `open_capped` → local per-key cap (default USD 5 per 10 min) with later reconciliation.
 - Request log (metadata only by default): principal, model, tokens, cost, decision, latency; prompt/response bodies only if the org's `prompt_logging` = `full`, stored encrypted with retention.
 
+### 5.2b Hot-budget throughput (from ADR 0012)
+- Every spend in an org locks the org's root budget row, so the time that row stays locked caps the org-wide spend rate (≈150 reserves/s measured in Phase 2).
+- Collapse the work done after locking (insert hold, insert journal entry, update counters) into one SQL statement or a Postgres function; keep the policy evaluation and path resolution before the lock.
+- Re-run the Phase 2 contention benchmark and the INV-1…4 property suite; target ≥ 500 reserves/s on one budget on production-like hardware. If still short, shard hot budgets into sub-counters (and re-prove INV-1).
+
 ### 5.3 Kill switch
 - `POST /principals/{id}/pause` and org-wide "pause all agents" → NOTIFY → gateway denies within ~2 s; also triggers connector revokes (Phase 4) for T1/T2 credentials.
 

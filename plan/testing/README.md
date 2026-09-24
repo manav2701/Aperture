@@ -80,6 +80,7 @@ Coverage-guided fuzzing: if property tests stop finding new bugs in parsers, add
 ## Load and chaos
 
 - k6 scenarios: (a) 500 rps gateway with fake upstream, measure added latency; (b) 50 rps card authorization webhooks, p99 < 400 ms; (c) 200 concurrent reserves on one budget.
+- Baseline from Phase 2 (Docker Desktop, Windows): 200 concurrent reserves on one budget → exactly the fitting number approved, ~6.7 ms per reserve serialized (~150/s on one hot budget). This is the number Phase 5 must improve (ADR 0012).
 - Chaos drills (staging): stop Postgres during load (expect fail-closed), stop the worker for 30 minutes (expect correct catch-up), restart the gateway during streaming (expect graceful drain).
 
 ## CI gates (GitHub Actions)

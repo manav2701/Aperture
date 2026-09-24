@@ -15,3 +15,4 @@ One file per decision: context, decision, consequences. Add a new ADR instead of
 | [0009](0009-archive-anchor-programs.md)            | Archive the Anchor programs                             | Accepted                         |
 | [0010](0010-fail-closed.md)                        | Fail closed by default                                  | Accepted                         |
 | [0011](0011-phase-1-tooling.md)                    | Phase 1 tooling choices                                 | Accepted                         |
+| [0012](0012-phase-2-ledger-details.md)             | Phase 2 ledger and time decisions                       | Accepted                         |

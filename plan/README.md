@@ -55,4 +55,5 @@ Total: about **25 weeks** of engineering. A pilot with a design partner (for exa
 
 - [ ] Phase 0 — waiting on you
 - [x] Phase 1 — code complete on branch `phase-1/stabilize-and-restructure`; operational steps (Supabase lockdown, key rotation, push, Vercel root) pending
-- [ ] Phases 2–10 — not started
+- [x] Phase 2 — complete on branch `phase-2/core-domain` (core domain, ledger, audit, simulator; 145 tests)
+- [ ] Phases 3–10 — not started

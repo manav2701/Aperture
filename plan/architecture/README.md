@@ -495,7 +495,8 @@ sequenceDiagram
 | Gateway overhead (auth + policy + reserve + settle), p99 | < 30 ms |
 | Card authorization webhook, p99 | < 400 ms end to end |
 | x402 authorize + sign, p99 | < 250 ms |
-| Reserve transaction, p99 under 200 concurrent requests on one budget | < 15 ms |
+| Lock hold time of a hot budget row per reserve (bounds org-wide spend rate) | < 2 ms (measured 6.7 ms on Docker Desktop in Phase 2 → optimize in Phase 5, ADR 0012) |
+| Throughput on one hot budget (e.g. the org root) | ≥ 500 reserves/s after the Phase 5 optimization (≈150/s measured in Phase 2) |
 | Dashboard pages (server data), p75 | < 1.5 s |
 
 ## 21. API surface
