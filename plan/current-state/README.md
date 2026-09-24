@@ -41,15 +41,15 @@ Ranked by severity. File references are to the current tree.
 
 | ID | Severity | Finding | Where | Fix (phase) |
 |---|---|---|---|---|
-| S1 | **Critical** | The browser writes directly to Supabase tables (`policies`, `sessions`, `agent_virtual_keys`, `org_members`) with the public key. Prisma introspection shows RLS on only 6 tables; `policies` (which has `agent_mnemonic`), `sessions`, `payment_history`, `daily_spending` show no RLS flag. Anyone with the public key (it is in the JS bundle and hardcoded in source) can likely read and write them. | [webapp/lib/supabase.ts:15](../../webapp/lib/supabase.ts#L15), [webapp/app/policies/page.tsx:83](../../webapp/app/policies/page.tsx#L83), [gateway/src/index.ts:18-19](../../gateway/src/index.ts#L18-L19) | Phase 1: verify in the Supabase dashboard, enable RLS deny-all on every table, rotate keys, export and wipe |
-| S2 | **Critical** | `/api/proxy?target=` fetches any URL server-side and forwards request headers — an open SSRF relay and open proxy. | [webapp/app/api/proxy/route.ts:16](../../webapp/app/api/proxy/route.ts#L16), [:65](../../webapp/app/api/proxy/route.ts#L65) | Phase 1: delete the route |
-| S3 | **Critical** | Agent identity is the unauthenticated `x-agent-address` header — anyone can spend "as" any agent. | [webapp/app/api/proxy/route.ts:17](../../webapp/app/api/proxy/route.ts#L17) | Phase 1: delete; Phase 5: authenticated virtual keys |
+| S1 | **Critical** | The browser writes directly to Supabase tables (`policies`, `sessions`, `agent_virtual_keys`, `org_members`) with the public key. Prisma introspection shows RLS on only 6 tables; `policies` (which has `agent_mnemonic`), `sessions`, `payment_history`, `daily_spending` show no RLS flag. Anyone with the public key (it is in the JS bundle and hardcoded in source) can likely read and write them. | [webapp/lib/supabase.ts:15](../../legacy/webapp/lib/supabase.ts#L15), [webapp/app/policies/page.tsx:83](../../legacy/webapp/app/policies/page.tsx#L83), [gateway/src/index.ts:18-19](../../legacy/gateway/src/index.ts#L18-L19) | Phase 1: verify in the Supabase dashboard, enable RLS deny-all on every table, rotate keys, export and wipe |
+| S2 | **Critical** | `/api/proxy?target=` fetches any URL server-side and forwards request headers — an open SSRF relay and open proxy. | [webapp/app/api/proxy/route.ts:16](https://github.com/manav2701/Aperture/blob/legacy-v0/webapp/app/api/proxy/route.ts#L16), [:65](https://github.com/manav2701/Aperture/blob/legacy-v0/webapp/app/api/proxy/route.ts#L65) | Phase 1: delete the route |
+| S3 | **Critical** | Agent identity is the unauthenticated `x-agent-address` header — anyone can spend "as" any agent. | [webapp/app/api/proxy/route.ts:17](https://github.com/manav2701/Aperture/blob/legacy-v0/webapp/app/api/proxy/route.ts#L17) | Phase 1: delete; Phase 5: authenticated virtual keys |
 | S4 | **Critical** | Agent mnemonics (wallet recovery phrases) stored in plaintext in `policies.agent_mnemonic`; docs instruct users to do this. Any wallet whose mnemonic was stored must be treated as compromised. | `supabaseConfig.sql`, `docs/REAL-WALLETS-GUIDE.md` | Phase 1: move funds out of any such wallet, null the column, drop it |
-| S5 | **High** | The "governed" chat endpoint accepts any Bearer token and forwards it to OpenRouter on the server's key — anyone can use the operator's OpenRouter credit. | [gateway/src/index.ts:187](../../gateway/src/index.ts#L187) | Phase 1: take the gateway offline or rotate/remove `OPENROUTER_API_KEY` from the deployment |
-| S6 | High | API keys generated with `Math.random()` (not cryptographically secure) and stored in plaintext. | [gateway/src/index.ts:141](../../gateway/src/index.ts#L141), [webapp/app/gateway/page.tsx:129](../../webapp/app/gateway/page.tsx#L129), [webapp/app/agents/page.tsx:100](../../webapp/app/agents/page.tsx#L100) | Phase 5: `crypto.randomBytes`, store only a hash |
+| S5 | **High** | The "governed" chat endpoint accepts any Bearer token and forwards it to OpenRouter on the server's key — anyone can use the operator's OpenRouter credit. | [gateway/src/index.ts:187](../../legacy/gateway/src/index.ts#L187) | Phase 1: take the gateway offline or rotate/remove `OPENROUTER_API_KEY` from the deployment |
+| S6 | High | API keys generated with `Math.random()` (not cryptographically secure) and stored in plaintext. | [gateway/src/index.ts:141](../../legacy/gateway/src/index.ts#L141), [webapp/app/gateway/page.tsx:129](../../legacy/webapp/app/gateway/page.tsx#L129), [webapp/app/agents/page.tsx:100](../../legacy/webapp/app/agents/page.tsx#L100) | Phase 5: `crypto.randomBytes`, store only a hash |
 | S7 | High | Hardcoded Supabase project URL and key fallbacks in source. | see S1 | Phase 1: remove fallbacks, fail on missing env |
-| S8 | Medium | `cors({ origin: '*' })` on the gateway. | [gateway/src/index.ts:28](../../gateway/src/index.ts#L28) | Phase 5: explicit origins; data-plane APIs don't need browser CORS |
-| S9 | Medium | Admin-level RBAC decided by querying tables with an address string provided in the query string (`?wallet=`), no signature. | [gateway/src/index.ts](../../gateway/src/index.ts) `GET /api/v1/keys` | Phase 3: session-based auth |
+| S8 | Medium | `cors({ origin: '*' })` on the gateway. | [gateway/src/index.ts:28](../../legacy/gateway/src/index.ts#L28) | Phase 5: explicit origins; data-plane APIs don't need browser CORS |
+| S9 | Medium | Admin-level RBAC decided by querying tables with an address string provided in the query string (`?wallet=`), no signature. | [gateway/src/index.ts](../../legacy/gateway/src/index.ts) `GET /api/v1/keys` | Phase 3: session-based auth |
 | S10 | Low | No rate limiting, no request size limits, verbose error messages returned to clients. | gateway, webapp API routes | Phases 3/5 |
 
 Git history was scanned for committed `.env` files and common key patterns (`sk-or-v1-`, `sk_live_`, `sk_test_`, service-role JWTs): **none found**. The Supabase publishable key and project URL are in history; that's acceptable only once RLS denies everything (S1).
@@ -58,18 +58,18 @@ Git history was scanned for committed `.env` files and common key patterns (`sk-
 
 These don't need fixing because the programs are archived, but they explain why "it passed the demo" isn't "it works":
 
-- `transfer_hook` adds `amount` to `spent_today` **twice** ([lib.rs:318](../../programs/policy-manager/src/lib.rs#L318) and [lib.rs:356](../../programs/policy-manager/src/lib.rs#L356)), so the daily limit is effectively halved.
+- `transfer_hook` adds `amount` to `spent_today` **twice** ([lib.rs:318](../../legacy/programs/policy-manager/src/lib.rs#L318) and [lib.rs:356](../../legacy/programs/policy-manager/src/lib.rs#L356)), so the daily limit is effectively halved.
 - `monthly_limit`, `cooldown_seconds`, `allowed_hours_*`, `escalation_threshold`, `parent_policy`, `delegated_budget` exist on `PolicyAccount` but no instruction sets them; they stay `0`, so those checks never run.
-- `emergency_clawback` checks ownership by deserializing the policy account as `SessionAccountOffline` ([lib.rs:167](../../programs/policy-manager/src/lib.rs#L167)); it works only because both structs start with a pubkey.
+- `emergency_clawback` checks ownership by deserializing the policy account as `SessionAccountOffline` ([lib.rs:167](../../legacy/programs/policy-manager/src/lib.rs#L167)); it works only because both structs start with a pubkey.
 - `close_session` verifies the owner but the session's `auto_renew` flag is never used on-chain.
 
 ## Presentation mocks to remove
 
 | Where | Mock |
 |---|---|
-| [webapp/app/gateway/page.tsx:180](../../webapp/app/gateway/page.tsx#L180) | Playground returns a hardcoded "response" after a 1.2 s timeout |
-| [webapp/app/treasury/page.tsx:39-40](../../webapp/app/treasury/page.tsx#L39-L40) | Daily/monthly spend are `Math.random()` |
-| [webapp/app/delegation/page.tsx:49](../../webapp/app/delegation/page.tsx#L49) | Delegation tree is synthesized |
+| [webapp/app/gateway/page.tsx:180](../../legacy/webapp/app/gateway/page.tsx#L180) | Playground returns a hardcoded "response" after a 1.2 s timeout |
+| [webapp/app/treasury/page.tsx:39-40](../../legacy/webapp/app/treasury/page.tsx#L39-L40) | Daily/monthly spend are `Math.random()` |
+| [webapp/app/delegation/page.tsx:49](../../legacy/webapp/app/delegation/page.tsx#L49) | Delegation tree is synthesized |
 | README | "7 guardrail checks", "ElysiaJS + Prisma", "14 compliance tests" — not in the code |
 
 ## What we salvage (ideas, not code)

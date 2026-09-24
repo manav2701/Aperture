@@ -72,9 +72,9 @@ The goal: any competent TypeScript developer can open any file and understand it
 
 | Slop pattern (seen in the current repo) | Rule |
 |---|---|
-| Mocked responses shipped to users ([gateway/page.tsx:180](../../webapp/app/gateway/page.tsx#L180)), `Math.random()` metrics ([treasury/page.tsx:39](../../webapp/app/treasury/page.tsx#L39)) | No fake data outside tests and seed scripts. Empty states instead. Lint rule bans `Math.random` outside tests. |
-| Hardcoded fallbacks for secrets and URLs ([lib/supabase.ts:15](../../webapp/lib/supabase.ts#L15)) | Env parsed by Zod at startup; missing → crash with a clear message. |
-| `catch (e) { /* Ignored */ }` ([gateway/page.tsx:163](../../webapp/app/gateway/page.tsx#L163)) | No empty catches (lint). Best-effort paths log a `warn` with context and a comment explaining why it's safe. |
+| Mocked responses shipped to users ([gateway/page.tsx:180](../../legacy/webapp/app/gateway/page.tsx#L180)), `Math.random()` metrics ([treasury/page.tsx:39](../../legacy/webapp/app/treasury/page.tsx#L39)) | No fake data outside tests and seed scripts. Empty states instead. Lint rule bans `Math.random` outside tests. |
+| Hardcoded fallbacks for secrets and URLs ([lib/supabase.ts:15](../../legacy/webapp/lib/supabase.ts#L15)) | Env parsed by Zod at startup; missing → crash with a clear message. |
+| `catch (e) { /* Ignored */ }` ([gateway/page.tsx:163](../../legacy/webapp/app/gateway/page.tsx#L163)) | No empty catches (lint). Best-effort paths log a `warn` with context and a comment explaining why it's safe. |
 | Same key-generation code in three places (gateway server, two pages) | One implementation in a package; UI never generates secrets. |
 | README claims features the code doesn't have | README and docs are updated in the same PR as the behaviour; "Definition of done" includes docs. |
 | Comments that restate code ("// Log request asynchronously") | Comments explain *why* or document a non-obvious constraint (e.g., "Stripe gives us 2 s; no network calls on this path"). |
