@@ -44,7 +44,7 @@ External attacker; malicious or compromised agent (prompt injection); malicious 
 | Tampered audit log | Hash chain + insert-only DB role + trigger; daily roots; optional on-chain anchoring; offline verifier | 2, 9 |
 | Insider approves own spend | Separation of duties enforced server-side; approvals audited | 7 |
 | PCI scope creep | Never request or store full card numbers; no `expand=number` anywhere (lint rule + code search in CI) | 8 |
-| Supply-chain compromise | pnpm 10 (`minimumReleaseAge` e.g. 3 days, install scripts off except allowlisted), lockfile committed and reviewed, Renovate grouped updates, GitHub Actions pinned to commit SHAs, scanners pinned by digest, CI tokens least-privilege, no production secrets in CI | 1 |
+| Supply-chain compromise | pnpm 11 (`minimumReleaseAge` e.g. 3 days, install scripts off except allowlisted), lockfile committed and reviewed, Renovate grouped updates, GitHub Actions pinned to commit SHAs, scanners pinned by digest, CI tokens least-privilege, no production secrets in CI | 1 |
 | Secret leakage in logs | pino redaction paths; tests assert redaction; Sentry scrubbing | 1, 3 |
 | XSS / CSRF in the dashboard | React escaping, strict CSP (no inline scripts except Next's nonce), `SameSite=Lax` cookies, CSRF protection from Better Auth, no `dangerouslySetInnerHTML` (lint) | 3 |
 | Brute force / credential stuffing | Rate limits on auth routes; optional 2FA (Better Auth plugin) required for owner/admin/finance | 3 |

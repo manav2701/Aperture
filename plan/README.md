@@ -54,4 +54,5 @@ Total: about **25 weeks** of engineering. A pilot with a design partner (for exa
 ## Status
 
 - [ ] Phase 0 — waiting on you
-- [ ] Phases 1–10 — not started
+- [x] Phase 1 — code complete on branch `phase-1/stabilize-and-restructure`; operational steps (Supabase lockdown, key rotation, push, Vercel root) pending
+- [ ] Phases 2–10 — not started

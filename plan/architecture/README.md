@@ -42,7 +42,9 @@ This document builds the system step by step, from principles to each rail. Ever
   Hugging Face                                              facilitators
 ```
 
-## 3. Repository layout (after Phase 1)
+## 3. Repository layout (target)
+
+Phase 1 created `apps/*`, `packages/config`, `packages/runtime`, `infra/`, `docs/adr/`, and `legacy/`. Every other package is created in the phase that implements it (ADR 0011).
 
 ```
 aperture/
@@ -62,7 +64,8 @@ aperture/
 │   ├── sdk/          @aperture/sdk — TypeScript client for agents (gateway, mandates, x402)
 │   ├── mcp/          @aperture/mcp — MCP server exposing Aperture tools to agents
 │   ├── ui/           Shared React components (shadcn/ui based)
-│   └── config/       tsconfig, eslint, prettier, vitest presets
+│   ├── runtime/      Service bootstrap: env validation, redacting logger, health routes, shutdown
+│   └── config/       Shared tsconfig (ESLint/Prettier configs live at the repo root)
 ├── tools/
 │   ├── x402-test-seller/   Local x402 seller for devnet tests
 │   ├── audit-verify/       CLI: verify an exported audit log offline
@@ -79,7 +82,7 @@ aperture/
 |---|---|---|
 | Runtime | Node.js 24 LTS | Current LTS; same runtime everywhere |
 | Language | TypeScript (strict, `noUncheckedIndexedAccess`) | One language across web, services, SDK |
-| Monorepo | pnpm 10 workspaces + Turborepo | Conventional; pnpm blocks dependency install scripts by default and supports `minimumReleaseAge` (supply-chain defence) |
+| Monorepo | pnpm 11 workspaces + Turborepo | Conventional; pnpm blocks dependency install scripts by default and supports `minimumReleaseAge` (supply-chain defence) |
 | Web | Next.js (App Router), Tailwind v4, shadcn/ui, TanStack Query, react-hook-form + Zod, Recharts | Mainstream React stack; no bespoke UI framework |
 | Services | Hono on `@hono/node-server`, `@hono/zod-openapi` | Web-standard Request/Response makes streaming passthrough simple; OpenAPI generated from Zod |
 | Database | PostgreSQL 17 | Transactions + row locks give a correct ledger without extra infrastructure |

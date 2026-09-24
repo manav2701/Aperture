@@ -2,6 +2,19 @@
 
 Designed for a bootstrapped start: one server you control, Docker Compose, managed only where it's free. The same images later run on bigger infrastructure or inside a customer's cloud.
 
+## Interim hosting (decided 2026-09-24): Vercel + Render
+
+Until the Phase 10 production setup, the web app stays on **Vercel** and the services go on **Render**'s free tier. That's fine for staging and demos, with these limits (verify Render's current terms when setting up):
+
+| Concern | Consequence | When it stops being acceptable |
+|---|---|---|
+| Free web services sleep after ~15 min idle; the first request waits for a cold start | The gateway's first call after idle is slow | Pilot with real users (Phase 5) — use a paid instance or the VPS |
+| Free Render Postgres expires after a limited period | Staging data is disposable | Before any customer data — use the VPS Postgres or a paid database |
+| No free background workers or private services | `apps/worker` and `apps/signer` can't run on the free tier; the signer must never be a public web service | Phase 4 (worker), Phase 9 (signer) |
+| Stripe's card authorization webhook has a 2-second budget | A sleeping service times out and the card is declined | Phase 8 — card webhooks need an always-on instance |
+
+Vercel: set the project's **Root Directory** to `apps/web`. Render: build each service with `infra/docker/service.Dockerfile` and `APP=<name>` (Docker runtime), health check path `/healthz`; Render injects `PORT`.
+
 ## Environments
 
 | Environment | Where | Data | External services | Who uses it |

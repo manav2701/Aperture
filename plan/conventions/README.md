@@ -20,7 +20,7 @@ The goal: any competent TypeScript developer can open any file and understand it
 
 ## Validation and errors
 
-- **Zod at every boundary**: HTTP input, webhook payloads, env vars (`packages/config/env.ts` parses `process.env` once at startup and exits on missing/invalid values — no hardcoded fallbacks for secrets or URLs).
+- **Zod at every boundary**: HTTP input, webhook payloads, env vars (`@aperture/runtime` `loadEnvOrExit` parses `process.env` once at startup and exits on missing/invalid values — no hardcoded fallbacks for secrets or URLs).
 - Errors: throw `AppError` subclasses with a stable `code` (`budget_exceeded`, `policy_denied`, `not_found`, …) and HTTP mapping in one place. No `catch {}` that swallows errors; no `catch` that only logs and continues unless it's explicitly best-effort and says why in a comment.
 - Never return stack traces or internal messages to clients.
 
@@ -41,7 +41,7 @@ The goal: any competent TypeScript developer can open any file and understand it
 
 - pino, JSON, one logger per module with a `module` field. Levels: `error` (needs a human), `warn` (unexpected but handled), `info` (state changes), `debug` (off in prod).
 - No `console.log` in committed code (lint).
-- Redaction list maintained in `packages/config/logging.ts`; test asserts secrets never appear.
+- Redaction list maintained in `packages/runtime/src/logger.ts` (`REDACT_PATHS`); test asserts secrets never appear.
 
 ## Frontend
 

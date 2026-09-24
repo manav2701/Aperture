@@ -1,116 +1,50 @@
-# 🚀 Aperture: Policy & Session Governance Protocol for Autonomous AI Agents on Solana
+# Aperture
 
-**Aperture** is an enterprise-grade infrastructure protocol and control center built on **Solana Anchor** and **SPL Token-2022**. It empowers autonomous AI agents to operate as independent economic actors while enforcing **hard, immutable security policies** (daily spend caps, single transaction limits, recipient allowlists, velocity controls) and **time-bound ephemeral session budgets**.
+**Governance for AI spend.** Aperture is a control plane where an organization decides who — a person or an AI agent — may spend how much, on what, and through which rail: AI provider APIs, cards from the customer's own card program, and stablecoin (x402) payments on Solana. Every decision goes into a tamper-evident audit log.
 
----
+Aperture never holds customer money or card numbers: it enforces through the customer's own provider accounts, card program, and wallets.
 
-## 🎯 Executive Summary & Competitive Advantage
+## Status
 
-Existing AI model aggregators (e.g., OpenRouter) and traditional Web3 wallets fail to address the core requirements of autonomous agentic finance:
-- **OpenRouter & API Proxies**: Enforce basic API credit limits, but have **zero visibility or control** over Web3 smart contracts, token transfers, velocity caps, or enterprise Role-Based Access Control (RBAC).
-- **Standard Web3 Wallets**: Require manual human signatures for every transaction—breaking autonomous execution—or force teams to share raw private keys with bots, exposing assets to prompt injection attacks.
+Rebuilding from the original hackathon demo. **Phase 1 of 10 is complete**: the unsafe demo endpoints are gone, the hackathon code is archived under [`legacy/`](legacy/README.md), and this repository is a clean TypeScript monorepo with CI. No product features exist yet; they start in Phase 2.
 
-**Aperture solves this via a Dual-Layer Governance Architecture**:
-1. **Governed AI Gateway Engine**: Intercepts LLM inference calls (OpenAI, Anthropic, Gemini) via Virtual API Keys (`aptr_live_...`) to enforce token budgets and model permissions before calling upstream providers.
-2. **On-Chain Solana Governance Engine**: Leverages **SPL Token-2022 Transfer Hooks** and Anchor smart contracts (`policy-manager`, `session-tracker`) to enforce mathematical limits on-chain at the validator level.
+- The build plan, architecture, and research: [plan/](plan/README.md)
+- What is being built, and for whom: [plan/vision](plan/vision/README.md)
 
----
+## Repository map
 
-## ⚔️ Feature Comparison Matrix
+| Path               | What it is                                                                                   | Status                   |
+| ------------------ | -------------------------------------------------------------------------------------------- | ------------------------ |
+| `apps/web`         | Next.js dashboard and workspace                                                              | Placeholder landing page |
+| `apps/api`         | Control-plane API (orgs, budgets, policies, approvals, audit, webhooks)                      | Health endpoints only    |
+| `apps/gateway`     | Data plane: governed AI passthrough, media jobs, x402 authorization                          | Health endpoints only    |
+| `apps/worker`      | Background jobs: connector sync, limit mirroring, settlement                                 | Health endpoints only    |
+| `apps/signer`      | Internal Solana signing service (never public)                                               | Health endpoints only    |
+| `packages/runtime` | Shared service bootstrap: env validation, redacting logger, health routes, graceful shutdown | Done                     |
+| `packages/config`  | Shared TypeScript config                                                                     | Done                     |
+| `infra/`           | Local dev stack, service Dockerfile, Supabase lockdown script                                | —                        |
+| `docs/adr/`        | Architecture decision records                                                                | —                        |
+| `legacy/`          | Archived hackathon build (not built or deployed)                                             | Archived                 |
+| `plan/`            | Build plan: phases 0–10 and reference docs                                                   | —                        |
 
-| Feature / Capability | **Aperture** 🛡️ | **OpenRouter** 🌐 | **LangChain / AutoGPT** 🤖 | **Standard Web3 Wallets** 👛 |
-| :--- | :---: | :---: | :---: | :---: |
-| **Web3 Native Wallet Governance** | **Yes (Solana SPL Token-2022)** | ❌ No | ❌ No | ⚠️ Uncontrolled |
-| **SPL Token-2022 Transfer Hook Enforcement** | **Yes (On-Chain Validation)** | ❌ No | ❌ No | ❌ No |
-| **Governed Virtual API Keys (`aptr_live_...`)** | **Yes** | ⚠️ Basic Credit Cap | ❌ No | ❌ No |
-| **On-Chain Velocity Limits (tx/hr)** | **Yes** | ❌ No | ❌ No | ❌ No |
-| **Time-Bounded Self-Destructing Sessions** | **Yes** | ❌ No | ❌ No | ❌ No |
-| **Hierarchical Budget Delegation Trees** | **Yes (Master → Sub-Agents)** | ❌ No | ❌ No | ❌ No |
-| **Enterprise RBAC (Owner, CFO, Dev, Auditor)** | **Yes** | ❌ No | ❌ No | ❌ No |
-| **Permanent Delegate Emergency Clawback** | **Yes (Instant Clawback)** | ❌ No | ❌ No | ❌ No |
+Packages for the domain (`core`, `db`, `connectors`, `auth`, `crypto`, `sdk`, `mcp`, `ui`) are created in the phase that implements them.
 
----
+## Run it locally
 
-## 🖥️ Platform Modules & Page-by-Page Overview
+Requirements: Node.js 24+, pnpm 11 (`npm install -g pnpm` or Corepack), and Docker for the database (needed from Phase 2).
 
-### 1. Central Executive Dashboard (`/dashboard`)
-Command center tracking active agents, virtual key telemetry, 30-day spend trends (LLM compute vs. on-chain tx fees), and real-time request status streams (`APPROVED`, `BLOCKED_RATE_LIMIT`, `ESCALATED_PENDING`).
-
-### 2. Governed AI Gateway (`/gateway`)
-Generates scoped Virtual API Keys (`aptr_live_...`) for AI agents. Enforces 7 guardrail checks (time of day, model permissions, rate limits, daily budget, per-request caps) before forwarding prompts to LLM providers. Includes an interactive live prompt testing playground.
-
-### 3. On-Chain Spending Rules (`/policies`)
-Binds Solana wallet addresses to agent identities and provisions Anchor `policy-manager` accounts. Configures daily SOL/USDC limits, per-tx limits, velocity caps (max tx/hr), and smart contract recipient allowlists.
-
-### 4. Autonomous Session Budgets (`/sessions`)
-Allocates time-boxed sub-budgets (e.g., 10 SOL for 2 hours) to autonomous agents. Uses `session-tracker` Cross-Program Invocations (CPI) to deduct spend automatically and self-destruct upon expiration.
-
-### 5. Budget Delegation Visualizer (`/delegation`)
-Renders a multi-node hierarchical graph mapping Master Orchestrator Agents (Depth 0) to child Sub-Agents (Depth 1+), tracking delegated utilization percentages across multi-agent workflows.
-
-### 6. Corporate Treasury Vault (`/treasury`)
-Macro-level financial dashboard featuring daily/monthly treasury utilization gauges, spend velocity forecasting engines (SOL/hr and 24h/30d runway projection), and departmental budget allocations.
-
-### 7. Organization Governance & Roles (`/org` & `/roles`)
-Enterprise Role-Based Access Control (RBAC) connecting wallet signatures to defined permissions: Owner (0), CFO (1), Team Lead (2), Developer (3), and Auditor (4).
-
-### 8. Company Fleet (`/company`)
-Tabular view listing every deployed agent in the organization, daily spend metrics, and a single-click global Emergency Kill Switch.
-
----
-
-## 🏗️ Architecture & Component Flow
-
-```mermaid
-graph TD
-    Agent[AI Agent / Bot] -->|LLM Inference Request| Gateway[Aperture Governed Gateway Proxy]
-    Gateway -->|Guardrail Validation| OpenRouter[OpenRouter / OpenAI / Anthropic]
-    Agent -->|On-Chain Token Transfer| Token2022[Solana SPL Token-2022]
-    Token2022 -->|Execute Hook| PolicyManager[Policy Manager Program]
-    PolicyManager -->|SpendSession CPI| SessionTracker[Session Tracker Program]
-    PolicyManager -->|Validate Limits| PolicyAccount[Policy Account PDA]
-    SessionTracker -->|Deduct Budget| SessionAccount[Session Account PDA]
-    Admin[CFO / Owner Wallet] -->|Emergency Clawback| PermanentDelegate[Permanent Delegate PDA]
-    PermanentDelegate -->|Revoke & Reclaim| Token2022
-```
-
----
-
-## 📁 Repository Structure
-
-```text
-├── gateway/               # Governed LLM Proxy Gateway (ElysiaJS + Prisma)
-│   ├── src/                 # Gateway router & policy enforcement pipeline
-│   └── prisma/              # Prisma schema for models, logs & virtual keys
-├── programs/
-│   ├── policy-manager/      # Anchor program for agent policies & SPL transfer hook
-│   └── session-tracker/     # Anchor program for time-bounded session budgets
-├── webapp/                  # Production Next.js 16 (Turbopack) dashboard & control center
-├── sdk/                     # TypeScript SDK (@aperture-finance/sdk)
-│   ├── policy.ts            # PolicyManagerClient
-│   ├── session.ts           # SessionTrackerClient
-│   └── middleware/          # AgentPolicyGuard & AutoSessionRenewer
-├── examples/                # End-to-end AI agent usage scripts
-└── scripts/                 # Anchor program build and compliance test suites
-```
-
----
-
-## 🚀 Quickstart & Testing
-
-### Build Solana Programs
 ```bash
-bash scripts/build.sh
+pnpm install
+pnpm dev                                        # web :3000, api :4000, gateway :4100, worker :4200, signer :4300
+curl localhost:4000/healthz                     # {"status":"ok","service":"api"}
+docker compose -f infra/compose.dev.yml up -d   # Postgres 17 + MinIO
 ```
 
-### Run Anchor & Integration Test Suite (14 Compliance Tests)
-```bash
-bash scripts/test.sh
-```
+## Checks
 
----
+`pnpm check` runs everything CI runs on the code: Prettier, ESLint, TypeScript, Vitest, knip (unused code and dependencies), and a guard that nothing imports from `legacy/`. CI additionally runs Gitleaks over the full history, Semgrep (registry rules plus the custom rules in `.semgrep/`), `pnpm audit`, and builds and smoke-tests each service image.
 
-## 📜 License
+## Contributing and security
 
-MIT License. Built by Aperture Finance.
-
+- How we write code: [CONTRIBUTING.md](CONTRIBUTING.md) and [plan/conventions](plan/conventions/README.md)
+- Reporting a vulnerability: [SECURITY.md](SECURITY.md)

@@ -4,6 +4,29 @@
 **Duration:** ~1.5 weeks.
 **Depends on:** Phase 0 "Phase 1 blockers".
 
+## Status (2026-09-24): code complete, operational steps pending
+
+Done on branch `phase-1/stabilize-and-restructure`:
+
+- [x] Supabase exposure confirmed by a read-only probe: every public table readable with the public key, including 10 plaintext mnemonics. Lockdown script written: [`infra/supabase/lockdown.sql`](../../../infra/supabase/lockdown.sql)
+- [x] Open proxy and demo payment routes deleted; hardcoded Supabase fallbacks removed (commit before archiving, so it can be deployed on its own)
+- [x] `legacy-v0` tag (local); hackathon code moved to `legacy/` with a README; third-party docs, duplicate frames, junk configs deleted
+- [x] Monorepo: pnpm 11 + Turborepo; `packages/config`, `packages/runtime`; `apps/api|gateway|worker|signer` (Hono, health endpoints, esbuild bundles); `apps/web` (Next.js placeholder)
+- [x] Tooling: strict TypeScript 6.0, ESLint (typescript-eslint strict + anti-slop rules), Prettier, Vitest, knip, legacy-import guard, custom Semgrep rules with tests, Gitleaks with reviewed ignore list, Renovate
+- [x] CI (`.github/workflows/ci.yml`, actions pinned to SHAs, actionlint-clean): quality, security, and per-service image build + smoke test
+- [x] Local dev stack (`infra/compose.dev.yml`), shared service Dockerfile
+- [x] README, CONTRIBUTING, SECURITY, ADRs 0001–0011
+
+Pending — needs you (see the final report / Phase 0):
+
+- [ ] Run `infra/supabase/lockdown.sql`, rotate Supabase keys, verify with the curl below
+- [ ] Empty any real funds from the 10 wallets whose mnemonics were exposed
+- [ ] Rotate the OpenRouter key used by the old Railway gateway
+- [ ] Push the branch and tag, open the PR, confirm CI green, enable branch protection
+- [ ] Vercel: set Root Directory to `apps/web` (the old `webapp/` path no longer exists)
+
+Deviations from the original task list, all recorded in [ADR 0011](../../../docs/adr/0011-phase-1-tooling.md): pnpm 11 instead of 10; TypeScript pinned to 6.0; no empty placeholder packages; esbuild instead of tsup; no pre-commit hooks; shadcn/ui deferred to Phase 3. The Docker Compose stack and service Dockerfile were validated statically on the development machine (Docker Desktop was not running); CI builds and smoke-tests every image.
+
 ## Starting point
 
 The repository at `d9e0687` as described in [current-state](../../current-state/README.md): security findings S1–S10, mocks in the UI, Stacks leftovers, three Anchor programs, no CI.
@@ -44,23 +67,23 @@ The repository at `d9e0687` as described in [current-state](../../current-state/
 ```
 pnpm-workspace.yaml     packages: apps/*, packages/*, tools/*
 turbo.json              pipelines: build, dev, lint, typecheck, test, test:integration
-package.json            root scripts, packageManager: pnpm@10.x, engines.node: 24.x
+package.json            root scripts, packageManager: pnpm@11.x, engines.node: >=24
 .nvmrc                  24
-.npmrc                  minimum-release-age / only-built-dependencies settings (pnpm 10)
+(pnpm-workspace.yaml)    minimumReleaseAge + allowBuilds (pnpm 11 keeps these settings in the workspace file)
 ```
 
 1. `packages/config`: `tsconfig.base.json` (strict flags from [conventions](../../conventions/README.md#typescript)), ESLint flat config (typescript-eslint `strictTypeChecked`, `no-console`, `no-restricted-syntax` for `Math.random`/`alert`, boundaries plugin), Prettier config, Vitest preset, `env.ts` helper (Zod env parsing).
 2. Empty packages with `src/index.ts` and one trivial test each: `core`, `db`, `connectors`, `auth`, `crypto`, `sdk`, `mcp`, `ui`.
 3. Apps:
    - `apps/api`, `apps/gateway`, `apps/worker`, `apps/signer`: Hono (worker/signer minimal), `/healthz` and `/readyz`, pino logger, env parsing, Dockerfile (multi-stage, non-root).
-   - `apps/web`: `create-next-app` (App Router, TypeScript, Tailwind v4), shadcn/ui init, a placeholder page, fonts from the legacy app.
+   - `apps/web`: Next.js App Router, TypeScript, Tailwind v4, a placeholder page, fonts and palette from the legacy app (shadcn/ui is set up in Phase 3 with the first real components).
 4. `infra/compose.dev.yml`: Postgres 17 (with a named volume), MinIO; `.env.example` per app (no real values).
 
 ### 1.4 Tooling and CI
 
 1. Vitest workspace config; `fast-check` installed in `packages/core`.
 2. `knip` config; Semgrep with `p/typescript`, `p/nodejs`, `p/secrets` rules + two custom rules (no `expand: ['number']` on Stripe calls; no `Math.random`).
-3. `gitleaks` config; `lefthook` pre-commit running Prettier + ESLint on staged files.
+3. `gitleaks` in CI with a reviewed `.gitleaksignore`. (Pre-commit hooks were dropped — see ADR 0011.)
 4. Renovate config: weekly grouped updates, `minimumReleaseAge: 3 days`, automerge only for patch devDependencies.
 5. `.github/workflows/pr.yml`: install (frozen lockfile, cache) → typecheck → lint → test → knip → Semgrep → gitleaks → `pnpm audit --prod --audit-level high` → build all. **All third-party actions pinned to commit SHAs.** Least-privilege `permissions:` block.
 6. `.github/CODEOWNERS`, PR template with the Definition-of-done checklist.
