@@ -1,0 +1,7 @@
+legacy/
+plan/
+pnpm-lock.yaml
+**/dist/
+**/.next/
+**/coverage/
+**/.turbo/

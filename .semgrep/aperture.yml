@@ -1,0 +1,27 @@
+rules:
+  - id: no-card-number-expansion
+    message: >-
+      Never request full card numbers or CVCs from the card issuer. Aperture stays out of PCI DSS
+      cardholder-data scope (plan/security, ADR 0007). Let the customer's agent runtime fetch card
+      details with its own key, or use a programmatic checkout token.
+    severity: ERROR
+    languages: [typescript, javascript]
+    pattern-regex: expand\s*:\s*\[[^\]]*['"](number|cvc)['"]
+
+  - id: no-fetch-of-request-controlled-url
+    message: >-
+      A URL taken from request input reaches fetch() — this is the SSRF pattern of the retired
+      legacy proxy. Upstream URLs must come from a fixed allowlist of providers.
+    severity: ERROR
+    languages: [typescript, javascript]
+    mode: taint
+    pattern-sources:
+      - pattern: $URL.searchParams.get(...)
+      - pattern: $C.req.query(...)
+      - pattern: $C.req.param(...)
+      - pattern: $C.req.header(...)
+      - pattern: $REQ.headers.get(...)
+    pattern-sinks:
+      - patterns:
+          - pattern-inside: fetch($SINK, ...)
+          - focus-metavariable: $SINK

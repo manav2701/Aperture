@@ -1,0 +1,28 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended", "helpers:pinGitHubActionDigests"],
+  "schedule": ["before 6am on monday"],
+  "timezone": "Asia/Dubai",
+  "minimumReleaseAge": "3 days",
+  "prConcurrentLimit": 5,
+  "packageRules": [
+    {
+      "description": "Group routine dev tooling updates",
+      "matchDepTypes": ["devDependencies"],
+      "matchUpdateTypes": ["minor", "patch"],
+      "groupName": "dev tooling"
+    },
+    {
+      "description": "Only patch-level dev dependency updates merge automatically",
+      "matchDepTypes": ["devDependencies"],
+      "matchUpdateTypes": ["patch"],
+      "automerge": true
+    },
+    {
+      "description": "typescript-eslint supports TypeScript <6.1; hold TypeScript until it catches up (ADR 0011)",
+      "matchPackageNames": ["typescript"],
+      "allowedVersions": "<6.1"
+    }
+  ],
+  "ignorePaths": ["legacy/**"]
+}

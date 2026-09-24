@@ -1,0 +1,15 @@
+# Reviewed historical findings (2026-09-24). Each is public by design, not a secret:
+# - contracts/settings/Devnet.toml: Clarinet's default public Stacks devnet accounts (legacy Stacks era).
+# - gateway/src/index.ts: Supabase publishable (anon) key; rotated during the Phase 1 lockdown.
+# Add a fingerprint here only after reviewing the finding and recording why it is safe.
+bbe0e60c2b49fb589b6bef6cb125c38500e6e3c6:gateway/src/index.ts:generic-api-key:13
+f9ca9fa1cc738fb42bb50cfba2213e149bcc7c51:contracts/settings/Devnet.toml:generic-api-key:9
+f9ca9fa1cc738fb42bb50cfba2213e149bcc7c51:contracts/settings/Devnet.toml:generic-api-key:17
+f9ca9fa1cc738fb42bb50cfba2213e149bcc7c51:contracts/settings/Devnet.toml:generic-api-key:25
+f9ca9fa1cc738fb42bb50cfba2213e149bcc7c51:contracts/settings/Devnet.toml:generic-api-key:33
+f9ca9fa1cc738fb42bb50cfba2213e149bcc7c51:contracts/settings/Devnet.toml:generic-api-key:41
+f9ca9fa1cc738fb42bb50cfba2213e149bcc7c51:contracts/settings/Devnet.toml:generic-api-key:49
+f9ca9fa1cc738fb42bb50cfba2213e149bcc7c51:contracts/settings/Devnet.toml:generic-api-key:57
+f9ca9fa1cc738fb42bb50cfba2213e149bcc7c51:contracts/settings/Devnet.toml:generic-api-key:65
+f9ca9fa1cc738fb42bb50cfba2213e149bcc7c51:contracts/settings/Devnet.toml:generic-api-key:73
+f9ca9fa1cc738fb42bb50cfba2213e149bcc7c51:contracts/settings/Devnet.toml:generic-api-key:81

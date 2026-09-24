@@ -1,0 +1,23 @@
+{
+  "name": "@aperture/runtime",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Process bootstrap shared by Aperture services: env parsing, logging, HTTP health endpoints, graceful shutdown",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@hono/node-server": "^2.1.1",
+    "hono": "^4.13.8",
+    "pino": "^10.3.1",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@aperture/config": "workspace:*"
+  }
+}
