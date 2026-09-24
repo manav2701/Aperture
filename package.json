@@ -18,7 +18,9 @@
     "format:check": "prettier --check .",
     "knip": "knip",
     "check:legacy-imports": "node tools/check-legacy-imports.mjs",
-    "check": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test && pnpm knip && pnpm check:legacy-imports"
+    "check": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test && pnpm knip && pnpm check:legacy-imports",
+    "try:simulate": "pnpm --filter @aperture/cli simulate",
+    "audit-verify": "pnpm --filter @aperture/cli audit-verify"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

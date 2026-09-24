@@ -51,6 +51,11 @@ export default defineConfig(
     },
   },
   {
+    // Tests may print benchmark numbers with console.info; nothing else.
+    files: ['**/*.test.ts', '**/test/**/*.ts'],
+    rules: { 'no-console': ['error', { allow: ['info'] }] },
+  },
+  {
     files: ['apps/web/**/*.{ts,tsx}'],
     plugins: { '@next/next': nextPlugin },
     settings: { next: { rootDir: 'apps/web' } },

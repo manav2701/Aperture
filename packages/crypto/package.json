@@ -1,0 +1,21 @@
+{
+  "name": "@aperture/crypto",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Canonical JSON (RFC 8785), hashing, and the audit hash chain",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "canonicalize": "^5.1.0"
+  },
+  "devDependencies": {
+    "@aperture/config": "workspace:*",
+    "fast-check": "^4.10.2"
+  }
+}

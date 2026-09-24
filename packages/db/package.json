@@ -1,0 +1,29 @@
+{
+  "name": "@aperture/db",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Postgres schema, migrations, the budget ledger, and the audit chain",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "db:generate": "drizzle-kit generate"
+  },
+  "dependencies": {
+    "@aperture/core": "workspace:*",
+    "@aperture/crypto": "workspace:*",
+    "drizzle-orm": "^0.45.3",
+    "pg": "^8.23.0",
+    "uuid": "^14.0.2"
+  },
+  "devDependencies": {
+    "@aperture/config": "workspace:*",
+    "@testcontainers/postgresql": "^12.1.0",
+    "@types/pg": "^8.23.1",
+    "drizzle-kit": "^0.31.11",
+    "fast-check": "^4.10.2"
+  }
+}

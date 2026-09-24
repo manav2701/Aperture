@@ -1,9 +1,14 @@
 packages:
   - apps/*
   - packages/*
+  - tools/*
 
 allowBuilds:
   esbuild: true
+  # Optional native add-ons / postinstall checks pulled in by testcontainers; not needed.
+  cpu-features: false
+  protobufjs: false
+  ssh2: false
 
 # Supply-chain defence: don't install versions published less than 3 days ago
 # (the LiteLLM and axios compromises of March 2026 were pulled within hours).

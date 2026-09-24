@@ -1,0 +1,125 @@
+# Org USD 100/month → Marketing USD 60/month → research-bot USD 50/day, plus an Engineering
+# team whose build-bot also has a velocity limit.
+# Run: pnpm try:simulate tools/cli/scenarios/two-teams.yaml --audit-out audit.jsonl
+org:
+  name: Demo Org
+  timezone: Asia/Dubai
+
+principals:
+  - id: research-bot
+    kind: agent
+    name: research-bot (Marketing)
+  - id: build-bot
+    kind: agent
+    name: build-bot (Engineering)
+
+budgets:
+  - id: org
+    name: Org monthly
+    scope: org
+    period: month
+    limit: '100'
+  - id: marketing
+    parent: org
+    name: Marketing monthly
+    scope: team
+    period: month
+    limit: '60'
+  - id: engineering
+    parent: org
+    name: Engineering monthly
+    scope: team
+    period: month
+    limit: '60'
+  - id: research-daily
+    parent: marketing
+    name: research-bot daily
+    scope: principal
+    principal: research-bot
+    period: day
+    limit: '50'
+  - id: build-daily
+    parent: engineering
+    name: build-bot daily
+    scope: principal
+    principal: build-bot
+    period: day
+    limit: '40'
+  - id: build-velocity
+    name: build-bot velocity
+    scope: principal
+    principal: build-bot
+    unit: count
+    period: hour
+    limit: '3'
+
+policies:
+  org:
+    rules:
+      - id: no-o-series
+        type: deny_models
+        patterns: ['openai/o*']
+  principals:
+    research-bot:
+      rules:
+        - id: claude-and-gpt-mini
+          type: allow_models
+          patterns: ['anthropic/claude-*', 'openai/gpt-4o-mini']
+        - id: big-spend-approval
+          type: approval_threshold
+          above: '20'
+
+steps:
+  - title: research-bot sends 20 concurrent USD 5 requests (its daily budget fits 10)
+    spend:
+      principal: research-bot
+      amount: '5'
+      count: 20
+      concurrent: true
+      provider: openrouter
+      model: openai/gpt-4o-mini
+
+  - title: research-bot asks for a model the org denies
+    spend:
+      principal: research-bot
+      amount: '1'
+      provider: openrouter
+      model: openai/o3
+
+  - title: research-bot asks for USD 25 in one request (above its approval threshold)
+    spend:
+      principal: research-bot
+      amount: '25'
+      provider: openrouter
+      model: anthropic/claude-sonnet-5
+
+  - title: Finance lowers Marketing to USD 30 for the month
+    setLimit:
+      budget: marketing
+      limit: '30'
+
+  - title: research-bot tries one more USD 1 request
+    spend:
+      principal: research-bot
+      amount: '1'
+      provider: openrouter
+      model: anthropic/claude-sonnet-5
+
+  - title: build-bot fires 5 quick requests (velocity limit is 3 per hour)
+    spend:
+      principal: build-bot
+      amount: '0.5'
+      count: 5
+      provider: openrouter
+      model: anthropic/claude-sonnet-5
+
+  - title: The kill switch pauses build-bot
+    pause:
+      principal: build-bot
+
+  - title: build-bot tries again
+    spend:
+      principal: build-bot
+      amount: '0.5'
+      provider: openrouter
+      model: anthropic/claude-sonnet-5
