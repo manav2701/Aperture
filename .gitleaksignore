@@ -13,3 +13,5 @@ f9ca9fa1cc738fb42bb50cfba2213e149bcc7c51:contracts/settings/Devnet.toml:generic-
 f9ca9fa1cc738fb42bb50cfba2213e149bcc7c51:contracts/settings/Devnet.toml:generic-api-key:65
 f9ca9fa1cc738fb42bb50cfba2213e149bcc7c51:contracts/settings/Devnet.toml:generic-api-key:73
 f9ca9fa1cc738fb42bb50cfba2213e149bcc7c51:contracts/settings/Devnet.toml:generic-api-key:81
+# CI smoke-test placeholder (not a secret), replaced in the next commit
+3208ffe97299873c357e724a82415fa0c32e2625:.github/workflows/ci.yml:generic-api-key:87
