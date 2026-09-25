@@ -82,11 +82,13 @@ jobs:
         run: docker build -f infra/docker/service.Dockerfile --build-arg APP=${{ matrix.app }} -t aperture-${{ matrix.app }}:ci .
       - name: Smoke test
         run: |
-          # Placeholder config: /healthz needs no database (the pool connects lazily), but the API
-          # refuses to start without its required settings.
+          # Placeholder config: /healthz needs no database (the pool connects lazily), but the
+          # services refuse to start without their required settings.
           placeholder_secret=$(printf 'x%.0s' $(seq 1 32))
+          placeholder_kek=$(head -c 32 /dev/urandom | base64)
           docker run --rm -d --name svc -p 8080:8080 -e PORT=8080 -e WEB_ORIGIN=http://localhost \
             -e DATABASE_URL=postgres://smoke:smoke@127.0.0.1:5432/smoke -e BETTER_AUTH_SECRET="$placeholder_secret" \
+            -e APERTURE_KEY_PEPPER="$placeholder_secret" -e APERTURE_KEK_V1="$placeholder_kek" \
             -e RESEND_API_KEY=re_smoke aperture-${{ matrix.app }}:ci
           for i in $(seq 1 20); do curl -fsS localhost:8080/healthz && exit 0; sleep 1; done
           docker logs svc
