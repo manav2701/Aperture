@@ -12,6 +12,10 @@ const securityHeaders = [
 
 // Where the control-plane API listens. The browser only ever talks to this app's origin; /api/*
 // is proxied, so auth cookies are first-party and there is no CORS surface.
+// Rewrites are fixed at build time, so a Vercel build without it would ship a broken proxy.
+if (process.env.VERCEL === '1' && process.env.API_INTERNAL_URL === undefined) {
+  throw new Error('Set API_INTERNAL_URL (the API origin, e.g. https://aperture-fz76.onrender.com) and redeploy.');
+}
 const apiUrl = process.env.API_INTERNAL_URL ?? 'http://localhost:4000';
 
 const nextConfig: NextConfig = {
