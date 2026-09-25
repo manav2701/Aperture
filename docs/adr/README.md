@@ -17,3 +17,4 @@ One file per decision: context, decision, consequences. Add a new ADR instead of
 | [0011](0011-phase-1-tooling.md)                    | Phase 1 tooling choices                                 | Accepted                         |
 | [0012](0012-phase-2-ledger-details.md)             | Phase 2 ledger and time decisions                       | Accepted                         |
 | [0013](0013-phase-3-identity-and-tenancy.md)       | Phase 3 identity, tenancy and delivery                  | Accepted                         |
+| [0014](0014-phases-4-5-connectors-and-gateway.md)  | Provider connectors and the gateway (Phases 4–5)        | Accepted                         |

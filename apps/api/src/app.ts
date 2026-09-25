@@ -5,11 +5,14 @@ import { createServiceApp } from '@aperture/runtime';
 import { createRouter, sameOriginWrites, type RegisteredRoute } from './http/access';
 import type { AppDeps, AppEnv } from './http/context';
 import { errorBody, handleError } from './http/errors';
+import { registerAgentRoutes } from './routes/agents';
 import { registerAuditRoutes } from './routes/audit';
 import { registerBudgetRoutes } from './routes/budgets';
+import { registerConnectionRoutes } from './routes/connections';
 import { registerMemberRoutes } from './routes/members';
 import { registerOrgRoutes } from './routes/orgs';
 import { registerPolicyRoutes } from './routes/policies';
+import { registerSpendRoutes } from './routes/spend';
 import { registerTeamRoutes } from './routes/teams';
 
 export interface ApiApp {
@@ -17,7 +20,14 @@ export interface ApiApp {
   routes: readonly RegisteredRoute[];
 }
 
-export function buildApp(deps: AppDeps): ApiApp {
+/**
+ * `embeddedGateway`, when given, is served under /gw on this same process (hosts without a
+ * separate gateway service). Its routes have their own auth (gateway keys), not the session.
+ */
+export function buildApp(
+  deps: AppDeps,
+  embeddedGateway?: { fetch: (request: Request) => Response | Promise<Response> },
+): ApiApp {
   const app = new OpenAPIHono<AppEnv>({
     defaultHook: (result, c) => {
       if (!result.success) {
@@ -44,6 +54,14 @@ export function buildApp(deps: AppDeps): ApiApp {
     }),
   );
 
+  if (embeddedGateway !== undefined) {
+    app.all('/gw/*', (c) => {
+      const url = new URL(c.req.url);
+      url.pathname = url.pathname.slice('/gw'.length);
+      return embeddedGateway.fetch(new Request(url, c.req.raw));
+    });
+  }
+
   app.use(
     '/api/*',
     bodyLimit({
@@ -69,10 +87,13 @@ export function buildApp(deps: AppDeps): ApiApp {
   registerBudgetRoutes(router, deps);
   registerPolicyRoutes(router, deps);
   registerAuditRoutes(router, deps);
+  registerConnectionRoutes(router, deps);
+  registerSpendRoutes(router, deps);
+  registerAgentRoutes(router, deps);
 
   app.doc31('/api/v1/openapi.json', {
     openapi: '3.1.0',
-    info: { title: 'Aperture control-plane API', version: '0.3.0' },
+    info: { title: 'Aperture control-plane API', version: '0.5.0' },
   });
 
   app.notFound((c) => c.json(errorBody('not_found', 'no such route'), 404));

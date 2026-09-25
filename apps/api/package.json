@@ -12,9 +12,12 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@aperture/connectors": "workspace:*",
     "@aperture/core": "workspace:*",
     "@aperture/crypto": "workspace:*",
     "@aperture/db": "workspace:*",
+    "@aperture/gateway": "workspace:*",
+    "@aperture/jobs": "workspace:*",
     "@aperture/runtime": "workspace:*",
     "@hono/zod-openapi": "^1.6.3",
     "better-auth": "^1.7.5",

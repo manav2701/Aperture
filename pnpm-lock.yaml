@@ -47,6 +47,9 @@ importers:
 
   apps/api:
     dependencies:
+      '@aperture/connectors':
+        specifier: workspace:*
+        version: link:../../packages/connectors
       '@aperture/core':
         specifier: workspace:*
         version: link:../../packages/core
@@ -56,6 +59,12 @@ importers:
       '@aperture/db':
         specifier: workspace:*
         version: link:../../packages/db
+      '@aperture/gateway':
+        specifier: workspace:*
+        version: link:../gateway
+      '@aperture/jobs':
+        specifier: workspace:*
+        version: link:../../packages/jobs
       '@aperture/runtime':
         specifier: workspace:*
         version: link:../../packages/runtime
@@ -90,13 +99,37 @@ importers:
 
   apps/gateway:
     dependencies:
+      '@aperture/connectors':
+        specifier: workspace:*
+        version: link:../../packages/connectors
+      '@aperture/core':
+        specifier: workspace:*
+        version: link:../../packages/core
+      '@aperture/crypto':
+        specifier: workspace:*
+        version: link:../../packages/crypto
+      '@aperture/db':
+        specifier: workspace:*
+        version: link:../../packages/db
       '@aperture/runtime':
         specifier: workspace:*
         version: link:../../packages/runtime
+      hono:
+        specifier: ^4.13.8
+        version: 4.13.8
+      uuid:
+        specifier: ^14.0.2
+        version: 14.0.2
+      zod:
+        specifier: ^4.6.5
+        version: 4.6.5
     devDependencies:
       '@aperture/config':
         specifier: workspace:*
         version: link:../../packages/config
+      fast-check:
+        specifier: ^4.10.2
+        version: 4.10.2
       tsx:
         specifier: ^4.23.15
         version: 4.23.15
@@ -156,9 +189,21 @@ importers:
 
   apps/worker:
     dependencies:
+      '@aperture/crypto':
+        specifier: workspace:*
+        version: link:../../packages/crypto
+      '@aperture/db':
+        specifier: workspace:*
+        version: link:../../packages/db
+      '@aperture/jobs':
+        specifier: workspace:*
+        version: link:../../packages/jobs
       '@aperture/runtime':
         specifier: workspace:*
         version: link:../../packages/runtime
+      zod:
+        specifier: ^4.6.5
+        version: 4.6.5
     devDependencies:
       '@aperture/config':
         specifier: workspace:*
@@ -168,6 +213,19 @@ importers:
         version: 4.23.15
 
   packages/config: {}
+
+  packages/connectors:
+    dependencies:
+      zod:
+        specifier: ^4.6.5
+        version: 4.6.5
+    devDependencies:
+      '@aperture/config':
+        specifier: workspace:*
+        version: link:../config
+      fast-check:
+        specifier: ^4.10.2
+        version: 4.10.2
 
   packages/core:
     dependencies:
@@ -234,6 +292,31 @@ importers:
       tsx:
         specifier: ^4.23.15
         version: 4.23.15
+
+  packages/jobs:
+    dependencies:
+      '@aperture/connectors':
+        specifier: workspace:*
+        version: link:../connectors
+      '@aperture/core':
+        specifier: workspace:*
+        version: link:../core
+      '@aperture/crypto':
+        specifier: workspace:*
+        version: link:../crypto
+      '@aperture/db':
+        specifier: workspace:*
+        version: link:../db
+      '@aperture/runtime':
+        specifier: workspace:*
+        version: link:../runtime
+      uuid:
+        specifier: ^14.0.2
+        version: 14.0.2
+    devDependencies:
+      '@aperture/config':
+        specifier: workspace:*
+        version: link:../config
 
   packages/runtime:
     dependencies:

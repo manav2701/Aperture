@@ -7,8 +7,12 @@ import { SignOutButton } from './sign-out-button';
 
 const sections: { href: string; label: string; permission: Permission }[] = [
   { href: '', label: 'Overview', permission: 'org.read' },
+  { href: '/workspace', label: 'Workspace', permission: 'workspace.use' },
+  { href: '/spend', label: 'Spend', permission: 'spend.read' },
   { href: '/budgets', label: 'Budgets', permission: 'budgets.read' },
   { href: '/policies', label: 'Policies', permission: 'policies.read' },
+  { href: '/agents', label: 'Agents & keys', permission: 'agents.read' },
+  { href: '/connections', label: 'Connections', permission: 'connections.read' },
   { href: '/audit', label: 'Audit log', permission: 'audit.read' },
   { href: '/settings', label: 'Settings', permission: 'org.read' },
 ];

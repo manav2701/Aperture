@@ -57,4 +57,6 @@ Total: about **25 weeks** of engineering. A pilot with a design partner (for exa
 - [x] Phase 1 — code complete on branch `phase-1/stabilize-and-restructure`; operational steps (Supabase lockdown, key rotation, push, Vercel root) pending
 - [x] Phase 2 — complete on branch `phase-2/core-domain` (core domain, ledger, audit, simulator; 145 tests)
 - [x] Phase 3 — code complete on branch `phase-3/identity-control-plane` (auth, orgs, RBAC + RLS, budgets, policies, audit API, dashboard; see ADR 0013); staging on Vercel + Render + Neon
-- [ ] Phases 4–10 — not started
+- [x] Phase 4 — provider connectors, usage import, T1/T2 enforcement, alerts, Connections and Spend UI (ADR 0014); live-tested on OpenRouter
+- [x] Phase 5 — gateway (OpenAI, Anthropic, Gemini, HF formats), agents and keys, kill switch, workspace chat (ADR 0014); live-tested on OpenRouter and Gemini
+- [ ] Phases 6–10 — not started. Postponed items are listed in [deferred.md](deferred.md)

@@ -58,10 +58,16 @@ export const principals = pgTable(
     /** Set for `user` principals: the person this principal spends as. */
     userId: text('user_id').references((): AnyPgColumn => users.id),
     teamId: uuid('team_id').references((): AnyPgColumn => teams.id),
+    /** For agents: the member responsible for it. */
+    ownerUserId: text('owner_user_id').references((): AnyPgColumn => users.id),
+    description: text('description'),
+    /** `unassigned`: the org's catch-all for provider usage from keys not yet mapped to anyone. */
+    systemRole: text('system_role', { enum: ['unassigned'] }),
     createdAt: createdAt(),
   },
   (table) => [
     index('principals_org_idx').on(table.orgId),
+    unique('principals_org_system_role_unique').on(table.orgId, table.systemRole),
     unique('principals_org_user_unique').on(table.orgId, table.userId),
     check('principals_kind_check', inList('kind', ['user', 'agent'])),
     check('principals_status_check', inList('status', ['active', 'paused', 'revoked'])),
@@ -421,6 +427,11 @@ export const connections = pgTable(
     /** Envelope-encrypted secret (see @aperture/crypto); never returned by the API. */
     secret: jsonb('secret').notNull(),
     config: jsonb('config').notNull().default({}),
+    /** Connector-specific sync position (e.g. the last imported bucket). */
+    syncCursor: jsonb('sync_cursor'),
+    lastSyncedAt: timestamp('last_synced_at', { withTimezone: true, mode: 'date' }),
+    /** Why the last sync or test failed; cleared on success. */
+    lastError: text('last_error'),
     createdAt: createdAt(),
     updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
   },
@@ -428,4 +439,150 @@ export const connections = pgTable(
     unique('connections_fingerprint_unique').on(table.orgId, table.provider, table.fingerprint),
     check('connections_status_check', inList('status', ['active', 'broken', 'disabled'])),
   ],
+);
+
+// ---------------------------------------------------------------------------------------------
+// Phase 4: provider credentials, prices, alerts
+
+export const CREDENTIAL_STATUSES = ['active', 'disabled', 'revoked'] as const;
+
+/**
+ * Keys that exist at a provider (OpenRouter keys, OpenAI service-account keys, Anthropic keys…)
+ * mapped to the principal whose spend they carry. `principalId` null means unassigned.
+ */
+export const credentials = pgTable(
+  'credentials',
+  {
+    id: uuid('id').primaryKey(),
+    orgId: uuid('org_id')
+      .notNull()
+      .references(() => orgs.id),
+    connectionId: uuid('connection_id')
+      .notNull()
+      .references(() => connections.id),
+    principalId: uuid('principal_id').references(() => principals.id),
+    /** The provider's id for the key (OpenRouter hash, OpenAI key id, Anthropic key id). */
+    externalId: text('external_id').notNull(),
+    name: text('name').notNull(),
+    /** Displayable start or end of the key, never the whole key. */
+    hint: text('hint'),
+    status: text('status', { enum: CREDENTIAL_STATUSES }).notNull().default('active'),
+    /** Created by Aperture, so Aperture may set limits on it and delete it. */
+    createdByAperture: boolean('created_by_aperture').notNull().default(false),
+    /** Used by the gateway itself; its usage is already in the ledger, so imports skip it (G11). */
+    managedByGateway: boolean('managed_by_gateway').notNull().default(false),
+    /** Envelope-encrypted key material; only stored for keys the gateway uses. */
+    secret: jsonb('secret'),
+    /** Last limit pushed to the provider (µUSD), to skip no-op updates. */
+    mirroredLimit: money('mirrored_limit'),
+    /** Provider-reported lifetime usage at the last sync (µUSD), for computing deltas. */
+    lastUsage: money('last_usage'),
+    meta: jsonb('meta').notNull().default({}),
+    revokedAt: timestamp('revoked_at', { withTimezone: true, mode: 'date' }),
+    createdAt: createdAt(),
+  },
+  (table) => [
+    unique('credentials_connection_external_unique').on(table.connectionId, table.externalId),
+    index('credentials_principal_idx').on(table.principalId),
+    check('credentials_status_check', inList('status', CREDENTIAL_STATUSES)),
+  ],
+);
+
+/** Model prices in µUSD per million tokens. Global, not per org. */
+export const prices = pgTable(
+  'prices',
+  {
+    provider: text('provider').notNull(),
+    model: text('model').notNull(),
+    inputPerMTok: money('input_per_mtok').notNull(),
+    outputPerMTok: money('output_per_mtok').notNull(),
+    cacheReadPerMTok: money('cache_read_per_mtok'),
+    cacheWritePerMTok: money('cache_write_per_mtok'),
+    /** `openrouter-api`, or the pricing page URL for curated entries. */
+    source: text('source').notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
+  },
+  (table) => [primaryKey({ columns: [table.provider, table.model] })],
+);
+
+/** One row per alert, so a threshold alerts once per budget period (de-duplication). */
+export const alertLog = pgTable(
+  'alert_log',
+  {
+    id: uuid('id').primaryKey(),
+    orgId: uuid('org_id')
+      .notNull()
+      .references(() => orgs.id),
+    /** e.g. `budget:<id>:80:<periodKey>` or `revoked:<credentialId>`. */
+    dedupeKey: text('dedupe_key').notNull(),
+    kind: text('kind').notNull(),
+    payload: jsonb('payload').notNull(),
+    sentAt: timestamp('sent_at', { withTimezone: true, mode: 'date' }),
+    attempts: integer('attempts').notNull().default(0),
+    lastError: text('last_error'),
+    createdAt: createdAt(),
+  },
+  (table) => [unique('alert_log_dedupe_unique').on(table.orgId, table.dedupeKey)],
+);
+
+// ---------------------------------------------------------------------------------------------
+// Phase 5: Aperture keys and the gateway request log
+
+/** Keys that agents and members use to call the gateway. Only an HMAC of each key is stored. */
+export const apiKeys = pgTable(
+  'api_keys',
+  {
+    id: uuid('id').primaryKey(),
+    orgId: uuid('org_id')
+      .notNull()
+      .references(() => orgs.id),
+    principalId: uuid('principal_id')
+      .notNull()
+      .references(() => principals.id),
+    name: text('name').notNull(),
+    /** The first 12 characters, e.g. `apk_live_3Fa`, so people can recognise a key. */
+    prefix: text('prefix').notNull(),
+    /** HMAC-SHA-256(pepper, key), hex. */
+    hash: text('hash').notNull().unique(),
+    createdBy: text('created_by')
+      .notNull()
+      .references(() => users.id),
+    expiresAt: timestamp('expires_at', { withTimezone: true, mode: 'date' }),
+    lastUsedAt: timestamp('last_used_at', { withTimezone: true, mode: 'date' }),
+    revokedAt: timestamp('revoked_at', { withTimezone: true, mode: 'date' }),
+    createdAt: createdAt(),
+  },
+  (table) => [index('api_keys_principal_idx').on(table.principalId)],
+);
+
+/** Metadata of every gateway request; prompts and completions are never stored here. */
+export const gatewayRequests = pgTable(
+  'gateway_requests',
+  {
+    id: uuid('id').primaryKey(),
+    orgId: uuid('org_id')
+      .notNull()
+      .references(() => orgs.id),
+    principalId: uuid('principal_id')
+      .notNull()
+      .references(() => principals.id),
+    apiKeyId: uuid('api_key_id').references(() => apiKeys.id),
+    provider: text('provider').notNull(),
+    model: text('model'),
+    route: text('route').notNull(),
+    /** `allowed`, `denied_policy`, `denied_budget`, `denied_inactive`, `upstream_error`, … */
+    outcome: text('outcome').notNull(),
+    reasons: jsonb('reasons').notNull().default([]),
+    status: integer('status'),
+    holdId: uuid('hold_id').references(() => holds.id),
+    estimated: money('estimated'),
+    cost: money('cost'),
+    inputTokens: integer('input_tokens'),
+    outputTokens: integer('output_tokens'),
+    latencyMs: integer('latency_ms'),
+    stream: boolean('stream').notNull().default(false),
+    createdAt: createdAt(),
+    completedAt: timestamp('completed_at', { withTimezone: true, mode: 'date' }),
+  },
+  (table) => [index('gateway_requests_org_created_idx').on(table.orgId, table.createdAt)],
 );

@@ -82,6 +82,18 @@ describe('row-level security', () => {
     ).rejects.toMatchObject({ code: 'principal_not_found' });
   });
 
+  it('forces row-level security on every table that has an org_id', async () => {
+    const result = await system.db.execute<{ table_name: string; forced: boolean; policies: number }>(sql`
+      select c.relname as table_name, c.relforcerowsecurity as forced,
+        (select count(*)::int from pg_policies p where p.tablename = c.relname) as policies
+      from information_schema.columns col
+      join pg_class c on c.relname = col.table_name and c.relkind = 'r'
+      where col.table_schema = 'public' and col.column_name = 'org_id'`);
+    expect(result.rows.length).toBeGreaterThan(10);
+    const unprotected = result.rows.filter((row) => !row.forced || row.policies === 0).map((row) => row.table_name);
+    expect(unprotected).toEqual([]);
+  });
+
   it('withSystem sees every org', async () => {
     const a = await seedTree(system.db);
     const count = await withSystem(app.db, async (tx) => {

@@ -80,3 +80,17 @@ export async function rewrapConnectionSecrets(db: DbOrTx, ring: KeyRing, orgId: 
   }
   return rows.length;
 }
+
+/*
+ * Provider keys the gateway uses (credentials.managed_by_gateway) are stored the same way,
+ * bound to "<orgId>|credential|<credentialId>".
+ */
+const credentialContext = (orgId: string, credentialId: string) => `${orgId}|credential|${credentialId}`;
+
+export function sealCredentialSecret(ring: KeyRing, input: { orgId: string; credentialId: string; secret: string }) {
+  return encryptSecret(input.secret, credentialContext(input.orgId, input.credentialId), ring);
+}
+
+export function openCredentialSecret(ring: KeyRing, input: { orgId: string; credentialId: string; sealed: unknown }) {
+  return decryptSecret(input.sealed, credentialContext(input.orgId, input.credentialId), ring);
+}

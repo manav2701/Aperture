@@ -114,9 +114,21 @@ async function resolveBudgetPath(
     mode: PathBudget['mode'];
     alert_thresholds: number[];
   }>(sql`
-    with recursive path as (
+    with recursive candidates as (
+      -- The nearest budgets that cover the principal: its own, else its team's, else the org's.
+      select b.id, case b.scope when 'principal' then 1 when 'team' then 2 else 3 end as tier
+      from budgets b
+      where b.org_id = ${orgId} and b.archived_at is null and (
+        (b.scope = 'principal' and b.scope_id = ${principalId}::uuid)
+        or (b.scope = 'team' and b.scope_id = (select team_id from principals where id = ${principalId}::uuid))
+        or b.scope = 'org'
+      )
+    ),
+    path as (
       select id, parent_id from budgets
-      where org_id = ${orgId} and ((scope = 'principal' and scope_id = ${principalId}::uuid)${extra})
+      where org_id = ${orgId} and (id in (
+        select id from candidates where tier = (select min(tier) from candidates)
+      )${extra})
       union
       select b.id, b.parent_id from budgets b join path p on b.id = p.parent_id
     )
@@ -769,6 +781,64 @@ export async function adjust(
       keys.map((key) => ({ ...key, heldDelta: 0n, spentDelta: input.amount })),
     );
     return { entry, replayed: false };
+  });
+}
+
+// ---------------------------------------------------------------------------------------------
+// headroom
+
+export interface Headroom {
+  /** Smallest remaining amount across the hard money budgets on the path; null = no hard limit. */
+  remaining: bigint | null;
+  /** The budget with the least room (for messages), when there is a hard limit. */
+  budgetId: string | null;
+  budgetName: string | null;
+}
+
+/**
+ * How much more the principal may spend right now on a rail. Used to mirror limits to providers
+ * (OpenRouter keys) and to tell gateway callers what is left. Fails closed: a principal with no
+ * budget at all, or an inactive one, has zero headroom.
+ */
+export async function budgetHeadroom(
+  db: DbOrTx,
+  input: { orgId: string; principalId: string; rail: Rail },
+): Promise<Headroom> {
+  return db.transaction(async (tx) => {
+    const none: Headroom = { remaining: 0n, budgetId: null, budgetName: null };
+    const [principal] = await tx
+      .select({ status: principals.status })
+      .from(principals)
+      .where(and(eq(principals.id, input.principalId), eq(principals.orgId, input.orgId)));
+    if (principal?.status !== 'active') return none;
+
+    const path = await resolveBudgetPath(tx, input.orgId, input.principalId, input.rail);
+    if (path.length === 0) return none;
+    const now = await dbNow(tx);
+    const timezone = await orgTimezone(tx, input.orgId);
+    const hard = path.filter((budget) => budget.mode === 'hard' && budget.unit === 'micros');
+    if (hard.length === 0) return { remaining: null, budgetId: null, budgetName: null };
+
+    const keys = hard.map((budget) => ({ budgetId: budget.id, periodKey: periodKey(now, budget.period, timezone) }));
+    const rows = await tx
+      .select()
+      .from(budgetUsage)
+      .where(
+        inArray(
+          budgetUsage.budgetId,
+          keys.map((key) => key.budgetId),
+        ),
+      );
+    let best: Headroom = { remaining: null, budgetId: null, budgetName: null };
+    for (const [index, budget] of hard.entries()) {
+      const key = keys[index];
+      const usage = rows.find((row) => row.budgetId === budget.id && row.periodKey === key?.periodKey);
+      const used = (usage?.held ?? 0n) + (usage?.spent ?? 0n);
+      const left = budget.limitAmount - used > 0n ? budget.limitAmount - used : 0n;
+      if (best.remaining === null || left < best.remaining)
+        best = { remaining: left, budgetId: budget.id, budgetName: budget.name };
+    }
+    return best;
   });
 }
 

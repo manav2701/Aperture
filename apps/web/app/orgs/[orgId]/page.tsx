@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { BudgetMeter } from '@/components/budget-meter';
 import { Card, CardTitle, EmptyState, PageHeader } from '@/components/ui/card';
 import { serverApi, unwrap } from '@/lib/api/server';
-import { formatDateTime } from '@/lib/format';
+import { formatAmount, formatDateTime } from '@/lib/format';
 
 export default async function OverviewPage({ params }: { params: Promise<{ orgId: string }> }) {
   const { orgId } = await params;
@@ -12,12 +12,20 @@ export default async function OverviewPage({ params }: { params: Promise<{ orgId
   const org = unwrap(await api.GET('/api/v1/orgs/{orgId}', path));
   const role = org.role;
 
-  const [budgets, audit, members] = await Promise.all([
+  const monthStart = new Date(Date.now() - 30 * 86_400_000).toISOString();
+  const [budgets, audit, members, spend] = await Promise.all([
     can(role, 'budgets.read') ? api.GET('/api/v1/orgs/{orgId}/budgets', path).then(unwrap) : null,
     can(role, 'audit.read')
       ? api.GET('/api/v1/orgs/{orgId}/audit', { params: { path: { orgId }, query: { limit: 8 } } }).then(unwrap)
       : null,
     can(role, 'members.read') ? api.GET('/api/v1/orgs/{orgId}/members', path).then(unwrap) : null,
+    can(role, 'spend.read')
+      ? api
+          .GET('/api/v1/orgs/{orgId}/spend', {
+            params: { path: { orgId }, query: { from: monthStart, groupBy: 'provider' } },
+          })
+          .then(unwrap)
+      : null,
   ]);
   const topLevel = budgets?.budgets.filter((b) => b.parentId === null && !b.archived) ?? [];
   const base = `/orgs/${orgId}`;
@@ -51,6 +59,29 @@ export default async function OverviewPage({ params }: { params: Promise<{ orgId
                 ))}
               </ul>
             )}
+          </Card>
+        )}
+
+        {spend === null ? null : (
+          <Card>
+            <CardTitle
+              action={
+                <Link href={`${base}/spend`} className="text-sm text-accent">
+                  Spend
+                </Link>
+              }
+            >
+              Last 30 days
+            </CardTitle>
+            <p className="font-mono text-3xl font-bold">{formatAmount(spend.total, 'micros')}</p>
+            <ul className="mt-3 space-y-1 text-sm">
+              {spend.groups.map((group) => (
+                <li key={group.key} className="flex justify-between gap-4">
+                  <span className="text-muted-foreground">{group.label}</span>
+                  <span className="font-mono">{formatAmount(group.amount, 'micros')}</span>
+                </li>
+              ))}
+            </ul>
           </Card>
         )}
 

@@ -2,7 +2,7 @@ import { isValidTimeZone, type Period, type Rail } from '@aperture/core';
 import { and, eq } from 'drizzle-orm';
 import { v7 as uuidv7 } from 'uuid';
 import type { DbOrTx } from './client';
-import { budgets, orgs, principals } from './schema';
+import { budgets, orgs, principals, teams } from './schema';
 
 export class EntityError extends Error {
   readonly code: 'invalid_timezone' | 'not_found' | 'cross_org_reference' | 'invalid_limit';
@@ -38,6 +38,12 @@ export async function createPrincipal(
     .returning();
   if (!principal) throw new Error('insert returned no row');
   return principal;
+}
+
+export async function createTeam(db: DbOrTx, orgId: string, name: string) {
+  const [team] = await db.insert(teams).values({ id: uuidv7(), orgId, name }).returning();
+  if (!team) throw new Error('insert returned no row');
+  return team;
 }
 
 export interface CreateBudgetInput {

@@ -19,6 +19,13 @@ export const PERMISSIONS = [
   'principals.read',
   'audit.read',
   'audit.export',
+  'connections.read',
+  'connections.manage',
+  'spend.read',
+  'agents.read',
+  'agents.manage',
+  /** Use the workspace chat and hold personal gateway keys. */
+  'workspace.use',
 ] as const;
 export type Permission = (typeof PERMISSIONS)[number];
 
@@ -47,6 +54,10 @@ export const ROLE_GRANTS: Record<Role, Partial<Record<Permission, Grant>>> = {
     'principals.read': 'all',
     'audit.read': 'all',
     'audit.export': 'all',
+    'connections.read': 'all',
+    'spend.read': 'all',
+    'agents.read': 'all',
+    'workspace.use': 'all',
   },
   team_lead: {
     'org.read': 'all',
@@ -57,10 +68,15 @@ export const ROLE_GRANTS: Record<Role, Partial<Record<Permission, Grant>>> = {
     'policies.read': 'all',
     'policies.manage': 'team',
     'principals.read': 'all',
+    'spend.read': 'all',
+    'agents.read': 'all',
+    'agents.manage': 'team',
+    'workspace.use': 'all',
   },
   member: {
     'org.read': 'all',
     'teams.read': 'all',
+    'workspace.use': 'all',
   },
   auditor: {
     'org.read': 'all',
@@ -71,6 +87,9 @@ export const ROLE_GRANTS: Record<Role, Partial<Record<Permission, Grant>>> = {
     'principals.read': 'all',
     'audit.read': 'all',
     'audit.export': 'all',
+    'connections.read': 'all',
+    'spend.read': 'all',
+    'agents.read': 'all',
   },
 };
 

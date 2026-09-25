@@ -1,9 +1,14 @@
+import { randomBytes } from 'node:crypto';
+import type { FetchLike } from '@aperture/connectors';
+import { fakeProvider } from '@aperture/connectors/testing';
+import { keyRingFromEnv } from '@aperture/crypto';
 import { connect, type DatabaseHandle } from '@aperture/db';
+import { GatewayCache, RequestLimiter, buildGatewayApp } from '@aperture/gateway';
 import { appRoleUrl, createTestDatabase } from '@aperture/db/testing';
 import { createLogger } from '@aperture/runtime';
 import { buildApp } from '../src/app';
 import { createAuth } from '../src/auth';
-import type { Email, EmailSender } from '../src/email';
+import type { Email, EmailSender } from '@aperture/runtime';
 
 const WEB_ORIGIN = 'http://localhost:3000';
 
@@ -25,8 +30,12 @@ class Outbox implements EmailSender {
   }
 }
 
+const PEPPER = 'api-test-pepper-that-is-at-least-32-chars';
+
 export interface Harness {
   request: (path: string, init?: RequestInit & { cookie?: string }) => Promise<Response>;
+  /** Scripts the providers (OpenRouter, Anthropic, …) that connectors and the gateway call. */
+  provider: (routes: Parameters<typeof fakeProvider>[0]) => ReturnType<typeof fakeProvider>['calls'];
   outbox: Outbox;
   system: DatabaseHandle;
   routes: ReturnType<typeof buildApp>['routes'];
@@ -50,7 +59,34 @@ export async function createHarness(): Promise<Harness> {
       GOOGLE_CLIENT_SECRET: undefined,
     },
   });
-  const { app, routes } = buildApp({ db: appDb.db, auth, email: outbox, logger, webOrigin: WEB_ORIGIN });
+  let providerFetch: FetchLike = () => Promise.resolve(Response.json({ error: 'no fake provider' }, { status: 404 }));
+  const fetchViaFake: FetchLike = (input, init) => providerFetch(input, init);
+  const ring = keyRingFromEnv({ APERTURE_KEK_V1: randomBytes(32).toString('base64') });
+  const gateway = buildGatewayApp({
+    db: appDb.db,
+    ring,
+    pepper: PEPPER,
+    workspaceSecret: PEPPER,
+    logger,
+    cache: new GatewayCache(),
+    limiter: new RequestLimiter(),
+    fetch: fetchViaFake,
+  });
+  const { app, routes } = buildApp(
+    {
+      db: appDb.db,
+      auth,
+      email: outbox,
+      logger,
+      webOrigin: WEB_ORIGIN,
+      ring,
+      pepper: PEPPER,
+      jobs: { database: appDb, ring, logger, email: outbox, webOrigin: WEB_ORIGIN, fetch: fetchViaFake },
+      gateway,
+      gatewayPublicUrl: 'http://localhost:4000/gw',
+    },
+    gateway,
+  );
 
   const request = async (path: string, init: RequestInit & { cookie?: string } = {}) => {
     const headers = new Headers(init.headers);
@@ -62,6 +98,11 @@ export async function createHarness(): Promise<Harness> {
 
   return {
     request,
+    provider: (fakeRoutes) => {
+      const fake = fakeProvider(fakeRoutes);
+      providerFetch = fake.fetch;
+      return fake.calls;
+    },
     outbox,
     system,
     routes,

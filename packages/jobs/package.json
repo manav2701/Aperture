@@ -1,0 +1,25 @@
+{
+  "name": "@aperture/jobs",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Background jobs: connector sync, limit mirroring, budget enforcement and alerts, prices, hold expiry, ledger checks",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@aperture/connectors": "workspace:*",
+    "@aperture/core": "workspace:*",
+    "@aperture/crypto": "workspace:*",
+    "@aperture/db": "workspace:*",
+    "@aperture/runtime": "workspace:*",
+    "uuid": "^14.0.2"
+  },
+  "devDependencies": {
+    "@aperture/config": "workspace:*"
+  }
+}

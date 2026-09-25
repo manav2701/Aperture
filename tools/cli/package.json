@@ -2,13 +2,14 @@
   "name": "@aperture/cli",
   "version": "0.0.0",
   "private": true,
-  "description": "Developer tools: the budget/policy scenario simulator and the offline audit verifier",
+  "description": "Developer tools: the scenario simulator, the offline audit verifier, and the gateway try script",
   "type": "module",
   "scripts": {
     "simulate": "tsx src/simulate.ts",
     "audit-verify": "tsx src/audit-verify.ts",
     "typecheck": "tsc -p tsconfig.json",
-    "test": "vitest run"
+    "test": "vitest run",
+    "try-gateway": "tsx src/try-gateway.ts"
   },
   "dependencies": {
     "@aperture/core": "workspace:*",

@@ -108,3 +108,30 @@ Gateway service on `staging-gw.<domain>` (Caddy: `flush_interval -1` so SSE isn'
 
 - Provider stream formats evolve; fixtures + weekly contract tests catch changes.
 - If a customer needs model translation (e.g. Anthropic models via the OpenAI format), route through OpenRouter rather than adding translation code.
+
+## Results (2026-09-25)
+
+Built on `main` ([ADR 0014](../../../docs/adr/0014-phases-4-5-connectors-and-gateway.md)).
+
+- **Gateway** (`apps/gateway`):
+  - OpenAI-compatible `/v1/chat/completions`, `/v1/embeddings` and `/v1/responses`, routed to OpenRouter or OpenAI;
+  - `/anthropic/v1/messages`, `/google/v1beta/models/{model}:generateContent|streamGenerateContent`, and `/hf/v1/chat/completions`.
+  - Pipeline: auth → policy → obligations (output cap) → estimate → reserve → forward → stream through → settle.
+  - Errors come back in each SDK's own shape. Limits: per-key and per-org concurrency plus requests per minute.
+  - Cache invalidation through `LISTEN aperture_invalidate`. It fails closed.
+- **API:** agents (with an optional budget under their team's or org's), gateway keys (HMAC-stored, shown once), personal keys, kill switch (pause, resume, revoke, pause all), workspace chat proxied through the gateway with 5-minute tokens. The gateway can run inside the API process at `/gw` (`EMBED_GATEWAY=true`).
+- **UI:** Agents & keys, Workspace (streaming chat, remaining budget, personal key).
+- **Tools:** `pnpm try:gateway` (one call plus a stream, or `--exceed` to hit the budget).
+- **Tests:** 13 gateway tests on real Postgres with a scripted upstream:
+  - auth, revocation, workspace tokens;
+  - exact cost settlement, streaming, Anthropic and Gemini usage;
+  - policy, budget, unpriced-model and kill-switch denials;
+  - INV-13 fuzzing: a deny-all policy leads to zero upstream calls and no 5xx;
+  - 429 passthrough with the hold released;
+  - client disconnect settling the reservation;
+  - concurrency on a small budget.
+
+  Plus API tests for `/gw`, spend, the kill switch and the workspace chat.
+- **Live check:** OpenRouter (gpt-4o-mini, plain and streamed, 402 on budget, 403 on pause) and Gemini (gemini-3.5-flash-lite, plain and streamed). About USD 0.00002 spent in total.
+
+Not done here: 5.2b hot-budget throughput and the k6 load test (need production-like hardware), the `open_capped` fail mode, settlement reconciliation against OpenRouter `/generation`, storing prompt bodies (`prompt_logging: full`), and a thin SDK (the OpenAI and Anthropic SDKs work as-is with the gateway base URL). See [deferred.md](../../deferred.md).

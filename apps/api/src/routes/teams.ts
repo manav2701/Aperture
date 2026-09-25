@@ -1,4 +1,4 @@
-import { and, eq, schema, withOrg } from '@aperture/db';
+import { and, eq, isNull, schema, withOrg } from '@aperture/db';
 import { createRoute, z } from '@hono/zod-openapi';
 import { v7 as uuidv7 } from 'uuid';
 import { requireUser, type Router } from '../http/access';
@@ -150,7 +150,12 @@ export function registerTeamRoutes(router: Router, deps: AppDeps): void {
     async (c) => {
       const { orgId } = c.req.valid('param');
       const rows = await withOrg(deps.db, orgId, (tx) =>
-        tx.select().from(schema.principals).where(eq(schema.principals.orgId, orgId)).orderBy(schema.principals.name),
+        tx
+          .select()
+          .from(schema.principals)
+          // The system "Unassigned provider keys" principal is an accounting bucket, not someone to choose.
+          .where(and(eq(schema.principals.orgId, orgId), isNull(schema.principals.systemRole)))
+          .orderBy(schema.principals.name),
       );
       return c.json(
         {

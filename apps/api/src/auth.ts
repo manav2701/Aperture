@@ -4,7 +4,8 @@ import { betterAuth } from 'better-auth';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 import { magicLink } from 'better-auth/plugins';
 import { v7 as uuidv7 } from 'uuid';
-import { emails, type EmailSender } from './email';
+import type { EmailSender } from '@aperture/runtime';
+import { emails } from './email';
 import type { ApiEnv } from './env';
 
 /**

@@ -1,10 +1,11 @@
 import { eq, sql } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { DatabaseHandle } from '../src/client';
-import { createBudget, createPrincipal, setBudgetLimit } from '../src/entities';
+import { createBudget, createOrg, createPrincipal, createTeam, setBudgetLimit } from '../src/entities';
 import {
   LedgerError,
   adjust,
+  budgetHeadroom,
   expireHolds,
   recordSpend,
   refund,
@@ -123,11 +124,52 @@ describe('budget checks', () => {
     expect((await reserve(db, reserveInput(tree.org.id, tree.agent.id, 1n))).ok).toBe(false);
   });
 
+  it('charges principals without their own budget to their team, else the org', async () => {
+    const { db } = handle;
+    const tree = await seedTree(db, { org: '10' });
+    const team = await createTeam(db, tree.org.id, 'Marketing');
+    await db.update(budgets).set({ scopeId: team.id }).where(eq(budgets.id, tree.teamBudget.id));
+    const member = await createPrincipal(db, { orgId: tree.org.id, kind: 'user', name: 'in-team' });
+    await db.update(principals).set({ teamId: team.id }).where(eq(principals.id, member.id));
+    const loner = await createPrincipal(db, { orgId: tree.org.id, kind: 'agent', name: 'no-team' });
+
+    const inTeam = await reserveOk(db, reserveInput(tree.org.id, member.id, usd('1')));
+    expect(new Set(inTeam.budgetIds)).toEqual(new Set([tree.teamBudget.id, tree.orgBudget.id]));
+    const orgOnly = await reserveOk(db, reserveInput(tree.org.id, loner.id, usd('1')));
+    expect(orgOnly.budgetIds).toEqual([tree.orgBudget.id]);
+  });
+
+  it('reports headroom as the tightest hard money budget, and zero when it must fail closed', async () => {
+    const { db } = handle;
+    const tree = await seedTree(db, { org: '100', team: '60', agent: '5' });
+    const input = { orgId: tree.org.id, principalId: tree.agent.id, rail: 'gateway' as const };
+    expect(await budgetHeadroom(db, input)).toMatchObject({ remaining: usd('5'), budgetId: tree.agentBudget.id });
+    await reserveOk(db, reserveInput(tree.org.id, tree.agent.id, usd('1.25')));
+    expect((await budgetHeadroom(db, input)).remaining).toBe(usd('3.75'));
+
+    await db.update(budgets).set({ mode: 'soft' }).where(eq(budgets.id, tree.agentBudget.id));
+    expect((await budgetHeadroom(db, input)).remaining).toBe(usd('58.75'));
+    await db
+      .update(budgets)
+      .set({ mode: 'soft' })
+      .where(sql`org_id = ${tree.org.id}`);
+    expect((await budgetHeadroom(db, input)).remaining).toBeNull();
+
+    await db.update(principals).set({ status: 'paused' }).where(eq(principals.id, tree.agent.id));
+    expect((await budgetHeadroom(db, input)).remaining).toBe(0n);
+    const bare = await createOrg(db, { name: 'No budgets' });
+    const stranger = await createPrincipal(db, { orgId: bare.id, kind: 'agent', name: 'x' });
+    expect((await budgetHeadroom(db, { orgId: bare.id, principalId: stranger.id, rail: 'gateway' })).remaining).toBe(
+      0n,
+    );
+  });
+
   it('fails closed without a budget, and for paused principals (kill switch)', async () => {
     const { db } = handle;
     const tree = await seedTree(db);
-    const stranger = await createPrincipal(db, { orgId: tree.org.id, kind: 'agent', name: 'no-budget' });
-    expect(await reserve(db, reserveInput(tree.org.id, stranger.id, usd('1')))).toEqual({
+    const bare = await createOrg(db, { name: 'No budgets' });
+    const stranger = await createPrincipal(db, { orgId: bare.id, kind: 'agent', name: 'no-budget' });
+    expect(await reserve(db, reserveInput(bare.id, stranger.id, usd('1')))).toEqual({
       ok: false,
       reason: 'no_budget',
     });

@@ -17,3 +17,12 @@ export {
   type Envelope,
   type KeyRing,
 } from './envelope';
+export {
+  API_KEY_PREFIX_LENGTH,
+  generateApiKey,
+  hashApiKey,
+  looksLikeApiKey,
+  signWorkspaceToken,
+  verifyWorkspaceToken,
+  type WorkspaceClaims,
+} from './api-keys';

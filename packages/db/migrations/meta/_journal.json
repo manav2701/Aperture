@@ -29,6 +29,20 @@
       "when": 1790281551083,
       "tag": "0003_tenant_row_level_security",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1790309331831,
+      "tag": "0004_providers_and_gateway",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1790309335132,
+      "tag": "0005_gateway_security_and_invalidation",
+      "breakpoints": true
     }
   ]
 }

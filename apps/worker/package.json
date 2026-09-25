@@ -5,14 +5,18 @@
   "description": "Aperture background jobs: connector sync, limit mirroring, hold expiry, settlement",
   "type": "module",
   "scripts": {
-    "dev": "tsx watch src/index.ts",
+    "dev": "node --env-file-if-exists=../../.env --import tsx --watch src/index.ts",
     "build": "node ../../tools/build-service.mjs",
     "start": "node dist/index.mjs",
     "typecheck": "tsc -p tsconfig.json",
     "test": "vitest run"
   },
   "dependencies": {
-    "@aperture/runtime": "workspace:*"
+    "@aperture/crypto": "workspace:*",
+    "@aperture/db": "workspace:*",
+    "@aperture/jobs": "workspace:*",
+    "@aperture/runtime": "workspace:*",
+    "zod": "^4.6.5"
   },
   "devDependencies": {
     "@aperture/config": "workspace:*",

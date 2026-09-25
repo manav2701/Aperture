@@ -5,17 +5,28 @@
   "description": "Aperture data plane: governed AI passthrough, media jobs, x402 authorization",
   "type": "module",
   "scripts": {
-    "dev": "tsx watch src/index.ts",
+    "dev": "node --env-file-if-exists=../../.env --import tsx --watch src/index.ts",
     "build": "node ../../tools/build-service.mjs",
     "start": "node dist/index.mjs",
     "typecheck": "tsc -p tsconfig.json",
     "test": "vitest run"
   },
   "dependencies": {
-    "@aperture/runtime": "workspace:*"
+    "@aperture/connectors": "workspace:*",
+    "@aperture/core": "workspace:*",
+    "@aperture/crypto": "workspace:*",
+    "@aperture/db": "workspace:*",
+    "@aperture/runtime": "workspace:*",
+    "hono": "^4.13.8",
+    "uuid": "^14.0.2",
+    "zod": "^4.6.5"
   },
   "devDependencies": {
     "@aperture/config": "workspace:*",
+    "fast-check": "^4.10.2",
     "tsx": "^4.23.15"
+  },
+  "exports": {
+    ".": "./src/public.ts"
   }
 }

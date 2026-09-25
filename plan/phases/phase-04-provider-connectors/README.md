@@ -118,3 +118,25 @@ Worker service added to staging compose. Configure alerts for connector lag > 10
 
 - Provider API changes: the weekly contract test is the early warning.
 - Usage → cost for direct providers relies on our catalog; daily cost-report reconciliation corrects drift.
+
+## Results (2026-09-25)
+
+Built on `main` together with Phase 5 ([ADR 0014](../../../docs/adr/0014-phases-4-5-connectors-and-gateway.md)).
+
+- **Connectors** (`packages/connectors`):
+  - OpenRouter (T1 limit mirroring);
+  - OpenAI (service account per principal, per-minute usage, key deletion);
+  - Anthropic (import and map keys, usage report, set inactive);
+  - Google (Gemini API key for the gateway, T3; or a service account for API Keys API deletion, T2);
+  - Hugging Face (token check, T3).
+  They share an HTTP client with fixed base URLs, timeouts and `Retry-After` retries.
+- **Jobs** (`packages/jobs`): `connector.sync` (keys, usage, limit mirroring, revoke on breach), `alerts.scan` and `alerts.dispatch` (email plus Slack webhook, deduplicated per budget, threshold and period), `holds.expire`, `prices.sync` (OpenRouter catalog), and `ledger.verify`. They run in the API process (`RUN_WORKER=true`) or in `apps/worker`.
+- **Ledger:** budgets are inherited (principal → team → org); `budgetHeadroom` powers limit mirroring and the gateway headers.
+- **UI:** Connections (connect wizard, sync now, gateway key, key assignment, budget-capped key creation), Spend (by person, provider, day and rail; entries; gateway requests), a real Overview, and Settings → Alerts.
+- **Tests:**
+  - 17 connector tests (fixtures and fuzzing);
+  - 6 job tests on real Postgres (baseline import, unassigned spend, T1 limit, T2 revoke with audit, late-bucket adjustment, alert dedupe, scheduler exclusivity);
+  - API integration tests for connect/assign/create-key.
+- **Live check:** real OpenRouter management key and Gemini key. Connect, key listing, a capped key used directly and then imported by sync, limit mirroring. About USD 0.00001 spent; every test key was deleted afterwards.
+
+Not done here: the Google budget Pub/Sub webhook, OpenAI/Anthropic daily cost reconciliation, live tests of OpenAI/Anthropic/Google-service-account (no keys yet), and weekly contract tests. See [deferred.md](../../deferred.md).
