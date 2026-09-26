@@ -16,6 +16,7 @@
     "@aperture/core": "workspace:*",
     "@aperture/crypto": "workspace:*",
     "@aperture/db": "workspace:*",
+    "@aperture/media": "workspace:*",
     "@aperture/runtime": "workspace:*",
     "hono": "^4.13.8",
     "uuid": "^14.0.2",
@@ -23,6 +24,7 @@
   },
   "devDependencies": {
     "@aperture/config": "workspace:*",
+    "@aperture/jobs": "workspace:*",
     "fast-check": "^4.10.2",
     "tsx": "^4.23.15"
   },

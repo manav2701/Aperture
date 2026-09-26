@@ -1,8 +1,8 @@
 import { decryptSecret, encryptSecret, rewrapSecret, type KeyRing } from '@aperture/crypto';
-import { and, eq } from 'drizzle-orm';
+import { and, desc, eq } from 'drizzle-orm';
 import { v7 as uuidv7 } from 'uuid';
 import type { DbOrTx } from './client';
-import { connections } from './schema';
+import { connections, credentials } from './schema';
 
 /*
  * Stored links to external systems. The secret column holds an envelope bound to
@@ -93,4 +93,50 @@ export function sealCredentialSecret(ring: KeyRing, input: { orgId: string; cred
 
 export function openCredentialSecret(ring: KeyRing, input: { orgId: string; credentialId: string; sealed: unknown }) {
   return decryptSecret(input.sealed, credentialContext(input.orgId, input.credentialId), ring);
+}
+
+/**
+ * The key the gateway forwards with for a provider (bring your own key): the newest active
+ * gateway-managed credential, or, for Gemini and Hugging Face, the connection's own key or token.
+ */
+export async function resolveUpstreamKey(
+  db: DbOrTx,
+  ring: KeyRing,
+  input: { orgId: string; provider: string },
+): Promise<string | undefined> {
+  const [managed] = await db
+    .select({ id: credentials.id, secret: credentials.secret })
+    .from(credentials)
+    .innerJoin(connections, eq(connections.id, credentials.connectionId))
+    .where(
+      and(
+        eq(connections.orgId, input.orgId),
+        eq(connections.provider, input.provider),
+        eq(connections.status, 'active'),
+        eq(credentials.managedByGateway, true),
+        eq(credentials.status, 'active'),
+      ),
+    )
+    .orderBy(desc(credentials.createdAt))
+    .limit(1);
+  if (managed?.secret != null) {
+    return openCredentialSecret(ring, { orgId: input.orgId, credentialId: managed.id, sealed: managed.secret });
+  }
+  if (input.provider !== 'google' && input.provider !== 'huggingface') return undefined;
+  const [connection] = await db
+    .select({ id: connections.id })
+    .from(connections)
+    .where(
+      and(
+        eq(connections.orgId, input.orgId),
+        eq(connections.provider, input.provider),
+        eq(connections.status, 'active'),
+      ),
+    )
+    .orderBy(desc(connections.createdAt))
+    .limit(1);
+  if (connection === undefined) return undefined;
+  const secret = await readConnectionSecret(db, ring, { orgId: input.orgId, connectionId: connection.id });
+  // A service-account JSON is for key management, not for calling Gemini.
+  return secret === undefined || secret.trimStart().startsWith('{') ? undefined : secret;
 }

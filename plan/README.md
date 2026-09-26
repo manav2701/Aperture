@@ -59,4 +59,5 @@ Total: about **25 weeks** of engineering. A pilot with a design partner (for exa
 - [x] Phase 3 — code complete on branch `phase-3/identity-control-plane` (auth, orgs, RBAC + RLS, budgets, policies, audit API, dashboard; see ADR 0013); staging on Vercel + Render + Neon
 - [x] Phase 4 — provider connectors, usage import, T1/T2 enforcement, alerts, Connections and Spend UI (ADR 0014); live-tested on OpenRouter
 - [x] Phase 5 — gateway (OpenAI, Anthropic, Gemini, HF formats), agents and keys, kill switch, workspace chat (ADR 0014); live-tested on OpenRouter and Gemini
-- [ ] Phases 6–10 — not started. Postponed items are listed in [deferred.md](deferred.md)
+- [x] Phase 6 — images and video through the gateway, media jobs and poller, private storage, workspace Images/Videos (ADR 0015); live-tested on OpenRouter (image and Veo video)
+- [ ] Phases 7–10 — in progress. Postponed items are listed in [deferred.md](deferred.md)

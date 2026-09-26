@@ -1,5 +1,5 @@
 import { PERIODS, can, formatUsd, micros, parseUsd } from '@aperture/core';
-import { API_KEY_PREFIX_LENGTH, generateApiKey, hashApiKey, signWorkspaceToken } from '@aperture/crypto';
+import { API_KEY_PREFIX_LENGTH, generateApiKey, hashApiKey } from '@aperture/crypto';
 import {
   and,
   asc,
@@ -17,6 +17,7 @@ import { createRoute, z } from '@hono/zod-openapi';
 import { v7 as uuidv7 } from 'uuid';
 import { requireUser, type Router } from '../http/access';
 import { auditByUser } from '../http/audit';
+import { callGatewayAs, passThrough } from '../http/gateway';
 import type { AppDeps, Membership } from '../http/context';
 import { AppError, forbidden, notFound } from '../http/errors';
 import { reachOf } from '../http/scope';
@@ -55,7 +56,6 @@ const NewKeyBody = z.object({
   name: z.string().trim().min(1).max(80),
   expiresInDays: z.number().int().min(1).max(365).optional(),
 });
-const WORKSPACE_TOKEN_SECONDS = 300;
 
 type PrincipalRow = typeof schema.principals.$inferSelect;
 
@@ -565,30 +565,15 @@ export function registerAgentRoutes(router: Router, deps: AppDeps): void {
       const user = requireUser(c);
       const { orgId } = c.req.valid('param');
       const body = c.req.valid('json');
-      if (deps.gateway === undefined)
-        throw new AppError(503, 'gateway_unavailable', 'the gateway is not enabled on this deployment');
-      const principal = await withOrg(deps.db, orgId, (tx) => myPrincipal(tx, orgId, user.id));
-      const token = signWorkspaceToken(
-        { orgId, principalId: principal.id, exp: Math.floor(Date.now() / 1000) + WORKSPACE_TOKEN_SECONDS },
-        deps.pepper,
-      );
-      const upstream = await deps.gateway.fetch(
-        new Request('http://gateway.internal/v1/chat/completions', {
-          method: 'POST',
-          headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
-          body: JSON.stringify({ model: body.model, messages: body.messages, stream: true }),
-          signal: c.req.raw.signal,
-        }),
-      );
-      // @hono/zod-openapi only types JSON and text/plain bodies; other media types resolve to never.
-      return new Response(upstream.body, {
-        status: upstream.status,
-        headers: {
-          'content-type': upstream.headers.get('content-type') ?? 'application/json',
-          'cache-control': 'no-cache',
-          'x-aperture-request-id': upstream.headers.get('x-aperture-request-id') ?? '',
-        },
+      const upstream = await callGatewayAs(deps, {
+        orgId,
+        userId: user.id,
+        method: 'POST',
+        path: '/v1/chat/completions',
+        body: { model: body.model, messages: body.messages, stream: true },
+        signal: c.req.raw.signal,
       });
+      return passThrough(upstream);
     },
   );
 }

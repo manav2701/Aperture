@@ -1,11 +1,25 @@
 import { json } from '@aperture/connectors/testing';
-import { upsertPrices, withSystem } from '@aperture/db';
+import { upsertMediaPrices, upsertPrices, withSystem } from '@aperture/db';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { body, createHarness, createOrg, joinAs, signUp, type Harness } from './harness';
 
 let h: Harness;
 beforeAll(async () => {
   h = await createHarness();
+  await withSystem(h.system.db, (tx) =>
+    upsertMediaPrices(tx, [
+      {
+        provider: 'openrouter',
+        model: 'bytedance-seed/seedream-5-0-lite',
+        kind: 'image',
+        perImage: 35_000n,
+        perImageTokenPerM: null,
+        perSecond: null,
+        skus: {},
+        source: 'test',
+      },
+    ]),
+  );
   await withSystem(h.system.db, (tx) =>
     upsertPrices(tx, [
       {
@@ -245,5 +259,50 @@ describe('gateway through the API process (Phase 5)', () => {
     expect((await post(`${base}/agents`, lead, { name: 'mine', teamId: team.id })).status).toBe(201);
     expect((await post(`${base}/agents`, lead, { name: 'not-mine' })).status).toBe(403);
     expect((await post(`${base}/agents/pause-all`, lead)).status).toBe(403);
+  });
+
+  it('generates images in the workspace as the signed-in person and shows them in the gallery', async () => {
+    const { owner, base } = await newOrg();
+    h.provider({
+      'GET /api/v1/key': json({ data: { is_management_key: true, organization_id: 'or-org-3' } }),
+      'GET /api/v1/keys': json({ data: [] }),
+      'POST /api/v1/keys': json({ data: orKey('gw'), key: 'sk-or-v1-gw' }),
+      'POST /api/v1/images': json({
+        data: [{ b64_json: Buffer.from('png').toString('base64'), media_type: 'image/png' }],
+        usage: { cost: 0.035 },
+      }),
+    });
+    const connection = await body<{ id: string }>(
+      await post(`${base}/connections`, owner, { provider: 'openrouter', secret: 'sk-or-v1-m' }),
+    );
+    await post(`${base}/connections/${connection.id}/gateway-key`, owner);
+
+    const models = await body<{ storage: boolean; images: { model: string; price: string }[] }>(
+      await h.request(`${base}/workspace/media-models`, { cookie: owner }),
+    );
+    expect(models.storage).toBe(true);
+    expect(models.images).toEqual([{ model: 'bytedance-seed/seedream-5-0-lite', price: '$0.035 per image' }]);
+
+    const preview = await body<{ allowed: boolean; estimate_usd: string }>(
+      await post(`${base}/workspace/estimate`, owner, {
+        type: 'image',
+        model: 'bytedance-seed/seedream-5-0-lite',
+        n: 1,
+      }),
+    );
+    expect(preview).toMatchObject({ allowed: true, estimate_usd: '0.035' });
+    const generated = await post(`${base}/workspace/images`, owner, {
+      model: 'bytedance-seed/seedream-5-0-lite',
+      prompt: 'a lighthouse',
+      n: 1,
+    });
+    expect(generated.status).toBe(200);
+
+    const gallery = await body<{ jobs: { prompt: string; cost: string; outputs: { url: string }[] }[] }>(
+      await h.request(`${base}/workspace/media`, { cookie: owner }),
+    );
+    expect(gallery.jobs).toHaveLength(1);
+    expect(gallery.jobs[0]).toMatchObject({ prompt: 'a lighthouse', cost: '0.035' });
+    expect(gallery.jobs[0]?.outputs[0]?.url).toContain('https://storage.test/');
   });
 });

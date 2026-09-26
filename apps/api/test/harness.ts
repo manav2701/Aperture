@@ -4,6 +4,7 @@ import { fakeProvider } from '@aperture/connectors/testing';
 import { keyRingFromEnv } from '@aperture/crypto';
 import { connect, type DatabaseHandle } from '@aperture/db';
 import { GatewayCache, RequestLimiter, buildGatewayApp } from '@aperture/gateway';
+import { memoryStorage } from '@aperture/media/testing';
 import { appRoleUrl, createTestDatabase } from '@aperture/db/testing';
 import { createLogger } from '@aperture/runtime';
 import { buildApp } from '../src/app';
@@ -61,6 +62,7 @@ export async function createHarness(): Promise<Harness> {
   });
   let providerFetch: FetchLike = () => Promise.resolve(Response.json({ error: 'no fake provider' }, { status: 404 }));
   const fetchViaFake: FetchLike = (input, init) => providerFetch(input, init);
+  const storage = memoryStorage();
   const ring = keyRingFromEnv({ APERTURE_KEK_V1: randomBytes(32).toString('base64') });
   const gateway = buildGatewayApp({
     db: appDb.db,
@@ -71,6 +73,7 @@ export async function createHarness(): Promise<Harness> {
     cache: new GatewayCache(),
     limiter: new RequestLimiter(),
     fetch: fetchViaFake,
+    storage,
   });
   const { app, routes } = buildApp(
     {
@@ -81,9 +84,10 @@ export async function createHarness(): Promise<Harness> {
       webOrigin: WEB_ORIGIN,
       ring,
       pepper: PEPPER,
-      jobs: { database: appDb, ring, logger, email: outbox, webOrigin: WEB_ORIGIN, fetch: fetchViaFake },
+      jobs: { database: appDb, ring, logger, email: outbox, webOrigin: WEB_ORIGIN, fetch: fetchViaFake, storage },
       gateway,
       gatewayPublicUrl: 'http://localhost:4000/gw',
+      storage,
     },
     gateway,
   );

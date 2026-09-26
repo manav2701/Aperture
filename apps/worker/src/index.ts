@@ -1,6 +1,7 @@
 import { keyRingFromEnv } from '@aperture/crypto';
 import { connect } from '@aperture/db';
 import { startStandardJobs } from '@aperture/jobs';
+import { storageFromEnv } from '@aperture/media';
 import { createLogger, loadEnvOrExit, logSender, resendSender, runService, serviceEnvSchema } from '@aperture/runtime';
 import { z } from 'zod';
 import { buildApp } from './app';
@@ -27,6 +28,7 @@ const scheduler = startStandardJobs({
   logger,
   email,
   webOrigin: env.WEB_ORIGIN,
+  storage: storageFromEnv(process.env),
 });
 
 runService({

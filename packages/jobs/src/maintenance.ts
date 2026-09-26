@@ -1,12 +1,29 @@
 import { fetchPriceCatalog } from '@aperture/connectors';
-import { expireHolds, schema, upsertPrices, verifyCounters, withOrg, withSystem } from '@aperture/db';
+import {
+  expireHolds,
+  schema,
+  upsertMediaPrices,
+  upsertPrices,
+  verifyCounters,
+  withOrg,
+  withSystem,
+} from '@aperture/db';
+import { fetchMediaCatalog } from '@aperture/media';
 import { queueAlert } from './alerts';
 import { dbOf, type JobDeps } from './deps';
 
-/** Daily price refresh from OpenRouter's public catalog (4.7). */
+/** Daily price refresh from OpenRouter's public catalogs: text (4.7) and media (6.1). */
 export async function syncPrices(deps: JobDeps): Promise<number> {
-  const catalog = await fetchPriceCatalog({ ...(deps.fetch === undefined ? {} : { fetch: deps.fetch }) });
-  return withSystem(dbOf(deps), (tx) => upsertPrices(tx, catalog));
+  const options = deps.fetch === undefined ? {} : { fetch: deps.fetch };
+  const catalog = await fetchPriceCatalog(options);
+  let written = await withSystem(dbOf(deps), (tx) => upsertPrices(tx, catalog));
+  try {
+    const media = await fetchMediaCatalog(options);
+    written += await withSystem(dbOf(deps), (tx) => upsertMediaPrices(tx, media));
+  } catch (error) {
+    deps.logger.warn({ err: error }, 'media price sync failed; text prices were updated');
+  }
+  return written;
 }
 
 /** Applies each expired hold's `onExpiry` action, across orgs. */

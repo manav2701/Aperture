@@ -10,7 +10,7 @@ const MAX_ATTEMPTS = 5;
 const SLACK_PREFIX = 'https://hooks.slack.com/';
 
 export type AlertKind =
-  'budget_threshold' | 'credential_revoked' | 'connection_broken' | 'unpriced_model' | 'ledger_drift';
+  'budget_threshold' | 'credential_revoked' | 'connection_broken' | 'unpriced_model' | 'ledger_drift' | 'media_stuck';
 
 /** Queues an alert once per dedupe key (C2: a threshold alerts once per budget period). */
 export async function queueAlert(
@@ -103,6 +103,11 @@ export function alertMessage(kind: string, payload: Record<string, unknown>): { 
       return {
         subject: `No price for ${s(payload.model)}`,
         text: `Usage of ${s(payload.model)} on ${s(payload.provider)} could not be priced, so it is not counted against budgets yet.`,
+      };
+    case 'media_stuck':
+      return {
+        subject: `A ${s(payload.model)} job is taking unusually long`,
+        text: `Media job ${s(payload.job)} has been running for ${s(payload.minutes)} minutes. Its reservation stays held until the provider finishes or Aperture gives up after 24 hours.`,
       };
     default:
       return { subject: `Aperture alert: ${kind}`, text: JSON.stringify(payload) };

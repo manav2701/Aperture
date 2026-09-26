@@ -14,6 +14,7 @@ import { registerOrgRoutes } from './routes/orgs';
 import { registerPolicyRoutes } from './routes/policies';
 import { registerSpendRoutes } from './routes/spend';
 import { registerTeamRoutes } from './routes/teams';
+import { registerWorkspaceRoutes } from './routes/workspace';
 
 export interface ApiApp {
   app: OpenAPIHono<AppEnv>;
@@ -90,10 +91,11 @@ export function buildApp(
   registerConnectionRoutes(router, deps);
   registerSpendRoutes(router, deps);
   registerAgentRoutes(router, deps);
+  registerWorkspaceRoutes(router, deps);
 
   app.doc31('/api/v1/openapi.json', {
     openapi: '3.1.0',
-    info: { title: 'Aperture control-plane API', version: '0.5.0' },
+    info: { title: 'Aperture control-plane API', version: '0.6.0' },
   });
 
   app.notFound((c) => c.json(errorBody('not_found', 'no such route'), 404));

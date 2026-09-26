@@ -4,6 +4,7 @@ import { Hono } from 'hono';
 import { bodyLimit } from 'hono/body-limit';
 import { anthropicAdapter, geminiAdapter, openAiAdapter, type Json, type OpenAiRoute } from './adapters';
 import { GatewayError, errorResponse } from './errors';
+import { registerMediaRoutes } from './media';
 import { governedRequest, type BuildInput, type GatewayDeps } from './pipeline';
 
 const MAX_BODY_BYTES = 10 * 1024 * 1024;
@@ -108,6 +109,8 @@ export function buildApp(deps: GatewayDeps) {
       }),
     ),
   );
+
+  registerMediaRoutes(app, deps);
 
   app.notFound(() =>
     errorResponse(new GatewayError('aperture_invalid_request', 'no such gateway route'), 'openai', 'none'),

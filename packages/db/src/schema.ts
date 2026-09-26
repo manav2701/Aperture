@@ -586,3 +586,67 @@ export const gatewayRequests = pgTable(
   },
   (table) => [index('gateway_requests_org_created_idx').on(table.orgId, table.createdAt)],
 );
+
+// ---------------------------------------------------------------------------------------------
+// Phase 6: media (images and video)
+
+export const MEDIA_KINDS = ['image', 'video'] as const;
+export const MEDIA_JOB_STATUSES = ['running', 'succeeded', 'failed', 'expired_reconciling'] as const;
+
+/** Image and video prices in µUSD (see @aperture/media). Global, not per org. */
+export const mediaPrices = pgTable(
+  'media_prices',
+  {
+    provider: text('provider').notNull(),
+    model: text('model').notNull(),
+    kind: text('kind', { enum: MEDIA_KINDS }).notNull(),
+    perImage: money('per_image'),
+    perImageTokenPerM: money('per_image_token_per_m'),
+    perSecond: money('per_second'),
+    skus: jsonb('skus').$type<Record<string, string>>().notNull().default({}),
+    source: text('source').notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
+  },
+  (table) => [primaryKey({ columns: [table.provider, table.model, table.kind] })],
+);
+
+/**
+ * One image or video generation. Outputs live in private object storage under
+ * `org/<org>/media/<job>/<n>.<ext>`; only signed URLs ever leave Aperture (G14).
+ */
+export const mediaJobs = pgTable(
+  'media_jobs',
+  {
+    id: uuid('id').primaryKey(),
+    orgId: uuid('org_id')
+      .notNull()
+      .references(() => orgs.id),
+    principalId: uuid('principal_id')
+      .notNull()
+      .references(() => principals.id),
+    apiKeyId: uuid('api_key_id').references(() => apiKeys.id),
+    kind: text('kind', { enum: MEDIA_KINDS }).notNull(),
+    provider: text('provider').notNull(),
+    model: text('model').notNull(),
+    status: text('status', { enum: MEDIA_JOB_STATUSES }).notNull(),
+    prompt: text('prompt').notNull(),
+    /** Count, size, quality, seconds, resolution, aspect ratio, audio. */
+    params: jsonb('params').$type<Record<string, string | number | boolean>>().notNull(),
+    holdId: uuid('hold_id').references(() => holds.id),
+    estimated: money('estimated').notNull(),
+    cost: money('cost'),
+    /** The provider's job or operation id, for asynchronous (video) jobs. */
+    providerJobId: text('provider_job_id'),
+    outputs: jsonb('outputs').$type<{ key: string; contentType: string; bytes: number }[]>().notNull().default([]),
+    error: text('error'),
+    pollCount: integer('poll_count').notNull().default(0),
+    createdAt: createdAt(),
+    completedAt: timestamp('completed_at', { withTimezone: true, mode: 'date' }),
+  },
+  (table) => [
+    index('media_jobs_org_created_idx').on(table.orgId, table.createdAt),
+    index('media_jobs_pending_idx').on(table.status),
+    check('media_jobs_kind_check', inList('kind', MEDIA_KINDS)),
+    check('media_jobs_status_check', inList('status', MEDIA_JOB_STATUSES)),
+  ],
+);

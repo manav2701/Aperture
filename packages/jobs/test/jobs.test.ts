@@ -178,9 +178,11 @@ describe('Anthropic sync (buckets, T2 revoke on breach)', () => {
     });
 
     let outputTokens = 100_000; // 100k × $15/M = $1.50 > $1 budget
+    // A bucket from a few minutes ago, so the spend lands in today's budget period.
+    const start = new Date(Math.floor((Date.now() - 5 * 60_000) / 60_000) * 60_000);
     const bucket = () => ({
-      starting_at: '2026-09-25T10:00:00Z',
-      ending_at: '2026-09-25T10:01:00Z',
+      starting_at: start.toISOString(),
+      ending_at: new Date(start.getTime() + 60_000).toISOString(),
       results: [
         {
           api_key_id: 'apikey_1',

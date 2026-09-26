@@ -51,10 +51,18 @@ export {
   listConnections,
   openCredentialSecret,
   readConnectionSecret,
+  resolveUpstreamKey,
   rewrapConnectionSecrets,
   sealCredentialSecret,
   type ConnectionSummary,
 } from './connections';
-export { lookupPrice, upsertPrices, type PriceRow } from './prices';
+export {
+  lookupMediaPrice,
+  lookupPrice,
+  upsertMediaPrices,
+  upsertPrices,
+  type MediaPriceRow,
+  type PriceRow,
+} from './prices';
 // Query helpers, re-exported so every package uses this package's single drizzle-orm instance.
-export { and, asc, count, desc, eq, gt, gte, inArray, isNull, lt, lte, ne, or, sql } from 'drizzle-orm';
+export { and, asc, count, desc, eq, gt, gte, inArray, isNotNull, isNull, lt, lte, ne, or, sql } from 'drizzle-orm';

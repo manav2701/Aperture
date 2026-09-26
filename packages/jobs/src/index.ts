@@ -1,12 +1,14 @@
 import { dispatchAlerts, scanBudgetThresholds } from './alerts';
 import type { JobDeps } from './deps';
 import { expireAllHolds, syncPrices, verifyLedgers } from './maintenance';
+import { pollMediaJobs } from './media';
 import { startScheduler, type Job, type Scheduler } from './scheduler';
 import { syncAllConnections } from './sync';
 
 export { alertMessage, dispatchAlerts, queueAlert, scanBudgetThresholds, type AlertKind } from './alerts';
 export { SYSTEM_ACTOR, type JobDeps } from './deps';
 export { expireAllHolds, syncPrices, verifyLedgers } from './maintenance';
+export { pollMediaJobs } from './media';
 export { startScheduler, type Job, type Scheduler } from './scheduler';
 export {
   connectorForConnection,
@@ -34,6 +36,7 @@ export function standardJobs(deps: JobDeps): Job[] {
     job('holds.expire', 30_000, () => expireAllHolds(deps)),
     job('prices.sync', 24 * 60 * MINUTE, () => syncPrices(deps)),
     job('ledger.verify', 24 * 60 * MINUTE, () => verifyLedgers(deps)),
+    job('media.poll', 10_000, () => pollMediaJobs(deps)),
   ];
 }
 

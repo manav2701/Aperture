@@ -12,6 +12,7 @@ import {
   type DatabaseHandle,
 } from '@aperture/db';
 import { appRoleUrl, createTestDatabase, seedTree } from '@aperture/db/testing';
+import type { MediaStorage } from '@aperture/media';
 import { createLogger } from '@aperture/runtime';
 import { buildApp } from '../src/app';
 import { GatewayCache } from '../src/context';
@@ -73,7 +74,7 @@ export async function createGatewayHarness(): Promise<GatewayHarness> {
   };
 }
 
-const ring = keyRingFromEnv({ APERTURE_KEK_V1: randomBytes(32).toString('base64') });
+export const ring = keyRingFromEnv({ APERTURE_KEK_V1: randomBytes(32).toString('base64') });
 
 /** An org with OpenRouter, Anthropic and Gemini connected for the gateway, and an agent with a key. */
 export async function seedGatewayOrg(h: GatewayHarness, limits: { agent?: string } = {}) {
@@ -127,7 +128,7 @@ export async function seedGatewayOrg(h: GatewayHarness, limits: { agent?: string
   return { ...tree, key, apiKeyId: apiKey?.id ?? '' };
 }
 
-export function gateway(h: GatewayHarness, routes: Routes) {
+export function gateway(h: GatewayHarness, routes: Routes, options: { storage?: MediaStorage } = {}) {
   const upstream = fakeProvider(routes);
   const app = buildApp({
     db: h.app.db,
@@ -138,6 +139,7 @@ export function gateway(h: GatewayHarness, routes: Routes) {
     cache: new GatewayCache(),
     limiter: new RequestLimiter(),
     fetch: upstream.fetch,
+    storage: options.storage,
   });
   const call = async (path: string, key: string, body: unknown, headers: Record<string, string> = {}) =>
     await app.request(path, {

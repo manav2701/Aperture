@@ -8,7 +8,7 @@ Hard rule: **at most USD 1 in total per provider key**, including all testing. P
 
 | Key                         | Spent so far (USD) | Notes |
 | --------------------------- | ------------------ | ----- |
-| OpenRouter management key   | 0.00002            | Phase 4–5 live test, 2026-09-25 (gpt-4o-mini, 16-token replies); all test keys deleted |
+| OpenRouter management key | 0.15502 | Phase 4–5 live test, 2026-09-25 (≈$0.00002); Phase 6 live test, 2026-09-26: one image $0.035 + one 4 s Veo 3.1 Lite video $0.12; all test keys and files deleted |
 | Gemini API key              | 0.00001            | Phase 5 live test, 2026-09-25 (gemini-3.5-flash-lite) |
 
 ## Accounts and keys still to add
@@ -30,6 +30,8 @@ Hard rule: **at most USD 1 in total per provider key**, including all testing. P
 - Monitoring and alerting: connector lag over 10 minutes, and gateway latency and error-rate panels.
 
 ## Engineering
+
+- Media: fal (queue and verified webhook) and Runway direct; verify `billsOnFailure` per provider with a deliberately failing job; per-org media retention and bucket lifecycle rules; video-token pricing (Seedance and similar are denied as unpriced today).
 
 - Gateway settlement reconciliation: when a stream ends without usage it settles at the reservation; reconcile against OpenRouter `/generation` and refund the difference.
 - Google budget Pub/Sub push webhook (`/webhooks/google/{connectionId}`) that deletes mapped keys at 100% (needs the service account).

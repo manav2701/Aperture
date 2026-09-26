@@ -4,6 +4,7 @@ import { keyRingFromEnv } from '@aperture/crypto';
 import { connect, defaultMigrationsFolder, runMigrations } from '@aperture/db';
 import { GatewayCache, RequestLimiter, buildGatewayApp, listenForInvalidation } from '@aperture/gateway';
 import { startStandardJobs, type JobDeps } from '@aperture/jobs';
+import { storageFromEnv } from '@aperture/media';
 import { createLogger, loadEnvOrExit, logSender, resendSender, runService } from '@aperture/runtime';
 import { buildApp } from './app';
 import { createAuth } from './auth';
@@ -36,7 +37,9 @@ const email =
   env.RESEND_API_KEY === undefined
     ? logSender(logger)
     : resendSender({ apiKey: env.RESEND_API_KEY, from: env.EMAIL_FROM, logger });
-const jobs: JobDeps = { database, ring, logger, email, webOrigin: env.WEB_ORIGIN };
+const storage = storageFromEnv(process.env);
+if (storage === undefined) logger.warn('MEDIA_S3_* not set: image and video generation are disabled');
+const jobs: JobDeps = { database, ring, logger, email, webOrigin: env.WEB_ORIGIN, storage };
 
 // Hosts without separate worker and gateway services run them in this process.
 const cache = new GatewayCache();
@@ -49,6 +52,7 @@ const gateway = env.EMBED_GATEWAY
       logger: logger.child({ component: 'gateway' }),
       cache,
       limiter: new RequestLimiter(),
+      storage,
     })
   : undefined;
 const stopListening = gateway === undefined ? undefined : listenForInvalidation(database, cache, logger);
@@ -67,6 +71,7 @@ const { app } = buildApp(
     jobs,
     gateway,
     gatewayPublicUrl: env.GATEWAY_PUBLIC_URL,
+    storage,
   },
   gateway,
 );

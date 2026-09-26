@@ -80,3 +80,19 @@ Object storage configured for staging; worker poll job enabled; alert on `expire
 ## Risks / open questions
 
 - Video model menus and prices change often; keep them catalog data, not code.
+
+## Results (2026-09-27)
+
+Built on `main` ([ADR 0015](../../../docs/adr/0015-phase-6-media.md)).
+
+- `packages/media`: media prices built from OpenRouter's public catalogs; adapters for OpenRouter images and videos, OpenAI images, and Veo on the Gemini API; S3-compatible private storage.
+- Gateway: `POST /v1/images/generations`, `POST /v1/videos`, `GET /v1/media/{id}`, `POST /v1/estimate`.
+- Jobs: `media.poll` finishes videos (store, settle, failure billing, reconciling after the hold expires, alert when stuck); the price sync includes media.
+- Workspace: Images and Videos pages with live cost preview, a team gallery and a video player; the API proxies them through the gateway as the signed-in person.
+- Tests:
+  - 7 gateway media tests: store and settle exact, provider refusal releases, budget and `media_limits` denials, video lifecycle with a stored output, failure without billing, a late success after the hold expired, and estimate without reserving;
+  - 5 media unit tests;
+  - an API workspace test.
+- Live check (2026-09-26): one Seedream image and a 4 s Veo 3.1 Lite 720p video, $0.155 in total, matching OpenRouter's meter exactly. Signed URLs downloaded; test files deleted.
+
+Not done here: fal, Runway direct, verifying failure billing with a deliberately failing job, and media retention. See [deferred.md](../../deferred.md).

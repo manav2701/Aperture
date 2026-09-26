@@ -18,6 +18,7 @@
     "@aperture/db": "workspace:*",
     "@aperture/gateway": "workspace:*",
     "@aperture/jobs": "workspace:*",
+    "@aperture/media": "workspace:*",
     "@aperture/runtime": "workspace:*",
     "@hono/zod-openapi": "^1.6.3",
     "better-auth": "^1.7.5",

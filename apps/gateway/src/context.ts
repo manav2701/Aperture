@@ -7,9 +7,8 @@ import {
   eq,
   gt,
   isNull,
-  openCredentialSecret,
   or,
-  readConnectionSecret,
+  resolveUpstreamKey,
   schema,
   sql,
   withOrg,
@@ -122,10 +121,7 @@ export function loadPrincipalContext(db: Database, cache: GatewayCache, caller: 
   );
 }
 
-/**
- * The key the gateway forwards with for a provider (BYOK): a gateway-managed credential, or,
- * for Gemini and Hugging Face, the connection's own API key or token.
- */
+/** The key the gateway forwards with for a provider (bring your own key), cached per org. */
 export function upstreamKey(
   db: Database,
   ring: KeyRing,
@@ -134,36 +130,7 @@ export function upstreamKey(
   provider: Provider,
 ): Promise<string | undefined> {
   return cache.get(`upstream:${orgId}:${provider}`, orgId, () =>
-    withOrg(db, orgId, async (tx) => {
-      const [managed] = await tx
-        .select({ id: schema.credentials.id, secret: schema.credentials.secret })
-        .from(schema.credentials)
-        .innerJoin(schema.connections, eq(schema.connections.id, schema.credentials.connectionId))
-        .where(
-          and(
-            eq(schema.connections.provider, provider),
-            eq(schema.connections.status, 'active'),
-            eq(schema.credentials.managedByGateway, true),
-            eq(schema.credentials.status, 'active'),
-          ),
-        )
-        .orderBy(desc(schema.credentials.createdAt))
-        .limit(1);
-      if (managed?.secret != null)
-        return openCredentialSecret(ring, { orgId, credentialId: managed.id, sealed: managed.secret });
-
-      if (provider !== 'google' && provider !== 'huggingface') return undefined;
-      const [connection] = await tx
-        .select({ id: schema.connections.id })
-        .from(schema.connections)
-        .where(and(eq(schema.connections.provider, provider), eq(schema.connections.status, 'active')))
-        .orderBy(desc(schema.connections.createdAt))
-        .limit(1);
-      if (connection === undefined) return undefined;
-      const secret = await readConnectionSecret(tx, ring, { orgId, connectionId: connection.id });
-      // A service-account JSON is for key management, not for calling Gemini.
-      return secret === undefined || secret.trimStart().startsWith('{') ? undefined : secret;
-    }),
+    withOrg(db, orgId, (tx) => resolveUpstreamKey(tx, ring, { orgId, provider })),
   );
 }
 

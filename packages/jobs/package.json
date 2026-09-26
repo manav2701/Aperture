@@ -16,6 +16,7 @@
     "@aperture/core": "workspace:*",
     "@aperture/crypto": "workspace:*",
     "@aperture/db": "workspace:*",
+    "@aperture/media": "workspace:*",
     "@aperture/runtime": "workspace:*",
     "uuid": "^14.0.2"
   },

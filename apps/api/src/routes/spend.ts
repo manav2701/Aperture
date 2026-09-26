@@ -44,6 +44,8 @@ export function registerSpendRoutes(router: Router, deps: AppDeps): void {
     async (c) => {
       const { orgId } = c.req.valid('param');
       const query = c.req.valid('query');
+      // Without an explicit end, include everything so far: entries carry the database's clock,
+      // which may run slightly ahead of this server's.
       const to = query.to === undefined ? new Date() : new Date(query.to);
       const from = query.from === undefined ? new Date(to.getTime() - 30 * 24 * 60 * 60 * 1000) : new Date(query.from);
       if (from >= to) throw new AppError(400, 'invalid_range', '"from" must be before "to"');
@@ -67,7 +69,8 @@ export function registerSpendRoutes(router: Router, deps: AppDeps): void {
           select ${key} as key, ${label} as label, sum(${signed})::text as amount
           from ledger_entries e left join principals p on p.id = e.principal_id
           where e.org_id = ${orgId} and e.kind in ${SPEND_KINDS}
-            and e.occurred_at >= ${from.toISOString()} and e.occurred_at < ${to.toISOString()}
+            and e.occurred_at >= ${from.toISOString()}
+            ${query.to === undefined ? sql`` : sql`and e.occurred_at < ${to.toISOString()}`}
           group by 1 order by ${query.groupBy === 'day' ? sql`1` : sql`3 desc`}`);
         return result.rows;
       });

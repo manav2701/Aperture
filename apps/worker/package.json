@@ -15,6 +15,7 @@
     "@aperture/crypto": "workspace:*",
     "@aperture/db": "workspace:*",
     "@aperture/jobs": "workspace:*",
+    "@aperture/media": "workspace:*",
     "@aperture/runtime": "workspace:*",
     "zod": "^4.6.5"
   },

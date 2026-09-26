@@ -1,5 +1,6 @@
 import { keyRingFromEnv } from '@aperture/crypto';
 import { connect } from '@aperture/db';
+import { storageFromEnv } from '@aperture/media';
 import { createLogger, loadEnvOrExit, runService, serviceEnvSchema } from '@aperture/runtime';
 import { z } from 'zod';
 import { buildApp } from './app';
@@ -28,6 +29,7 @@ const app = buildApp({
   logger,
   cache,
   limiter: new RequestLimiter(),
+  storage: storageFromEnv(process.env),
 });
 
 runService({

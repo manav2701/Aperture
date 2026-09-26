@@ -2,6 +2,7 @@ import { normalizeModel, type FetchLike, type Provider } from '@aperture/connect
 import { actualTextCost, estimateTextCost, evaluatePolicy, formatUsd, micros, type TextPrice } from '@aperture/core';
 import type { KeyRing } from '@aperture/crypto';
 import { budgetHeadroom, lookupPrice, release, reserve, schema, settle, withOrg, type Database } from '@aperture/db';
+import type { MediaStorage } from '@aperture/media';
 import type { Logger } from '@aperture/runtime';
 import { v7 as uuidv7 } from 'uuid';
 import type { Adapter, Json, UsageReport } from './adapters';
@@ -27,6 +28,8 @@ export interface GatewayDeps {
   limiter: RequestLimiter;
   /** Upstream HTTP; injected in tests with a scripted fake provider. */
   fetch?: FetchLike | undefined;
+  /** Private object storage for generated media; media routes answer 503 without it. */
+  storage?: MediaStorage | undefined;
 }
 
 /** A hold outlives any single request; if we crash, `holds.expire` settles it at the estimate (O2). */
@@ -122,22 +125,26 @@ function costOf(
   return { cost: report.exactCost ?? actualTextCost(report.usage, price), estimated: false };
 }
 
+export interface Admitted {
+  caller: Caller;
+  body: Json;
+  /** Frees the caller's concurrency slot; idempotent. */
+  releaseSlot: () => void;
+}
+
 /**
- * The decision pipeline (plan/phases/phase-05 §5.2): authenticate → parse → policy → estimate →
- * reserve → forward → stream through → settle. Nothing reaches the provider unless every step
- * before "forward" allowed it (INV-13).
+ * The first steps every gateway route shares: authenticate the key (or workspace token), take a
+ * concurrency slot, and parse the JSON body. Returns an error response in the caller's SDK
+ * format instead when any step fails.
  */
-export async function governedRequest(
+export async function admit(
   deps: GatewayDeps,
   request: Request,
-  route: string,
   format: Adapter['format'],
-  build: (input: BuildInput) => Adapter,
-): Promise<Response> {
-  const requestId = uuidv7();
-  const started = Date.now();
+  requestId: string,
+  options: { body?: boolean } = {},
+): Promise<Admitted | Response> {
   const credential = credentialFrom(request);
-
   let caller: Caller | undefined;
   try {
     caller = credential === undefined ? undefined : await resolveCaller(deps.db, deps, credential);
@@ -165,12 +172,12 @@ export async function governedRequest(
       requestId,
     );
   }
+  if (options.body === false) return { caller, body: {}, releaseSlot };
 
-  let body: Json;
   try {
     const parsed = await request.json();
     if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) throw new Error('not an object');
-    body = parsed as Json;
+    return { caller, body: parsed as Json, releaseSlot };
   } catch {
     releaseSlot();
     return errorResponse(
@@ -179,6 +186,25 @@ export async function governedRequest(
       requestId,
     );
   }
+}
+
+/**
+ * The decision pipeline (plan/phases/phase-05 §5.2): authenticate → parse → policy → estimate →
+ * reserve → forward → stream through → settle. Nothing reaches the provider unless every step
+ * before "forward" allowed it (INV-13).
+ */
+export async function governedRequest(
+  deps: GatewayDeps,
+  request: Request,
+  route: string,
+  format: Adapter['format'],
+  build: (input: BuildInput) => Adapter,
+): Promise<Response> {
+  const requestId = uuidv7();
+  const started = Date.now();
+  const admitted = await admit(deps, request, format, requestId);
+  if (admitted instanceof Response) return admitted;
+  const { caller, body, releaseSlot } = admitted;
 
   let keepSlot = false;
   try {

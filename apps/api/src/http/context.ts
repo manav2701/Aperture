@@ -2,6 +2,7 @@ import type { Role } from '@aperture/core';
 import type { KeyRing } from '@aperture/crypto';
 import type { Database } from '@aperture/db';
 import type { JobDeps } from '@aperture/jobs';
+import type { MediaStorage } from '@aperture/media';
 import type { EmailSender, Logger } from '@aperture/runtime';
 import type { Auth } from '../auth';
 
@@ -21,6 +22,8 @@ export interface AppDeps {
   gateway: { fetch: (request: Request) => Response | Promise<Response> } | undefined;
   /** Base URL people point their SDKs at, shown in the UI. */
   gatewayPublicUrl: string | undefined;
+  /** Private media storage, for gallery links; undefined disables media. */
+  storage: MediaStorage | undefined;
 }
 
 export type SessionUser = NonNullable<Awaited<ReturnType<Auth['api']['getSession']>>>['user'];
