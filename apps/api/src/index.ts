@@ -41,6 +41,12 @@ const storage = storageFromEnv(process.env);
 if (storage === undefined) logger.warn('MEDIA_S3_* not set: image and video generation are disabled');
 const jobs: JobDeps = { database, ring, logger, email, webOrigin: env.WEB_ORIGIN, storage };
 
+const slack =
+  env.SLACK_CLIENT_ID !== undefined && env.SLACK_CLIENT_SECRET !== undefined && env.SLACK_SIGNING_SECRET !== undefined
+    ? { clientId: env.SLACK_CLIENT_ID, clientSecret: env.SLACK_CLIENT_SECRET, signingSecret: env.SLACK_SIGNING_SECRET }
+    : undefined;
+if (slack === undefined) logger.info('SLACK_* not set: the Slack app (interactive approvals) is off');
+
 // Hosts without separate worker and gateway services run them in this process.
 const cache = new GatewayCache();
 const gateway = env.EMBED_GATEWAY
@@ -72,6 +78,7 @@ const { app } = buildApp(
     gateway,
     gatewayPublicUrl: env.GATEWAY_PUBLIC_URL,
     storage,
+    slack,
   },
   gateway,
 );

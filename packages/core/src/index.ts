@@ -60,6 +60,13 @@ export {
   type Reason,
 } from './policy/evaluate';
 export {
+  SUGGESTION_MIN_APPROVALS,
+  suggestThresholds,
+  type ApprovalHistoryItem,
+  type EditablePolicy,
+  type ThresholdSuggestion,
+} from './policy/suggest';
+export {
   isWithin,
   mandateScopeSchema,
   mandateToPolicyDocument,

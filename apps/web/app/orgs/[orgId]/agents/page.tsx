@@ -3,21 +3,34 @@ import { Badge, Card, CardTitle, EmptyState, PageHeader } from '@/components/ui/
 import { serverApi, unwrap } from '@/lib/api/server';
 import { formatDateTime } from '@/lib/format';
 import { AgentActions, PauseAll, RevokeKey } from './agent-actions';
+import { IssueMandate, MandateTree } from './mandates';
 import { NewAgent } from './new-agent';
 
 export default async function AgentsPage({ params }: { params: Promise<{ orgId: string }> }) {
   const { orgId } = await params;
   const api = await serverApi();
   const path = { params: { path: { orgId } } };
-  const [org, { agents }, { keys }, { teams }, workspace] = await Promise.all([
+  const [org, { agents }, { keys }, { teams }, workspace, { mandates }] = await Promise.all([
     api.GET('/api/v1/orgs/{orgId}', path).then(unwrap),
     api.GET('/api/v1/orgs/{orgId}/agents', path).then(unwrap),
     api.GET('/api/v1/orgs/{orgId}/keys', path).then(unwrap),
     api.GET('/api/v1/orgs/{orgId}/teams', path).then(unwrap),
     api.GET('/api/v1/orgs/{orgId}/workspace', path).then((result) => result.data),
+    api.GET('/api/v1/orgs/{orgId}/mandates', path).then(unwrap),
   ]);
   const manage = can(org.role, 'agents.manage');
   const gatewayUrl = workspace?.gatewayUrl ?? null;
+  // Each agent's mandates plus those of the sub-agents it delegated to, as one tree.
+  const byId = new Map(mandates.map((m) => [m.id, m]));
+  const rootAgentOf = (mandate: (typeof mandates)[number]): string => {
+    let current = mandate;
+    for (let parent = current.parentId === null ? undefined : byId.get(current.parentId); parent !== undefined;) {
+      current = parent;
+      parent = current.parentId === null ? undefined : byId.get(current.parentId);
+    }
+    return current.subject.id;
+  };
+  const mandatesOf = (agentId: string) => mandates.filter((m) => rootAgentOf(m) === agentId);
   const teamName = (id: string | null) => teams.find((t) => t.id === id)?.name ?? null;
 
   return (
@@ -48,6 +61,8 @@ export default async function AgentsPage({ params }: { params: Promise<{ orgId: 
                     <p className="text-sm text-muted-foreground">{agent.description}</p>
                   )}
                   {manage ? <AgentActions orgId={orgId} agentId={agent.id} status={agent.status} /> : null}
+                  <MandateTree orgId={orgId} mandates={mandatesOf(agent.id)} manage={manage} />
+                  {manage && agent.status === 'active' ? <IssueMandate orgId={orgId} agentId={agent.id} /> : null}
                 </li>
               ))}
             </ul>

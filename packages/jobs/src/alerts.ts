@@ -3,6 +3,7 @@ import { formatUsd, micros, periodKey } from '@aperture/core';
 import { and, asc, eq, inArray, isNull, lt, schema, sql, withOrg, withSystem } from '@aperture/db';
 import { v7 as uuidv7 } from 'uuid';
 import { dbOf, type JobDeps } from './deps';
+import { alertBlocks, slackApi } from './slack';
 
 /** Budgets without thresholds of their own still warn at these percentages. */
 const DEFAULT_THRESHOLDS = [80, 100];
@@ -10,7 +11,13 @@ const MAX_ATTEMPTS = 5;
 const SLACK_PREFIX = 'https://hooks.slack.com/';
 
 export type AlertKind =
-  'budget_threshold' | 'credential_revoked' | 'connection_broken' | 'unpriced_model' | 'ledger_drift' | 'media_stuck';
+  | 'budget_threshold'
+  | 'credential_revoked'
+  | 'connection_broken'
+  | 'unpriced_model'
+  | 'ledger_drift'
+  | 'media_stuck'
+  | 'approval_requested';
 
 /** Queues an alert once per dedupe key (C2: a threshold alerts once per budget period). */
 export async function queueAlert(
@@ -109,6 +116,11 @@ export function alertMessage(kind: string, payload: Record<string, unknown>): { 
         subject: `A ${s(payload.model)} job is taking unusually long`,
         text: `Media job ${s(payload.job)} has been running for ${s(payload.minutes)} minutes. Its reservation stays held until the provider finishes or Aperture gives up after 24 hours.`,
       };
+    case 'approval_requested':
+      return {
+        subject: `${s(payload.requester)} is asking to spend up to $${s(payload.amount)}`,
+        text: `${s(payload.requester)} wants to use ${s(payload.resource)} for "${s(payload.purpose)}" (up to $${s(payload.amount)}). Approve or deny it in Aperture; it is denied automatically after 24 hours.`,
+      };
     default:
       return { subject: `Aperture alert: ${kind}`, text: JSON.stringify(payload) };
   }
@@ -127,9 +139,12 @@ export async function dispatchAlerts(deps: JobDeps): Promise<number> {
   let sent = 0;
   for (const alert of pending) {
     const { subject, text } = alertMessage(alert.kind, alert.payload as Record<string, unknown>);
-    const link = `${deps.webOrigin}/orgs/${alert.orgId}`;
+    const link =
+      alert.kind === 'approval_requested'
+        ? `${deps.webOrigin}/orgs/${alert.orgId}/approvals`
+        : `${deps.webOrigin}/orgs/${alert.orgId}`;
     try {
-      const { recipients, slack } = await withOrg(dbOf(deps), alert.orgId, async (tx) => {
+      const { recipients, slack, slackApp } = await withOrg(dbOf(deps), alert.orgId, async (tx) => {
         const people = await tx
           .select({ email: schema.users.email })
           .from(schema.members)
@@ -137,26 +152,57 @@ export async function dispatchAlerts(deps: JobDeps): Promise<number> {
           .where(
             and(eq(schema.members.orgId, alert.orgId), inArray(schema.members.role, ['owner', 'admin', 'finance'])),
           );
-        const [hook] = await tx
+        const hooks = await tx
           .select()
           .from(schema.connections)
           .where(
             and(
               eq(schema.connections.orgId, alert.orgId),
-              eq(schema.connections.provider, 'slack'),
+              inArray(schema.connections.provider, ['slack', 'slack_app']),
               eq(schema.connections.status, 'active'),
             ),
           );
-        return { recipients: people.map((person) => person.email), slack: hook };
+        return {
+          recipients: people.map((person) => person.email),
+          slack: hooks.find((hook) => hook.provider === 'slack'),
+          slackApp: hooks.find((hook) => hook.provider === 'slack_app'),
+        };
       });
-      for (const to of recipients) await deps.email.send({ to, subject, text: `${text}\n\n${link}` });
-      if (slack !== undefined) {
+      for (const to of recipients)
+        await deps.email.send({
+          to,
+          subject,
+          text: `${text}
+
+${link}`,
+        });
+      if (slackApp !== undefined) {
+        // The installed app posts to its channel, with Approve / Deny buttons on approval requests.
+        const token = decryptSecret(slackApp.secret, `${alert.orgId}|${slackApp.id}`, deps.ring);
+        const config = slackApp.config as { channelId?: string };
+        const payload = alert.payload as Record<string, unknown>;
+        await slackApi(deps.fetch ?? fetch, token, 'chat.postMessage', {
+          channel: config.channelId,
+          text: `${subject}: ${text}`,
+          blocks: alertBlocks({
+            kind: alert.kind,
+            subject,
+            text,
+            link,
+            approvalId: typeof payload.approval === 'string' ? payload.approval : undefined,
+          }),
+        });
+      } else if (slack !== undefined) {
         const url = decryptSecret(slack.secret, `${alert.orgId}|${slack.id}`, deps.ring);
         if (!url.startsWith(SLACK_PREFIX)) throw new Error('Slack webhook URL is not a hooks.slack.com URL');
         const response = await (deps.fetch ?? fetch)(url, {
           method: 'POST',
           headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ text: `*${subject}*\n${text}\n<${link}|Open Aperture>` }),
+          body: JSON.stringify({
+            text: `*${subject}*
+${text}
+<${link}|Open Aperture>`,
+          }),
           signal: AbortSignal.timeout(10_000),
         });
         if (!response.ok) throw new Error(`Slack answered ${String(response.status)}`);

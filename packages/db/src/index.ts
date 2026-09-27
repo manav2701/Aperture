@@ -64,5 +64,29 @@ export {
   type MediaPriceRow,
   type PriceRow,
 } from './prices';
+export {
+  MAX_MANDATE_DEPTH,
+  MandateError,
+  approvalFingerprint,
+  assertChainUsable,
+  budgetNodeRemaining,
+  consumeMandateUse,
+  decideApproval,
+  expireApprovals,
+  hasStandingMandate,
+  issueMandate,
+  mandateChain,
+  markApprovalUsed,
+  orgJwks,
+  parseScope,
+  requestApproval,
+  revokeMandate,
+  rotateSigningKey,
+  standingMandate,
+  usableApproval,
+  type ApprovalRow,
+  type IssueMandateInput,
+  type MandateRow,
+} from './mandates';
 // Query helpers, re-exported so every package uses this package's single drizzle-orm instance.
 export { and, asc, count, desc, eq, gt, gte, inArray, isNotNull, isNull, lt, lte, ne, or, sql } from 'drizzle-orm';

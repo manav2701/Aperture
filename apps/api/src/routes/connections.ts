@@ -1,7 +1,17 @@
 import { ConnectorError, PROVIDER_INFO, PROVIDERS, connectorFor, type Provider } from '@aperture/connectors';
 import { formatUsd, micros } from '@aperture/core';
 import { encryptSecret } from '@aperture/crypto';
-import { and, budgetHeadroom, createConnection, desc, eq, schema, sealCredentialSecret, withOrg } from '@aperture/db';
+import {
+  and,
+  budgetHeadroom,
+  createConnection,
+  desc,
+  eq,
+  inArray,
+  schema,
+  sealCredentialSecret,
+  withOrg,
+} from '@aperture/db';
 import { connectorForConnection, syncConnection } from '@aperture/jobs';
 import { createRoute, z } from '@hono/zod-openapi';
 import { v7 as uuidv7 } from 'uuid';
@@ -662,7 +672,7 @@ export function registerConnectionRoutes(router: Router, deps: AppDeps): void {
               .where(
                 and(
                   eq(schema.connections.orgId, orgId),
-                  eq(schema.connections.provider, 'slack'),
+                  inArray(schema.connections.provider, ['slack', 'slack_app']),
                   eq(schema.connections.status, 'active'),
                 ),
               )

@@ -1,20 +1,23 @@
 import { OpenAPIHono } from '@hono/zod-openapi';
-import { sql } from '@aperture/db';
+import { orgJwks, sql, withOrg } from '@aperture/db';
 import { bodyLimit } from 'hono/body-limit';
 import { createServiceApp } from '@aperture/runtime';
 import { createRouter, sameOriginWrites, type RegisteredRoute } from './http/access';
 import type { AppDeps, AppEnv } from './http/context';
 import { errorBody, handleError } from './http/errors';
 import { registerAgentRoutes } from './routes/agents';
+import { registerApprovalRoutes } from './routes/approvals';
 import { registerAuditRoutes } from './routes/audit';
 import { registerBudgetRoutes } from './routes/budgets';
 import { registerConnectionRoutes } from './routes/connections';
+import { registerMandateRoutes } from './routes/mandates';
 import { registerMemberRoutes } from './routes/members';
 import { registerOrgRoutes } from './routes/orgs';
 import { registerPolicyRoutes } from './routes/policies';
 import { registerSpendRoutes } from './routes/spend';
 import { registerTeamRoutes } from './routes/teams';
 import { registerWorkspaceRoutes } from './routes/workspace';
+import { registerSlackInstallRoute, registerSlackWebhooks } from './slack';
 
 export interface ApiApp {
   app: OpenAPIHono<AppEnv>;
@@ -63,6 +66,17 @@ export function buildApp(
     });
   }
 
+  // Mandate verification keys at a well-known path, so verifiers need no Aperture API knowledge.
+  app.get('/.well-known/aperture/orgs/:orgId/jwks.json', async (c) => {
+    const orgId = c.req.param('orgId');
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(orgId)) {
+      return c.json(errorBody('not_found', 'no such organization'), 404);
+    }
+    const jwks = await withOrg(deps.db, orgId, (tx) => orgJwks(tx, orgId));
+    c.header('cache-control', 'public, max-age=300');
+    return c.json(jwks);
+  });
+
   app.use(
     '/api/*',
     bodyLimit({
@@ -73,6 +87,9 @@ export function buildApp(
 
   // Authentication (Better Auth handles its own CSRF/origin checks and rate limits).
   app.on(['GET', 'POST'], '/api/auth/*', (c) => deps.auth.handler(c.req.raw));
+
+  // Slack calls these itself (signed), so they sit outside the session and same-origin checks.
+  registerSlackWebhooks(app, deps);
 
   app.use('/api/v1/*', sameOriginWrites(deps.webOrigin));
   app.use('/api/v1/*', async (c, next) => {
@@ -92,6 +109,9 @@ export function buildApp(
   registerSpendRoutes(router, deps);
   registerAgentRoutes(router, deps);
   registerWorkspaceRoutes(router, deps);
+  registerApprovalRoutes(router, deps);
+  registerMandateRoutes(router, deps);
+  registerSlackInstallRoute(router, deps);
 
   app.doc31('/api/v1/openapi.json', {
     openapi: '3.1.0',

@@ -26,6 +26,9 @@ export const PERMISSIONS = [
   'agents.manage',
   /** Use the workspace chat and hold personal gateway keys. */
   'workspace.use',
+  'approvals.read',
+  /** Approve or deny requests (never your own, or your own agents'). */
+  'approvals.decide',
 ] as const;
 export type Permission = (typeof PERMISSIONS)[number];
 
@@ -58,6 +61,8 @@ export const ROLE_GRANTS: Record<Role, Partial<Record<Permission, Grant>>> = {
     'spend.read': 'all',
     'agents.read': 'all',
     'workspace.use': 'all',
+    'approvals.read': 'all',
+    'approvals.decide': 'all',
   },
   team_lead: {
     'org.read': 'all',
@@ -72,6 +77,8 @@ export const ROLE_GRANTS: Record<Role, Partial<Record<Permission, Grant>>> = {
     'agents.read': 'all',
     'agents.manage': 'team',
     'workspace.use': 'all',
+    'approvals.read': 'all',
+    'approvals.decide': 'team',
   },
   member: {
     'org.read': 'all',
@@ -90,6 +97,7 @@ export const ROLE_GRANTS: Record<Role, Partial<Record<Permission, Grant>>> = {
     'connections.read': 'all',
     'spend.read': 'all',
     'agents.read': 'all',
+    'approvals.read': 'all',
   },
 };
 

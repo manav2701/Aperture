@@ -6,6 +6,7 @@ import { cn } from '@/lib/cn';
 import { formatDateTime } from '@/lib/format';
 import { PolicyEditor } from './policy-editor';
 import { PolicySimulator } from './policy-simulator';
+import { PolicySuggestions } from './suggestions';
 
 type Scope = 'org' | 'team' | 'principal';
 
@@ -46,6 +47,10 @@ export default async function PoliciesPage({
       params: { path: { orgId, scope: selected.scope, scopeId: selected.id } },
     }),
   );
+  const suggestions = can(org.role, 'policies.manage')
+    ? ((await api.GET('/api/v1/orgs/{orgId}/policy-suggestions', path)).data?.suggestions ?? [])
+    : [];
+  const scopeLabel = Object.fromEntries(scopes.map((s) => [`${s.scope}:${s.id}`, s.label]));
   const withPolicy = new Set(policies.map((p) => `${p.scope}:${p.scopeId}`));
   const href = (s: { scope: Scope; id: string }) => `/orgs/${orgId}/policies?scope=${s.scope}&id=${s.id}`;
 
@@ -55,6 +60,7 @@ export default async function PoliciesPage({
         title="Policies"
         description="Rules every spend must pass, at each level: organization, team, then the person or agent. Every level must allow."
       />
+      <PolicySuggestions orgId={orgId} suggestions={suggestions} scopeLabel={scopeLabel} />
       <div className="grid gap-8 xl:grid-cols-[16rem_1fr]">
         <nav aria-label="Policy scopes" className="space-y-1">
           {scopes.map((s) => (

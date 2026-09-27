@@ -3,6 +3,7 @@
  *
  *   APERTURE_KEY=apk_… APERTURE_GATEWAY_URL=https://…/gw pnpm try:gateway            # one call + one stream
  *   APERTURE_KEY=apk_… APERTURE_GATEWAY_URL=https://…/gw pnpm try:gateway --exceed   # loop until the budget stops it
+ *   … pnpm try:gateway --approval <id>   # retry a call a person approved (x-aperture-approval)
  *
  * Every call asks for at most 16 output tokens of a cheap model, and --exceed stops after 50
  * calls even if no budget does, so a mistake can't run up a bill.
@@ -13,6 +14,8 @@ const key = env.APERTURE_KEY;
 const baseUrl = env.APERTURE_GATEWAY_URL?.replace(/\/+$/, '');
 const model = env.APERTURE_MODEL ?? 'openai/gpt-4o-mini';
 const MAX_CALLS = 50;
+const approvalAt = argv.indexOf('--approval');
+const approval = approvalAt === -1 ? undefined : argv[approvalAt + 1];
 
 if (key === undefined || baseUrl === undefined) {
   stdout.write('Set APERTURE_KEY and APERTURE_GATEWAY_URL (e.g. https://your-api.onrender.com/gw).\n');
@@ -22,15 +25,26 @@ if (key === undefined || baseUrl === undefined) {
 const request = (stream: boolean, prompt: string) =>
   fetch(`${baseUrl}/v1/chat/completions`, {
     method: 'POST',
-    headers: { authorization: `Bearer ${key}`, 'content-type': 'application/json' },
+    headers: {
+      authorization: `Bearer ${key}`,
+      'content-type': 'application/json',
+      ...(approval === undefined ? {} : { 'x-aperture-approval': approval }),
+    },
     body: JSON.stringify({ model, stream, max_tokens: 16, messages: [{ role: 'user', content: prompt }] }),
   });
 
 const describe = async (response: Response) => {
   if (response.ok)
     return `${String(response.status)} cost $${response.headers.get('x-aperture-cost-usd') ?? '?'} remaining $${response.headers.get('x-aperture-budget-remaining-usd') ?? '?'}`;
-  const body = (await response.json().catch(() => ({}))) as { error?: { type?: string; message?: string } };
-  return `${String(response.status)} ${body.error?.type ?? ''} ${body.error?.message ?? ''}`.trim();
+  const body = (await response.json().catch(() => ({}))) as {
+    error?: { type?: string; message?: string; approval_id?: string };
+  };
+  const next =
+    body.error?.approval_id === undefined
+      ? ''
+      : `
+  → once approved: pnpm try:gateway --approval ${body.error.approval_id}`;
+  return `${String(response.status)} ${body.error?.type ?? ''} ${body.error?.message ?? ''}`.trim() + next;
 };
 
 if (argv.includes('--exceed')) {

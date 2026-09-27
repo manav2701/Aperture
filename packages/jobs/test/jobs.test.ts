@@ -8,6 +8,7 @@ import {
   createPrincipal,
   eq,
   schema,
+  requestApproval,
   upsertPrices,
   withSystem,
   type DatabaseHandle,
@@ -15,7 +16,15 @@ import {
 import { appRoleUrl, createTestDatabase, seedTree, usd } from '@aperture/db/testing';
 import { createLogger, type Email } from '@aperture/runtime';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { dispatchAlerts, scanBudgetThresholds, startScheduler, syncConnection, type JobDeps } from '../src/index';
+import {
+  dispatchAlerts,
+  expirePendingApprovals,
+  notifyApprovals,
+  scanBudgetThresholds,
+  startScheduler,
+  syncConnection,
+  type JobDeps,
+} from '../src/index';
 
 let system: DatabaseHandle & { url: string };
 let app: DatabaseHandle;
@@ -259,6 +268,49 @@ describe('alerts', () => {
     const mine = sent.filter((email) => email.to === `owner-${tree.org.id}@example.com`);
     expect(mine[0]?.subject).toBe('Budget "Org" reached 80%');
     expect(mine[0]?.text).toContain('$8.50 of its $10.00 monthly limit');
+  });
+});
+
+describe('approvals', () => {
+  it('emails approvers once per request, and denies requests nobody decided in time', async () => {
+    const tree = await seedTree(system.db);
+    const [owner] = await system.db
+      .insert(schema.users)
+      .values({
+        id: crypto.randomUUID(),
+        name: 'Owner',
+        email: `approver-${tree.org.id}@example.com`,
+        emailVerified: true,
+      })
+      .returning();
+    await system.db
+      .insert(schema.members)
+      .values({ id: crypto.randomUUID(), orgId: tree.org.id, userId: owner?.id ?? '', role: 'owner' });
+    const approval = await requestApproval(system.db, {
+      orgId: tree.org.id,
+      principalId: tree.agent.id,
+      rail: 'gateway',
+      resource: 'openrouter:openai/gpt-4o',
+      amount: usd('2.5'),
+      purpose: 'weekly report',
+      context: {},
+    });
+    await notifyApprovals(deps());
+    await notifyApprovals(deps());
+    sent.length = 0;
+    await dispatchAlerts(deps());
+    const mine = sent.filter((email) => email.to === `approver-${tree.org.id}@example.com`);
+    expect(mine).toHaveLength(1);
+    expect(mine[0]?.subject).toBe('research-bot is asking to spend up to $2.50');
+    expect(mine[0]?.text).toContain(`/orgs/${tree.org.id}/approvals`);
+
+    await system.db
+      .update(schema.approvals)
+      .set({ expiresAt: new Date(Date.now() - 1000) })
+      .where(eq(schema.approvals.id, approval.id));
+    expect(await expirePendingApprovals(deps())).toBeGreaterThanOrEqual(1);
+    const [expired] = await system.db.select().from(schema.approvals).where(eq(schema.approvals.id, approval.id));
+    expect(expired?.status).toBe('expired');
   });
 });
 

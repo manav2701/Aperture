@@ -42,9 +42,11 @@ interface Budget {
 describe('route registry', () => {
   it('guards every org-scoped route with a permission and keeps public routes to a known list', () => {
     const publicRoutes = h.routes.filter((r) => r.access === 'public').map((r) => `${r.method} ${r.path}`);
-    expect(publicRoutes).toEqual(['GET /api/v1/invitations/{token}']);
+    // The JWKS is public on purpose: anyone may verify an org's mandates (it holds public keys only).
+    expect(publicRoutes).toEqual(['GET /api/v1/invitations/{token}', 'GET /api/v1/orgs/{orgId}/jwks.json']);
     for (const route of h.routes) {
-      if (route.path.includes('{orgId}')) expect(typeof route.access, `${route.method} ${route.path}`).toBe('object');
+      if (route.path.includes('{orgId}') && !route.path.endsWith('/jwks.json'))
+        expect(typeof route.access, `${route.method} ${route.path}`).toBe('object');
     }
   });
 

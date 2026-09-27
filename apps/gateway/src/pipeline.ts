@@ -1,11 +1,13 @@
 import { normalizeModel, type FetchLike, type Provider } from '@aperture/connectors';
-import { actualTextCost, estimateTextCost, evaluatePolicy, formatUsd, micros, type TextPrice } from '@aperture/core';
+import { actualTextCost, estimateTextCost, formatUsd, micros, type Decision, type TextPrice } from '@aperture/core';
 import type { KeyRing } from '@aperture/crypto';
-import { budgetHeadroom, lookupPrice, release, reserve, schema, settle, withOrg, type Database } from '@aperture/db';
+import { budgetHeadroom, lookupPrice, release, schema, settle, withOrg, type Database } from '@aperture/db';
+import type { ApprovalRow } from '@aperture/db';
 import type { MediaStorage } from '@aperture/media';
 import type { Logger } from '@aperture/runtime';
 import { v7 as uuidv7 } from 'uuid';
 import type { Adapter, Json, UsageReport } from './adapters';
+import { decide, reserveWithAuthority, resolveAuthority } from './authority';
 import {
   connectedProviders,
   loadPrincipalContext,
@@ -30,6 +32,8 @@ export interface GatewayDeps {
   fetch?: FetchLike | undefined;
   /** Private object storage for generated media; media routes answer 503 without it. */
   storage?: MediaStorage | undefined;
+  /** Notifies approvers (email/Slack) when a request needs approval. */
+  onApprovalRequested?: ((approval: ApprovalRow) => Promise<void>) | undefined;
 }
 
 /** A hold outlives any single request; if we crash, `holds.expire` settles it at the estimate (O2). */
@@ -46,6 +50,7 @@ export interface BuildInput {
 
 type Outcome =
   | 'allowed'
+  | 'approval_required'
   | 'denied_policy'
   | 'denied_budget'
   | 'denied_inactive'
@@ -247,19 +252,25 @@ export async function governedRequest(
       { promptBytes, inputImages: 0n, maxOutputTokens: first.maxOutputTokens },
       price,
     );
-    const decision = evaluatePolicy({
-      action: { rail: 'gateway', amount: firstEstimate, provider: first.provider, model: first.model },
-      at: new Date(),
-      timeZone: context.timezone,
-      layers: context.layers,
-    });
-    if (decision.outcome !== 'allow') {
-      const type = decision.outcome === 'deny' ? 'aperture_policy_denied' : 'aperture_approval_required';
-      const message = decision.reasons.map((reason) => reason.message).join('; ') || 'denied by policy';
+    const resource = `${first.provider}:${first.model}`;
+    let authority;
+    let decision: Decision;
+    try {
+      authority = await resolveAuthority(deps, caller, request, { rail: 'gateway', resource });
+      decision = await decide(deps, caller, authority, {
+        action: { rail: 'gateway', amount: firstEstimate, provider: first.provider, model: first.model },
+        context,
+        resource,
+        purpose: request.headers.get('x-aperture-purpose') ?? `${first.model} via ${route}`,
+        route,
+      });
+    } catch (error) {
+      if (!(error instanceof GatewayError)) throw error;
+      const reasons = (error.details.reasons as unknown[] | undefined) ?? [error.message];
       return await deny(
-        new GatewayError(type, message, { reasons: decision.reasons }),
-        'denied_policy',
-        decision.reasons,
+        error,
+        error.type === 'aperture_approval_required' ? 'approval_required' : 'denied_policy',
+        reasons,
         firstEstimate,
       );
     }
@@ -275,8 +286,9 @@ export async function governedRequest(
       price,
     );
 
-    const reservation = await withOrg(deps.db, caller.orgId, (tx) =>
-      reserve(tx, {
+    let reservation;
+    try {
+      reservation = await reserveWithAuthority(deps, caller, authority, {
         orgId: caller.orgId,
         principalId: caller.principalId,
         rail: 'gateway',
@@ -287,8 +299,11 @@ export async function governedRequest(
         resource: `${adapter.provider}:${adapter.model}`,
         externalRef: requestId,
         meta: { requestId, route, model: adapter.model, provider: adapter.provider },
-      }),
-    );
+      });
+    } catch (error) {
+      if (error instanceof GatewayError) return await deny(error, 'denied_policy', [error.message], estimate);
+      throw error;
+    }
     if (!reservation.ok) {
       if (reservation.reason === 'budget_exceeded') {
         return await deny(

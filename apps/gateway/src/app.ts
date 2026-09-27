@@ -1,8 +1,10 @@
 import { sql } from '@aperture/db';
+import { handleMcpHttp } from '@aperture/mcp';
 import { createServiceApp } from '@aperture/runtime';
 import { Hono } from 'hono';
 import { bodyLimit } from 'hono/body-limit';
 import { anthropicAdapter, geminiAdapter, openAiAdapter, type Json, type OpenAiRoute } from './adapters';
+import { registerAgentRoutes } from './agent';
 import { GatewayError, errorResponse } from './errors';
 import { registerMediaRoutes } from './media';
 import { governedRequest, type BuildInput, type GatewayDeps } from './pipeline';
@@ -111,6 +113,16 @@ export function buildApp(deps: GatewayDeps) {
   );
 
   registerMediaRoutes(app, deps);
+  registerAgentRoutes(app, deps);
+
+  // MCP over Streamable HTTP. Tools call this same app in-process with the caller's own key,
+  // so they get exactly the caller's authority and nothing more.
+  app.post('/mcp', (c) =>
+    handleMcpHttp(c.req.raw, {
+      baseUrl: 'http://gateway.internal',
+      fetch: async (input, init) => app.fetch(new Request(input, init)),
+    }),
+  );
 
   app.notFound(() =>
     errorResponse(new GatewayError('aperture_invalid_request', 'no such gateway route'), 'openai', 'none'),

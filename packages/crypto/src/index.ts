@@ -26,3 +26,4 @@ export {
   verifyWorkspaceToken,
   type WorkspaceClaims,
 } from './api-keys';
+export { JwsError, generateSigningKey, signJws, verifyJws, type Jwk, type PublicJwk, type SigningKey } from './jws';

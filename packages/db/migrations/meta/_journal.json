@@ -57,6 +57,20 @@
       "when": 1790453102287,
       "tag": "0007_media_security",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1790456852404,
+      "tag": "0008_approvals_and_mandates",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1790456853985,
+      "tag": "0009_approvals_and_mandates_security",
+      "breakpoints": true
     }
   ]
 }

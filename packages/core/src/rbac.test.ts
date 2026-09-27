@@ -20,6 +20,8 @@ describe('role grants (plan/architecture §11 role table)', () => {
       'spend.read',
       'agents.read',
       'workspace.use',
+      'approvals.read',
+      'approvals.decide',
     ],
     team_lead: [
       'org.read',
@@ -34,6 +36,8 @@ describe('role grants (plan/architecture §11 role table)', () => {
       'agents.read',
       'agents.manage',
       'workspace.use',
+      'approvals.read',
+      'approvals.decide',
     ],
     member: ['org.read', 'teams.read', 'workspace.use'],
     auditor: [
@@ -48,6 +52,7 @@ describe('role grants (plan/architecture §11 role table)', () => {
       'connections.read',
       'spend.read',
       'agents.read',
+      'approvals.read',
     ],
   };
 
@@ -59,6 +64,7 @@ describe('role grants (plan/architecture §11 role table)', () => {
     expect(grantFor('team_lead', 'budgets.manage')).toBe('team');
     expect(grantFor('team_lead', 'policies.manage')).toBe('team');
     expect(grantFor('team_lead', 'agents.manage')).toBe('team');
+    expect(grantFor('team_lead', 'approvals.decide')).toBe('team');
     expect(grantFor('team_lead', 'budgets.read')).toBe('all');
   });
 

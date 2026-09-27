@@ -22,6 +22,7 @@
     "try:simulate": "pnpm --filter @aperture/cli simulate",
     "try:gateway": "pnpm --filter @aperture/cli try-gateway --",
     "audit-verify": "pnpm --filter @aperture/cli audit-verify",
+    "mandate-verify": "pnpm --filter @aperture/cli mandate-verify",
     "db:migrate": "pnpm --filter @aperture/db db:migrate"
   },
   "devDependencies": {

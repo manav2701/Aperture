@@ -33,6 +33,9 @@ class Outbox implements EmailSender {
 
 const PEPPER = 'api-test-pepper-that-is-at-least-32-chars';
 
+/** Signs fake Slack interactions in tests (not a real secret). */
+export const SLACK_SIGNING_SECRET = 'test-slack-signing-secret';
+
 export interface Harness {
   request: (path: string, init?: RequestInit & { cookie?: string }) => Promise<Response>;
   /** Scripts the providers (OpenRouter, Anthropic, …) that connectors and the gateway call. */
@@ -40,6 +43,8 @@ export interface Harness {
   outbox: Outbox;
   system: DatabaseHandle;
   routes: ReturnType<typeof buildApp>['routes'];
+  /** The embedded gateway's cache; tests call invalidate(orgId) where production gets a NOTIFY. */
+  gatewayCache: GatewayCache;
   close: () => Promise<void>;
 }
 
@@ -64,13 +69,14 @@ export async function createHarness(): Promise<Harness> {
   const fetchViaFake: FetchLike = (input, init) => providerFetch(input, init);
   const storage = memoryStorage();
   const ring = keyRingFromEnv({ APERTURE_KEK_V1: randomBytes(32).toString('base64') });
+  const gatewayCache = new GatewayCache();
   const gateway = buildGatewayApp({
     db: appDb.db,
     ring,
     pepper: PEPPER,
     workspaceSecret: PEPPER,
     logger,
-    cache: new GatewayCache(),
+    cache: gatewayCache,
     limiter: new RequestLimiter(),
     fetch: fetchViaFake,
     storage,
@@ -88,6 +94,7 @@ export async function createHarness(): Promise<Harness> {
       gateway,
       gatewayPublicUrl: 'http://localhost:4000/gw',
       storage,
+      slack: { clientId: 'slack-client-id', clientSecret: 'slack-client-secret', signingSecret: SLACK_SIGNING_SECRET },
     },
     gateway,
   );
@@ -110,6 +117,7 @@ export async function createHarness(): Promise<Harness> {
     outbox,
     system,
     routes,
+    gatewayCache,
     close: async () => {
       await appDb.close();
       await system.close();

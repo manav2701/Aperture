@@ -1,4 +1,5 @@
 import { ROLES } from '@aperture/core';
+import type { PublicJwk } from '@aperture/crypto';
 import { sql } from 'drizzle-orm';
 import {
   bigint,
@@ -649,4 +650,107 @@ export const mediaJobs = pgTable(
     check('media_jobs_kind_check', inList('kind', MEDIA_KINDS)),
     check('media_jobs_status_check', inList('status', MEDIA_JOB_STATUSES)),
   ],
+);
+
+// ---------------------------------------------------------------------------------------------
+// Phase 7: approvals, mandates, signing keys
+
+export const APPROVAL_STATUSES = ['pending', 'approved', 'denied', 'expired', 'used'] as const;
+export const MANDATE_STATUSES = ['active', 'revoked'] as const;
+
+/**
+ * A request that policy sent to a human (plan/architecture §14). Approving issues a one-shot
+ * mandate bound to the request's fingerprint; the requester retries with the approval id.
+ */
+export const approvals = pgTable(
+  'approvals',
+  {
+    id: uuid('id').primaryKey(),
+    orgId: uuid('org_id')
+      .notNull()
+      .references(() => orgs.id),
+    requesterPrincipalId: uuid('requester_principal_id')
+      .notNull()
+      .references(() => principals.id),
+    /** SHA-256 of principal, rail and resource: the retry must be the same kind of request. */
+    fingerprint: text('fingerprint').notNull(),
+    rail: text('rail', { enum: RAIL_VALUES }).notNull(),
+    /** `provider:model` for the gateway, merchant for cards, payee for x402. */
+    resource: text('resource').notNull(),
+    /** The estimate that needed approval (µUSD). */
+    amount: money('amount').notNull(),
+    purpose: text('purpose').notNull(),
+    /** Snapshot shown to approvers: route, reasons, model, estimate. */
+    context: jsonb('context').$type<Record<string, unknown>>().notNull(),
+    status: text('status', { enum: APPROVAL_STATUSES }).notNull().default('pending'),
+    decidedBy: text('decided_by').references(() => users.id),
+    decisionNote: text('decision_note'),
+    /** Cap the approver allowed; at most `amount`. */
+    approvedAmount: money('approved_amount'),
+    mandateId: uuid('mandate_id'),
+    expiresAt: timestamp('expires_at', { withTimezone: true, mode: 'date' }).notNull(),
+    decidedAt: timestamp('decided_at', { withTimezone: true, mode: 'date' }),
+    createdAt: createdAt(),
+  },
+  (table) => [
+    index('approvals_org_status_idx').on(table.orgId, table.status),
+    check('approvals_status_check', inList('status', APPROVAL_STATUSES)),
+  ],
+);
+
+/** Signed, scoped grants of spending authority (plan/architecture §10). */
+export const mandates = pgTable(
+  'mandates',
+  {
+    id: uuid('id').primaryKey(),
+    orgId: uuid('org_id')
+      .notNull()
+      .references(() => orgs.id),
+    parentId: uuid('parent_id').references((): AnyPgColumn => mandates.id),
+    /** A person issued it (dashboard) … */
+    issuerUserId: text('issuer_user_id').references(() => users.id),
+    /** … or an agent issued it to its sub-agent, within its own mandate. */
+    issuerPrincipalId: uuid('issuer_principal_id').references(() => principals.id),
+    subjectPrincipalId: uuid('subject_principal_id')
+      .notNull()
+      .references(() => principals.id),
+    /** The scope in stored form (@aperture/core mandateScopeSchema input). */
+    scope: jsonb('scope').$type<Record<string, unknown>>().notNull(),
+    purpose: text('purpose').notNull(),
+    /** The mandate's own budget node; reserves add it to the budget path. */
+    budgetId: uuid('budget_id').references(() => budgets.id),
+    notBefore: timestamp('not_before', { withTimezone: true, mode: 'date' }).notNull(),
+    expiresAt: timestamp('expires_at', { withTimezone: true, mode: 'date' }).notNull(),
+    maxUses: integer('max_uses'),
+    uses: integer('uses').notNull().default(0),
+    status: text('status', { enum: MANDATE_STATUSES }).notNull().default('active'),
+    kid: text('kid').notNull(),
+    jws: text('jws').notNull(),
+    approvalId: uuid('approval_id'),
+    revokedAt: timestamp('revoked_at', { withTimezone: true, mode: 'date' }),
+    createdAt: createdAt(),
+  },
+  (table) => [
+    index('mandates_subject_idx').on(table.subjectPrincipalId),
+    index('mandates_parent_idx').on(table.parentId),
+    check('mandates_status_check', inList('status', MANDATE_STATUSES)),
+    check('mandates_uses_check', sql`max_uses is null or uses <= max_uses`),
+  ],
+);
+
+/** Per-org Ed25519 keys that sign mandates; retired keys stay published for verification. */
+export const orgSigningKeys = pgTable(
+  'org_signing_keys',
+  {
+    kid: text('kid').primaryKey(),
+    orgId: uuid('org_id')
+      .notNull()
+      .references(() => orgs.id),
+    publicJwk: jsonb('public_jwk').$type<PublicJwk>().notNull(),
+    /** Envelope-encrypted PKCS#8 private key. */
+    privateKey: jsonb('private_key').notNull(),
+    retiredAt: timestamp('retired_at', { withTimezone: true, mode: 'date' }),
+    createdAt: createdAt(),
+  },
+  (table) => [index('org_signing_keys_org_idx').on(table.orgId)],
 );

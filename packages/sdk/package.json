@@ -1,0 +1,17 @@
+{
+  "name": "@aperture/sdk",
+  "version": "0.0.0",
+  "private": true,
+  "description": "TypeScript client for agents: budget, estimates, approvals, sub-agents and the kill switch, with typed errors",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "@aperture/config": "workspace:*"
+  }
+}

@@ -5,9 +5,10 @@ import {
   parseUsd,
   payeeSchema,
   policyDocumentSchema,
+  suggestThresholds,
   type PolicyLayer,
 } from '@aperture/core';
-import { and, desc, eq, schema, withOrg, type Transaction } from '@aperture/db';
+import { and, desc, eq, gte, inArray, schema, sql, withOrg, type Transaction } from '@aperture/db';
 import { createRoute, z } from '@hono/zod-openapi';
 import { v7 as uuidv7 } from 'uuid';
 import { requireUser, type Router } from '../http/access';
@@ -333,6 +334,80 @@ export function registerPolicyRoutes(router: Router, deps: AppDeps): void {
         return evaluatePolicy({ action, at: new Date(), timeZone: org.timezone, layers });
       });
       return c.json(decision, 200);
+    },
+  );
+
+  router.add(
+    { permission: 'policies.manage' },
+    createRoute({
+      method: 'get',
+      path: '/api/v1/orgs/{orgId}/policy-suggestions',
+      tags: ['policies'],
+      summary:
+        'Thresholds people keep approving (3+ approvals, no denials in 30 days) and the policy change that would stop asking',
+      description:
+        'Apply a suggestion by PUTting its `document` to the scope with its `expectedVersion`; the change is versioned and audited like any other.',
+      request: { params: OrgParams },
+      responses: {
+        200: json(
+          z.object({
+            suggestions: z.array(
+              z.object({
+                level: z.enum(POLICY_SCOPES),
+                scopeId: z.string(),
+                ruleId: z.string(),
+                currentAbove: UsdSchema,
+                suggestedAbove: UsdSchema,
+                approvals: z.number().int(),
+                document: PolicyDocumentSchema,
+                expectedVersion: z.number().int(),
+              }),
+            ),
+          }),
+        ),
+        ...errorResponses,
+      },
+    }),
+    async (c) => {
+      const { orgId } = c.req.valid('param');
+      const reach = reachOf(c.var.membership, 'policies.manage');
+      const { history, policies } = await withOrg(deps.db, orgId, async (tx) => ({
+        history: await tx
+          .select({
+            status: schema.approvals.status,
+            amount: schema.approvals.amount,
+            approvedAmount: schema.approvals.approvedAmount,
+            context: schema.approvals.context,
+          })
+          .from(schema.approvals)
+          .where(
+            and(
+              eq(schema.approvals.orgId, orgId),
+              inArray(schema.approvals.status, ['approved', 'used', 'denied']),
+              gte(schema.approvals.createdAt, sql`now() - interval '30 days'`),
+            ),
+          ),
+        policies: await tx
+          .selectDistinctOn([schema.policies.scope, schema.policies.scopeId])
+          .from(schema.policies)
+          .where(eq(schema.policies.orgId, orgId))
+          .orderBy(schema.policies.scope, schema.policies.scopeId, desc(schema.policies.version)),
+      }));
+      const suggestions = suggestThresholds(
+        history.map((row) => {
+          const reasons = (row.context as { reasons?: unknown }).reasons;
+          return { ...row, reasons: Array.isArray(reasons) ? (reasons as Record<string, unknown>[]) : [] };
+        }),
+        policies.map((p) => ({ level: p.scope, scopeId: p.scopeId, version: p.version, document: p.document })),
+      ).filter(
+        (suggestion) => reach.kind === 'all' || (suggestion.level === 'team' && suggestion.scopeId === reach.teamId),
+      );
+      return c.json(
+        {
+          suggestions,
+        },
+        200,
+      );
     },
   );
 }

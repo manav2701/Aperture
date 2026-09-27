@@ -11,3 +11,4 @@ export type Decision = Schemas['Decision'];
 export type Connection = Schemas['Connection'];
 export type Credential = Schemas['Credential'];
 export type Provider = Schemas['Provider'];
+export type Mandate = Schemas['Mandate'];

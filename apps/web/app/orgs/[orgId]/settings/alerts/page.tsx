@@ -3,6 +3,7 @@ import { Badge, Card, CardTitle, EmptyState } from '@/components/ui/card';
 import { serverApi, unwrap } from '@/lib/api/server';
 import { formatDateTime } from '@/lib/format';
 import { SlackForm } from './slack-form';
+import { SlackInstall } from './slack-install';
 
 const KIND_LABELS: Record<string, string> = {
   budget_threshold: 'Budget threshold',
@@ -10,6 +11,8 @@ const KIND_LABELS: Record<string, string> = {
   connection_broken: 'Connection broken',
   unpriced_model: 'Unpriced model',
   ledger_drift: 'Ledger check',
+  media_stuck: 'Slow media job',
+  approval_requested: 'Approval requested',
 };
 
 export default async function AlertsPage({ params }: { params: Promise<{ orgId: string }> }) {
@@ -53,7 +56,18 @@ export default async function AlertsPage({ params }: { params: Promise<{ orgId: 
         <p className="mb-4 text-sm text-muted-foreground">
           {slack ? 'Alerts are also posted to Slack.' : 'Post alerts to a Slack channel with an incoming webhook.'}
         </p>
-        {can(org.role, 'connections.manage') ? <SlackForm orgId={orgId} /> : null}
+        {can(org.role, 'connections.manage') ? (
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <p className="text-sm text-muted-foreground">
+                The Slack app posts alerts to a channel you pick and lets approvers answer requests with Approve / Deny
+                buttons (they must use the same verified email in Slack and Aperture).
+              </p>
+              <SlackInstall orgId={orgId} />
+            </div>
+            <SlackForm orgId={orgId} />
+          </div>
+        ) : null}
       </Card>
     </div>
   );

@@ -24,6 +24,8 @@ export interface AppDeps {
   gatewayPublicUrl: string | undefined;
   /** Private media storage, for gallery links; undefined disables media. */
   storage: MediaStorage | undefined;
+  /** The Slack app's credentials; undefined disables install and interactive approvals. */
+  slack?: { clientId: string; clientSecret: string; signingSecret: string } | undefined;
 }
 
 export type SessionUser = NonNullable<Awaited<ReturnType<Auth['api']['getSession']>>>['user'];

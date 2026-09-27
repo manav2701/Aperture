@@ -12,6 +12,7 @@ const sections: { href: string; label: string; permission: Permission }[] = [
   { href: '/budgets', label: 'Budgets', permission: 'budgets.read' },
   { href: '/policies', label: 'Policies', permission: 'policies.read' },
   { href: '/agents', label: 'Agents & keys', permission: 'agents.read' },
+  { href: '/approvals', label: 'Approvals', permission: 'approvals.read' },
   { href: '/connections', label: 'Connections', permission: 'connections.read' },
   { href: '/audit', label: 'Audit log', permission: 'audit.read' },
   { href: '/settings', label: 'Settings', permission: 'org.read' },

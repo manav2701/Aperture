@@ -26,6 +26,10 @@ export const apiEnvSchema = serviceEnvSchema(4000).extend({
   EMBED_GATEWAY: z.stringbool().default(false),
   /** Public base URL of the gateway, shown to people setting up SDKs. */
   GATEWAY_PUBLIC_URL: z.url().optional(),
+  /** The Aperture Slack app (all three, or none): install per org and Approve/Deny buttons. */
+  SLACK_CLIENT_ID: optional,
+  SLACK_CLIENT_SECRET: optional,
+  SLACK_SIGNING_SECRET: optional,
 });
 
 export type ApiEnv = z.output<typeof apiEnvSchema>;

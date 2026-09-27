@@ -1,5 +1,5 @@
 import { normalizeModel, type Provider } from '@aperture/connectors';
-import { estimateTextCost, evaluatePolicy, formatUsd, micros, type Decision } from '@aperture/core';
+import { estimateTextCost, evaluatePolicy, formatUsd, micros } from '@aperture/core';
 import {
   and,
   budgetHeadroom,
@@ -7,7 +7,6 @@ import {
   lookupMediaPrice,
   lookupPrice,
   release,
-  reserve,
   schema,
   settle,
   withOrg,
@@ -29,6 +28,7 @@ import {
 import type { Hono } from 'hono';
 import { v7 as uuidv7 } from 'uuid';
 import { z } from 'zod';
+import { decide, reserveWithAuthority, resolveAuthority } from './authority';
 import { connectedProviders, loadPrincipalContext, upstreamKey, type Caller } from './context';
 import { GatewayError, errorResponse } from './errors';
 import { admit, type GatewayDeps } from './pipeline';
@@ -79,17 +79,6 @@ function routeMedia(kind: 'image' | 'video', model: string, connected: Set<strin
 
 const toMediaPrice = (row: MediaPriceRow): MediaPrice => ({ ...row, provider: row.provider as MediaProvider });
 
-function decisionError(decision: Decision): GatewayError {
-  const message = decision.reasons.map((reason) => reason.message).join('; ') || 'denied by policy';
-  return new GatewayError(
-    decision.outcome === 'deny' ? 'aperture_policy_denied' : 'aperture_approval_required',
-    message,
-    {
-      reasons: decision.reasons,
-    },
-  );
-}
-
 async function logMediaRequest(
   deps: GatewayDeps,
   caller: Caller,
@@ -132,10 +121,14 @@ async function logMediaRequest(
   }
 }
 
-/** Policy + reservation shared by images and videos. Returns the hold, or throws a GatewayError. */
+/**
+ * Policy (with the caller's mandate) + reservation shared by images and videos. Returns the
+ * hold, or throws a GatewayError — `aperture_approval_required` carries the approval to wait on.
+ */
 async function authorize(
   deps: GatewayDeps,
   caller: Caller,
+  request: Request,
   input: {
     provider: MediaProvider;
     model: string;
@@ -144,10 +137,13 @@ async function authorize(
     ttlSeconds: number;
     onExpiry: 'settle' | 'reconcile';
     requestId: string;
+    route: string;
   },
 ) {
   const context = await loadPrincipalContext(deps.db, deps.cache, caller);
-  const decision = evaluatePolicy({
+  const resource = `${input.provider}:${input.model}`;
+  const authority = await resolveAuthority(deps, caller, request, { rail: 'gateway', resource });
+  await decide(deps, caller, authority, {
     action: {
       rail: 'gateway',
       amount: micros(input.estimate),
@@ -155,25 +151,23 @@ async function authorize(
       model: input.model,
       media: input.media,
     },
-    at: new Date(),
-    timeZone: context.timezone,
-    layers: context.layers,
+    context,
+    resource,
+    purpose: request.headers.get('x-aperture-purpose') ?? `${input.model} via ${input.route}`,
+    route: input.route,
   });
-  if (decision.outcome !== 'allow') throw decisionError(decision);
-  const reservation = await withOrg(deps.db, caller.orgId, (tx) =>
-    reserve(tx, {
-      orgId: caller.orgId,
-      principalId: caller.principalId,
-      rail: 'gateway',
-      amount: input.estimate,
-      idempotencyKey: `media:${input.requestId}`,
-      ttlSeconds: input.ttlSeconds,
-      onExpiry: input.onExpiry,
-      resource: `${input.provider}:${input.model}`,
-      externalRef: input.requestId,
-      meta: { requestId: input.requestId, provider: input.provider, model: input.model, media: input.media },
-    }),
-  );
+  const reservation = await reserveWithAuthority(deps, caller, authority, {
+    orgId: caller.orgId,
+    principalId: caller.principalId,
+    rail: 'gateway',
+    amount: input.estimate,
+    idempotencyKey: `media:${input.requestId}`,
+    ttlSeconds: input.ttlSeconds,
+    onExpiry: input.onExpiry,
+    resource,
+    externalRef: input.requestId,
+    meta: { requestId: input.requestId, provider: input.provider, model: input.model, media: input.media },
+  });
   if (reservation.ok) return reservation.hold;
   if (reservation.reason === 'budget_exceeded') {
     throw new GatewayError(
@@ -243,7 +237,7 @@ export function registerMediaRoutes(app: Hono, deps: GatewayDeps): void {
       if (key === undefined)
         throw new GatewayError('aperture_provider_not_connected', `set up the gateway key for ${provider}`);
 
-      const hold = await authorize(deps, caller, {
+      const hold = await authorize(deps, caller, c.req.raw, {
         provider,
         model: body.model,
         estimate,
@@ -251,6 +245,7 @@ export function registerMediaRoutes(app: Hono, deps: GatewayDeps): void {
         ttlSeconds: IMAGE_HOLD_SECONDS,
         onExpiry: 'settle',
         requestId,
+        route: '/v1/images/generations',
       });
 
       const client = provider === 'openai' ? openAiMedia(key, deps.fetch) : openRouterMedia(key, deps.fetch);
@@ -375,7 +370,9 @@ export function registerMediaRoutes(app: Hono, deps: GatewayDeps): void {
           ? 'denied_budget'
           : error.type === 'aperture_policy_denied'
             ? 'denied_policy'
-            : 'denied_other';
+            : error.type === 'aperture_approval_required'
+              ? 'approval_required'
+              : 'denied_other';
       await logMediaRequest(deps, caller, {
         id: requestId,
         ...meta,
@@ -429,7 +426,7 @@ export function registerMediaRoutes(app: Hono, deps: GatewayDeps): void {
       if (key === undefined)
         throw new GatewayError('aperture_provider_not_connected', `set up the gateway key for ${provider}`);
 
-      const hold = await authorize(deps, caller, {
+      const hold = await authorize(deps, caller, c.req.raw, {
         provider,
         model: body.model,
         estimate,
@@ -437,6 +434,7 @@ export function registerMediaRoutes(app: Hono, deps: GatewayDeps): void {
         ttlSeconds: VIDEO_HOLD_SECONDS,
         onExpiry: 'reconcile',
         requestId,
+        route: '/v1/videos',
       });
 
       const client = provider === 'google' ? googleMedia(key, deps.fetch) : openRouterMedia(key, deps.fetch);
@@ -519,7 +517,9 @@ export function registerMediaRoutes(app: Hono, deps: GatewayDeps): void {
           ? 'denied_budget'
           : error.type === 'aperture_policy_denied'
             ? 'denied_policy'
-            : 'denied_other';
+            : error.type === 'aperture_approval_required'
+              ? 'approval_required'
+              : 'denied_other';
       await logMediaRequest(deps, caller, {
         id: requestId,
         ...meta,
@@ -650,6 +650,10 @@ export function registerMediaRoutes(app: Hono, deps: GatewayDeps): void {
         );
       }
       const context = await loadPrincipalContext(deps.db, deps.cache, caller);
+      const authority = await resolveAuthority(deps, caller, c.req.raw, {
+        rail: 'gateway',
+        resource: `${provider}:${request.model}`,
+      });
       const decision = evaluatePolicy({
         action: {
           rail: 'gateway',
@@ -664,7 +668,7 @@ export function registerMediaRoutes(app: Hono, deps: GatewayDeps): void {
         },
         at: new Date(),
         timeZone: context.timezone,
-        layers: context.layers,
+        layers: [...context.layers, ...authority.layers],
       });
       const headroom = await withOrg(deps.db, caller.orgId, (tx) =>
         budgetHeadroom(tx, { orgId: caller.orgId, principalId: caller.principalId, rail: 'gateway' }),
