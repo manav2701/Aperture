@@ -71,6 +71,20 @@
       "when": 1790456853985,
       "tag": "0009_approvals_and_mandates_security",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1790493237095,
+      "tag": "0010_cards",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1790494023330,
+      "tag": "0011_cards_security",
+      "breakpoints": true
     }
   ]
 }

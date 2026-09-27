@@ -1,5 +1,6 @@
 import { dispatchAlerts, scanBudgetThresholds } from './alerts';
 import { expirePendingApprovals, notifyApprovals } from './approvals';
+import { expireTaskCards, reconcileCards, syncFxRates } from './cards';
 import type { JobDeps } from './deps';
 import { expireAllHolds, syncPrices, verifyLedgers } from './maintenance';
 import { pollMediaJobs } from './media';
@@ -8,6 +9,7 @@ import { syncAllConnections } from './sync';
 
 export { alertMessage, dispatchAlerts, queueAlert, scanBudgetThresholds, type AlertKind } from './alerts';
 export { expirePendingApprovals, notifyApprovals } from './approvals';
+export { expireTaskCards, reconcileCards, syncFxRates } from './cards';
 export { SYSTEM_ACTOR, type JobDeps } from './deps';
 export { expireAllHolds, syncPrices, verifyLedgers } from './maintenance';
 export { pollMediaJobs } from './media';
@@ -42,6 +44,9 @@ export function standardJobs(deps: JobDeps): Job[] {
     job('media.poll', 10_000, () => pollMediaJobs(deps)),
     job('approvals.notify', 15_000, () => notifyApprovals(deps)),
     job('approvals.expire', 5 * MINUTE, () => expirePendingApprovals(deps)),
+    job('fx.sync', 6 * 60 * MINUTE, () => syncFxRates(deps)),
+    job('cards.expire', 10 * MINUTE, () => expireTaskCards(deps)),
+    job('cards.reconcile', 24 * 60 * MINUTE, () => reconcileCards(deps)),
   ];
 }
 

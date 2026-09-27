@@ -21,6 +21,7 @@
     "check": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test && pnpm knip && pnpm check:legacy-imports",
     "try:simulate": "pnpm --filter @aperture/cli simulate",
     "try:gateway": "pnpm --filter @aperture/cli try-gateway --",
+    "try:card": "pnpm --filter @aperture/cli try-card --",
     "audit-verify": "pnpm --filter @aperture/cli audit-verify",
     "mandate-verify": "pnpm --filter @aperture/cli mandate-verify",
     "db:migrate": "pnpm --filter @aperture/db db:migrate"

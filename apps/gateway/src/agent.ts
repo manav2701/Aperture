@@ -38,6 +38,14 @@ const approvalBody = z.object({
   purpose: z.string().min(1).max(500),
 });
 
+const taskCardBody = z.object({
+  amount_usd: z.string().regex(/^\d+(\.\d{1,2})?$/),
+  /** Stripe merchant category, e.g. computer_software_stores. */
+  category: z.string().regex(/^[a-z_]{2,80}$/),
+  purpose: z.string().min(1).max(500),
+  merchant: z.string().max(200).optional(),
+});
+
 const subagentBody = z.object({
   name: z.string().min(1).max(100),
   purpose: z.string().min(1).max(500),
@@ -73,7 +81,10 @@ function mandateView(mandate: typeof schema.mandates.$inferSelect, remaining: bi
   };
 }
 
-function approvalView(approval: typeof schema.approvals.$inferSelect) {
+function approvalView(
+  approval: typeof schema.approvals.$inferSelect,
+  card?: { id: string; last4: string | null; status: string; expiresAt: Date | null },
+) {
   return {
     id: approval.id,
     status: approval.status,
@@ -85,6 +96,11 @@ function approvalView(approval: typeof schema.approvals.$inferSelect) {
     note: approval.decisionNote,
     expires_at: approval.expiresAt.toISOString(),
     decided_at: approval.decidedAt?.toISOString() ?? null,
+    /** Card approvals: the single-use card issued once approved (never its number). */
+    card:
+      card === undefined
+        ? null
+        : { id: card.id, last4: card.last4, status: card.status, expires_at: card.expiresAt?.toISOString() ?? null },
   };
 }
 
@@ -252,16 +268,38 @@ export function registerAgentRoutes(app: Hono, deps: GatewayDeps): void {
     route(async (caller, _body, _request, params) => {
       const id = params.id ?? '';
       if (!/^[0-9a-f-]{36}$/i.test(id)) throw new GatewayError('aperture_invalid_request', 'not an approval id');
-      const [approval] = await withOrg(deps.db, caller.orgId, (tx) =>
+      const [row] = await withOrg(deps.db, caller.orgId, (tx) =>
         tx
-          .select()
+          .select({ approval: schema.approvals, card: schema.cards })
           .from(schema.approvals)
+          .leftJoin(schema.cards, eq(schema.cards.approvalId, schema.approvals.id))
           .where(and(eq(schema.approvals.id, id), eq(schema.approvals.requesterPrincipalId, caller.principalId))),
       );
-      if (approval === undefined)
-        throw new GatewayError('aperture_invalid_request', 'no such approval for this caller');
-      return Response.json(approvalView(approval));
+      if (row === undefined) throw new GatewayError('aperture_invalid_request', 'no such approval for this caller');
+      return Response.json(approvalView(row.approval, row.card ?? undefined));
     }),
+  );
+
+  // A single-use card for one purchase (plan/phases/phase-08 §8.5). Always via a person: the
+  // approval opens now, and approving issues the card, capped at the approved amount.
+  app.post(
+    '/v1/cards/task',
+    route(async (caller, raw) => {
+      const body = await parseJson(taskCardBody, raw);
+      const approval = await withOrg(deps.db, caller.orgId, (tx) =>
+        requestApproval(tx, {
+          orgId: caller.orgId,
+          principalId: caller.principalId,
+          rail: 'card',
+          resource: `card:${body.category}`,
+          amount: parseUsd(body.amount_usd),
+          purpose: body.purpose,
+          context: { requestedBy: 'agent', merchant: body.merchant ?? null, kind: 'task_card' },
+        }),
+      );
+      await deps.onApprovalRequested?.(approval);
+      return Response.json(approvalView(approval), { status: 202 });
+    }, true),
   );
 
   // Delegation: a sub-agent with its own key and a mandate inside the caller's (P2).

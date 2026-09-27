@@ -12,6 +12,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@aperture/cards": "workspace:*",
     "@aperture/connectors": "workspace:*",
     "@aperture/core": "workspace:*",
     "@aperture/crypto": "workspace:*",

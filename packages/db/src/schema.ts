@@ -754,3 +754,150 @@ export const orgSigningKeys = pgTable(
   },
   (table) => [index('org_signing_keys_org_idx').on(table.orgId)],
 );
+
+// ---------------------------------------------------------------------------------------------
+// Cards (Phase 8): the org's own Stripe Issuing program; Aperture decides every authorization.
+
+export const CARD_KINDS = ['agent', 'task'] as const;
+export const CARD_STATUSES = ['active', 'inactive', 'canceled'] as const;
+export const CARD_AUTH_STATUSES = ['pending', 'closed', 'reversed', 'expired'] as const;
+/** approved/declined: our real-time answer; unseen: Stripe approved without asking us (K2). */
+export const CARD_AUTH_DECISIONS = ['approved', 'declined', 'unseen'] as const;
+
+export const cards = pgTable(
+  'cards',
+  {
+    id: uuid('id').primaryKey(),
+    orgId: uuid('org_id')
+      .notNull()
+      .references(() => orgs.id),
+    connectionId: uuid('connection_id')
+      .notNull()
+      .references(() => connections.id),
+    principalId: uuid('principal_id')
+      .notNull()
+      .references(() => principals.id),
+    /** Stripe's card id (`ic_…`). Card numbers are never requested or stored (K13). */
+    externalId: text('external_id').notNull(),
+    kind: text('kind', { enum: CARD_KINDS }).notNull(),
+    status: text('status', { enum: CARD_STATUSES }).notNull().default('active'),
+    last4: text('last4'),
+    currency: text('currency').notNull().default('usd'),
+    /** The backstop spending_controls mirrored to Stripe. */
+    controls: jsonb('controls').$type<Record<string, unknown>>().notNull().default({}),
+    purpose: text('purpose'),
+    /** Task cards: the approval (and its one-shot mandate) they were created for. */
+    approvalId: uuid('approval_id').references(() => approvals.id),
+    mandateId: uuid('mandate_id').references(() => mandates.id),
+    expiresAt: timestamp('expires_at', { withTimezone: true, mode: 'date' }),
+    createdBy: text('created_by').references(() => users.id),
+    createdAt: createdAt(),
+    canceledAt: timestamp('canceled_at', { withTimezone: true, mode: 'date' }),
+  },
+  (table) => [
+    unique('cards_external_unique').on(table.connectionId, table.externalId),
+    index('cards_principal_idx').on(table.principalId),
+    check('cards_kind_check', inList('kind', CARD_KINDS)),
+    check('cards_status_check', inList('status', CARD_STATUSES)),
+  ],
+);
+
+export const cardAuthorizations = pgTable(
+  'card_authorizations',
+  {
+    id: uuid('id').primaryKey(),
+    orgId: uuid('org_id')
+      .notNull()
+      .references(() => orgs.id),
+    cardId: uuid('card_id')
+      .notNull()
+      .references(() => cards.id),
+    principalId: uuid('principal_id')
+      .notNull()
+      .references(() => principals.id),
+    /** Stripe's authorization id (`iauth_…`). */
+    externalId: text('external_id').notNull(),
+    status: text('status', { enum: CARD_AUTH_STATUSES }).notNull().default('pending'),
+    decision: text('decision', { enum: CARD_AUTH_DECISIONS }).notNull(),
+    reasons: jsonb('reasons').$type<unknown[]>().notNull().default([]),
+    /** Holds taken for this authorization: the first request and each increment (K4). */
+    holdIds: jsonb('hold_ids').$type<string[]>().notNull().default([]),
+    requested: money('requested').notNull(),
+    currency: text('currency').notNull(),
+    merchant: jsonb('merchant').$type<Record<string, string | null>>().notNull(),
+    /** Set once the holds are settled against the captured total (when the authorization closes). */
+    settledAt: timestamp('settled_at', { withTimezone: true, mode: 'date' }),
+    settledAmount: money('settled_amount'),
+    createdAt: createdAt(),
+    updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
+  },
+  (table) => [
+    unique('card_authorizations_external_unique').on(table.orgId, table.externalId),
+    index('card_authorizations_card_idx').on(table.cardId),
+    check('card_authorizations_status_check', inList('status', CARD_AUTH_STATUSES)),
+    check('card_authorizations_decision_check', inList('decision', CARD_AUTH_DECISIONS)),
+  ],
+);
+
+export const CARD_TX_TYPES = ['capture', 'refund'] as const;
+
+/** Issuing transactions (`ipi_…`): captures and refunds, in µUSD as reported (refunds negative). */
+export const cardTransactions = pgTable(
+  'card_transactions',
+  {
+    id: uuid('id').primaryKey(),
+    orgId: uuid('org_id')
+      .notNull()
+      .references(() => orgs.id),
+    cardId: uuid('card_id')
+      .notNull()
+      .references(() => cards.id),
+    principalId: uuid('principal_id')
+      .notNull()
+      .references(() => principals.id),
+    externalId: text('external_id').notNull(),
+    authorizationExternalId: text('authorization_external_id'),
+    type: text('type', { enum: CARD_TX_TYPES }).notNull(),
+    amount: money('amount').notNull(),
+    currency: text('currency').notNull(),
+    merchant: jsonb('merchant').$type<Record<string, string | null>>().notNull(),
+    /** How the ledger took it: settled with its authorization, unheld capture (K7, K11), or refund. */
+    ledgerKind: text('ledger_kind'),
+    createdAt: createdAt(),
+  },
+  (table) => [
+    unique('card_transactions_external_unique').on(table.orgId, table.externalId),
+    index('card_transactions_auth_idx').on(table.orgId, table.authorizationExternalId),
+    check('card_transactions_type_check', inList('type', CARD_TX_TYPES)),
+  ],
+);
+
+/** Stripe event ids already applied (events are at-least-once and unordered, K3). */
+export const webhookReceipts = pgTable(
+  'webhook_receipts',
+  {
+    orgId: uuid('org_id')
+      .notNull()
+      .references(() => orgs.id),
+    source: text('source').notNull(),
+    eventId: text('event_id').notNull(),
+    receivedAt: timestamp('received_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
+  },
+  (table) => [primaryKey({ columns: [table.orgId, table.source, table.eventId] })],
+);
+
+/**
+ * Daily FX (K10): µUSD per one major unit of `currency` (e.g. EUR → 1_080_000). Global, like
+ * prices; the card hot path reads it and never fetches it.
+ */
+export const fxRates = pgTable(
+  'fx_rates',
+  {
+    currency: text('currency').notNull(),
+    day: text('day').notNull(),
+    microsPerUnit: money('micros_per_unit').notNull(),
+    source: text('source').notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
+  },
+  (table) => [primaryKey({ columns: [table.currency, table.day] })],
+);

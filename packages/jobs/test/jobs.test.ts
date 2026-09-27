@@ -1,6 +1,7 @@
 import { randomBytes } from 'node:crypto';
 import { fakeProvider, json } from '@aperture/connectors/testing';
-import { keyRingFromEnv } from '@aperture/crypto';
+import { authorizationObject, transactionObject } from '@aperture/cards/testing';
+import { encryptSecret, keyRingFromEnv } from '@aperture/crypto';
 import {
   and,
   connect,
@@ -19,6 +20,9 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
   dispatchAlerts,
   expirePendingApprovals,
+  expireTaskCards,
+  reconcileCards,
+  syncFxRates,
   notifyApprovals,
   scanBudgetThresholds,
   startScheduler,
@@ -306,11 +310,81 @@ describe('approvals', () => {
 
     await system.db
       .update(schema.approvals)
-      .set({ expiresAt: new Date(Date.now() - 1000) })
+      .set({ expiresAt: new Date(Date.now() - 3_600_000) })
       .where(eq(schema.approvals.id, approval.id));
     expect(await expirePendingApprovals(deps())).toBeGreaterThanOrEqual(1);
     const [expired] = await system.db.select().from(schema.approvals).where(eq(schema.approvals.id, approval.id));
     expect(expired?.status).toBe('expired');
+  });
+});
+
+describe('cards upkeep (Phase 8)', () => {
+  it('syncs FX with GCC pegs, replays missed Stripe events, and cancels unused task cards', async () => {
+    const fx = fakeProvider({ 'GET /v1/latest': json({ base: 'USD', rates: { EUR: 0.8, JPY: 150 } }) });
+    expect(await syncFxRates(deps(fx.fetch))).toBeGreaterThanOrEqual(8);
+    const rates = await system.db.select().from(schema.fxRates);
+    expect(rates.find((r) => r.currency === 'eur')?.microsPerUnit).toBe(1_250_000n);
+    expect(rates.find((r) => r.currency === 'aed')?.microsPerUnit).toBe(272_295n);
+
+    const tree = await seedTree(system.db, { agent: '100', agentPeriod: 'month' });
+    const connectionId = crypto.randomUUID();
+    await system.db.insert(schema.connections).values({
+      id: connectionId,
+      orgId: tree.org.id,
+      provider: 'stripe_issuing',
+      name: 'Stripe Issuing',
+      secret: encryptSecret(
+        JSON.stringify({ apiKey: 'rk_test_x', authorizationSecret: 'whsec_a', eventsSecret: 'whsec_e' }),
+        `${tree.org.id}|${connectionId}`,
+        ring,
+      ),
+      config: { cardholderId: 'ich_1' },
+    });
+    const card = async (externalId: string, extra: Record<string, unknown> = {}) =>
+      system.db.insert(schema.cards).values({
+        id: crypto.randomUUID(),
+        orgId: tree.org.id,
+        connectionId,
+        principalId: tree.agent.id,
+        externalId,
+        kind: 'agent',
+        ...extra,
+      });
+    await card('ic_rec1');
+    await card('ic_task1', { kind: 'task', expiresAt: new Date(Date.now() - 3_600_000) });
+
+    // Webhooks never arrived: Stripe approved on timeout and captured. Reconciliation finds it.
+    const auth = authorizationObject({
+      card: 'ic_rec1',
+      amount: 900,
+      status: 'closed',
+      pending: null,
+      history: [{ approved: true, reason: 'webhook_timeout' }],
+    });
+    const stripe = fakeProvider({
+      'GET /v1/issuing/authorizations': json({ object: 'list', data: [auth], has_more: false }),
+      'GET /v1/issuing/transactions': json({
+        object: 'list',
+        data: [transactionObject({ card: 'ic_rec1', authorization: auth.id, amount: 900 })],
+        has_more: false,
+      }),
+      'POST /v1/issuing/cards/ic_task1': json({ id: 'ic_task1', status: 'canceled' }),
+    });
+    const first = await reconcileCards(deps(stripe.fetch));
+    expect(first).toMatchObject({ timeouts: 1 });
+    const again = await reconcileCards(deps(stripe.fetch));
+    expect(again.replayed).toBe(0);
+    const usage = await system.db
+      .select()
+      .from(schema.budgetUsage)
+      .where(eq(schema.budgetUsage.budgetId, tree.agentBudget.id));
+    expect(usage.reduce((sum, row) => sum + row.spent, 0n)).toBe(usd('9'));
+    const alerts = await system.db.select().from(schema.alertLog).where(eq(schema.alertLog.orgId, tree.org.id));
+    expect(alerts.map((a) => a.kind).sort()).toEqual(['card_decisions_timing_out', 'card_unseen_authorization']);
+
+    expect(await expireTaskCards(deps(stripe.fetch))).toBeGreaterThanOrEqual(1);
+    const [task] = await system.db.select().from(schema.cards).where(eq(schema.cards.externalId, 'ic_task1'));
+    expect(task?.status).toBe('canceled');
   });
 });
 

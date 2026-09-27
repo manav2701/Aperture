@@ -26,6 +26,8 @@ export interface AppDeps {
   storage: MediaStorage | undefined;
   /** The Slack app's credentials; undefined disables install and interactive approvals. */
   slack?: { clientId: string; clientSecret: string; signingSecret: string } | undefined;
+  /** Public origin of this API (for webhook URLs shown to people); defaults to the request's. */
+  apiPublicUrl?: string | undefined;
 }
 
 export type SessionUser = NonNullable<Awaited<ReturnType<Auth['api']['getSession']>>>['user'];

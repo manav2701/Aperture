@@ -6,6 +6,7 @@ import { createRouter, sameOriginWrites, type RegisteredRoute } from './http/acc
 import type { AppDeps, AppEnv } from './http/context';
 import { errorBody, handleError } from './http/errors';
 import { registerAgentRoutes } from './routes/agents';
+import { registerCardRoutes } from './routes/cards';
 import { registerApprovalRoutes } from './routes/approvals';
 import { registerAuditRoutes } from './routes/audit';
 import { registerBudgetRoutes } from './routes/budgets';
@@ -17,6 +18,7 @@ import { registerPolicyRoutes } from './routes/policies';
 import { registerSpendRoutes } from './routes/spend';
 import { registerTeamRoutes } from './routes/teams';
 import { registerWorkspaceRoutes } from './routes/workspace';
+import { registerStripeWebhooks } from './cards';
 import { registerSlackInstallRoute, registerSlackWebhooks } from './slack';
 
 export interface ApiApp {
@@ -90,6 +92,7 @@ export function buildApp(
 
   // Slack calls these itself (signed), so they sit outside the session and same-origin checks.
   registerSlackWebhooks(app, deps);
+  registerStripeWebhooks(app, deps);
 
   app.use('/api/v1/*', sameOriginWrites(deps.webOrigin));
   app.use('/api/v1/*', async (c, next) => {
@@ -112,6 +115,7 @@ export function buildApp(
   registerApprovalRoutes(router, deps);
   registerMandateRoutes(router, deps);
   registerSlackInstallRoute(router, deps);
+  registerCardRoutes(router, deps);
 
   app.doc31('/api/v1/openapi.json', {
     openapi: '3.1.0',

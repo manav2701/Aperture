@@ -17,7 +17,11 @@ export type AlertKind =
   | 'unpriced_model'
   | 'ledger_drift'
   | 'media_stuck'
-  | 'approval_requested';
+  | 'approval_requested'
+  | 'card_unknown'
+  | 'card_unseen_authorization'
+  | 'card_unheld_capture'
+  | 'card_decisions_timing_out';
 
 /** Queues an alert once per dedupe key (C2: a threshold alerts once per budget period). */
 export async function queueAlert(
@@ -120,6 +124,26 @@ export function alertMessage(kind: string, payload: Record<string, unknown>): { 
       return {
         subject: `${s(payload.requester)} is asking to spend up to $${s(payload.amount)}`,
         text: `${s(payload.requester)} wants to use ${s(payload.resource)} for "${s(payload.purpose)}" (up to $${s(payload.amount)}). Approve or deny it in Aperture; it is denied automatically after 24 hours.`,
+      };
+    case 'card_unknown':
+      return {
+        subject: 'A card Aperture did not issue tried to spend',
+        text: `Stripe asked about card ${s(payload.card)}, which Aperture doesn't know. It was declined.`,
+      };
+    case 'card_unseen_authorization':
+      return {
+        subject: 'Stripe approved a card purchase without asking Aperture',
+        text: `Authorization ${s(payload.authorization)} at ${s(payload.merchant)} was approved by Stripe (${s(payload.reason)}). It is counted against budgets when captured. Check that the authorization timeout is set to decline.`,
+      };
+    case 'card_unheld_capture':
+      return {
+        subject: 'Money moved on a card without an authorization',
+        text: `Transaction ${s(payload.transaction)} at ${s(payload.merchant)} was captured without an authorization (a force capture). It is counted as spend; single-use cards are frozen. Consider a dispute.`,
+      };
+    case 'card_decisions_timing_out':
+      return {
+        subject: 'Card decisions are timing out',
+        text: `${s(payload.count)} card authorizations in the last ${s(payload.days)} days were decided by Stripe because Aperture did not answer in time.`,
       };
     default:
       return { subject: `Aperture alert: ${kind}`, text: JSON.stringify(payload) };

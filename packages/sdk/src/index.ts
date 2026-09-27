@@ -207,6 +207,8 @@ export interface Approval {
   note: string | null;
   expires_at: string;
   decided_at: string | null;
+  /** Card approvals: the single-use card once issued (its number is never returned by Aperture). */
+  card?: { id: string; last4: string | null; status: string; expires_at: string | null } | null;
 }
 
 export interface SubagentInput {
@@ -340,6 +342,25 @@ export class Aperture {
       ...(input.maxPerActionUsd === undefined ? {} : { max_per_action_usd: input.maxPerActionUsd }),
       ...(input.maxUses === undefined ? {} : { max_uses: input.maxUses }),
       ...(input.expiresInSeconds === undefined ? {} : { expires_in_seconds: input.expiresInSeconds }),
+    });
+  }
+
+  /**
+   * Asks for a single-use card for one purchase. A person approves it (possibly for less); then
+   * `waitForApproval(id)` returns the approval with `card`. Card details come from the org's own
+   * Stripe account, never from Aperture.
+   */
+  createTaskCard(input: {
+    amountUsd: string;
+    category: string;
+    purpose: string;
+    merchant?: string;
+  }): Promise<Approval> {
+    return this.#call('POST', '/v1/cards/task', {
+      amount_usd: input.amountUsd,
+      category: input.category,
+      purpose: input.purpose,
+      ...(input.merchant === undefined ? {} : { merchant: input.merchant }),
     });
   }
 

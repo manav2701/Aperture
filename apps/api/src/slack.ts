@@ -15,6 +15,7 @@ import {
 import { SLACK_API, slackApi, slackEscape } from '@aperture/jobs';
 import { createRoute, z, type OpenAPIHono } from '@hono/zod-openapi';
 import { v7 as uuidv7 } from 'uuid';
+import { taskCardForApproval } from './cards';
 import { requireUser, type Router } from './http/access';
 import type { AppDeps, AppEnv } from './http/context';
 import { AppError } from './http/errors';
@@ -275,7 +276,7 @@ async function decideFromSlack(
     throw new SlackRefusal('Aperture needs your verified Slack email to match your Aperture account.');
   }
 
-  return withOrg(deps.db, orgId, async (tx) => {
+  const decided = await withOrg(deps.db, orgId, async (tx) => {
     const [member] = await tx
       .select({
         userId: schema.users.id,
@@ -316,6 +317,13 @@ async function decideFromSlack(
       subject: `approval:${approval.id}`,
       data: { via: 'slack', slackUser: input.slackUserId, resource: approval.resource },
     });
-    return `${input.approve ? '✅ Approved' : '⛔ Denied'} by ${slackEscape(member.name)}: ${slackEscape(approval.purpose)} (${slackEscape(approval.resource)})`;
+    return {
+      approval,
+      userId: member.userId,
+      text: `${input.approve ? '✅ Approved' : '⛔ Denied'} by ${slackEscape(member.name)}: ${slackEscape(approval.purpose)} (${slackEscape(approval.resource)})`,
+    };
   });
+  // A card approval gets its single-use card (after the transaction: it calls Stripe).
+  const card = input.approve ? await taskCardForApproval(deps, decided.approval, decided.userId) : undefined;
+  return card === undefined ? decided.text : `${decided.text} · single-use card ••${card.last4 ?? '????'} issued`;
 }

@@ -1,27 +1,27 @@
 {
-  "name": "@aperture/jobs",
+  "name": "@aperture/cards",
   "version": "0.0.0",
   "private": true,
-  "description": "Background jobs: connector sync, limit mirroring, budget enforcement and alerts, prices, hold expiry, ledger checks",
+  "description": "The fiat card rail: Stripe Issuing real-time authorization, event state machine, cards and FX",
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./testing": "./test/fake-stripe.ts"
   },
   "scripts": {
     "typecheck": "tsc -p tsconfig.json",
     "test": "vitest run"
   },
   "dependencies": {
-    "@aperture/cards": "workspace:*",
     "@aperture/connectors": "workspace:*",
     "@aperture/core": "workspace:*",
     "@aperture/crypto": "workspace:*",
     "@aperture/db": "workspace:*",
-    "@aperture/media": "workspace:*",
-    "@aperture/runtime": "workspace:*",
-    "uuid": "^14.0.2"
+    "uuid": "^14.0.2",
+    "zod": "^4.6.5"
   },
   "devDependencies": {
-    "@aperture/config": "workspace:*"
+    "@aperture/config": "workspace:*",
+    "fast-check": "^4.10.2"
   }
 }

@@ -285,3 +285,26 @@ describe('MCP over HTTP', () => {
     });
   });
 });
+
+describe('task cards (Phase 8)', () => {
+  it('an agent asks for a single-use card; it waits for a person and never includes a number', async () => {
+    const org = await seedGatewayOrg(h);
+    const { app } = gateway(h, {});
+    const asked = await app.request('/v1/cards/task', {
+      method: 'POST',
+      headers: { authorization: `Bearer ${org.key}`, 'content-type': 'application/json' },
+      body: JSON.stringify({ amount_usd: '49.00', category: 'computer_software_stores', purpose: 'annual licence' }),
+    });
+    expect(asked.status).toBe(202);
+    const approval = (await asked.json()) as { id: string; status: string; rail: string; card: unknown };
+    expect(approval).toMatchObject({ status: 'pending', rail: 'card', card: null });
+    const bad = await app.request('/v1/cards/task', {
+      method: 'POST',
+      headers: { authorization: `Bearer ${org.key}`, 'content-type': 'application/json' },
+      body: JSON.stringify({ amount_usd: '1', category: 'DROP TABLE', purpose: 'x' }),
+    });
+    expect(bad.status).toBe(400);
+    const polled = await get(app, `/v1/approvals/${approval.id}`, org.key);
+    expect(await polled.json()).toMatchObject({ status: 'pending', card: null });
+  });
+});

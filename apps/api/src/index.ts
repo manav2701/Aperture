@@ -79,6 +79,7 @@ const { app } = buildApp(
     gatewayPublicUrl: env.GATEWAY_PUBLIC_URL,
     storage,
     slack,
+    apiPublicUrl: env.API_PUBLIC_URL,
   },
   gateway,
 );

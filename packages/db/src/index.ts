@@ -88,5 +88,6 @@ export {
   type IssueMandateInput,
   type MandateRow,
 } from './mandates';
+export { principalPolicyContext } from './policies';
 // Query helpers, re-exported so every package uses this package's single drizzle-orm instance.
 export { and, asc, count, desc, eq, gt, gte, inArray, isNotNull, isNull, lt, lte, ne, or, sql } from 'drizzle-orm';

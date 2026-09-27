@@ -21,6 +21,7 @@ Hard rule: **at most USD 1 in total per provider key**, including all testing. P
 | Hugging Face org token | HF router through the gateway; HF visibility | Connections → Hugging Face |
 | Slack incoming-webhook URL | Budget alerts to Slack (email alerts already work) | Settings → Alerts |
 | **Slack app** (api.slack.com/apps): client id, client secret, signing secret; redirect URL `{WEB_ORIGIN}/api/slack/oauth/callback`, interactivity URL `{WEB_ORIGIN}/api/slack/interactions`; scopes `chat:write users:read users:read.email incoming-webhook` | Approve / Deny from Slack (Phase 7); built and tested against a fake Slack | Render: `SLACK_CLIENT_ID`, `SLACK_CLIENT_SECRET`, `SLACK_SIGNING_SECRET`; then Settings → Alerts → Install |
+| **Stripe Issuing** access (decision D5): a test-mode account with Issuing, a restricted key, two webhook endpoints | Phase 8 live verification: the sandbox scenario suite (approve/deny, increment, partial reverse, over/under capture, multi-capture, expire, force capture, unlinked refund), the p99 < 400 ms decision latency from our region (move the webhook routes to a US instance if needed), and the k6 50 rps load test | Dashboard → Cards; `API_PUBLIC_URL` on Render; `pnpm try:card` |
 | **Domain** + Resend domain verification (decision D2) | Emails to anyone other than the Resend account owner (invitations, teammates' verification, alerts) | `EMAIL_FROM` on Render |
 
 ## Hosting
@@ -46,6 +47,8 @@ Hard rule: **at most USD 1 in total per provider key**, including all testing. P
 - Weekly live contract tests for connectors in GitHub Actions. Needs the provider keys as repository secrets, and each run spends a few cents.
 - Playwright end-to-end tests and two-factor authentication (Phase 10).
 - Policy rule builder UI (policies are edited as JSON today).
+- Cards: dispute helper (§8.6: prefill `POST /v1/issuing/disputes` for over-captures and force captures on single-use cards); partial-reversal release at reversal time rather than at close; confirm Stripe's real-time response headers and payload for API version 2024-06-20 in the sandbox.
+- NymCard connector (§8.7): deferred — no confirmation of real-time decisioning and no API access; build the limit-mirroring mode from the plan once NymCard answers.
 
 ## Security follow-ups (from Phase 1)
 

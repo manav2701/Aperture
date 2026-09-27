@@ -6,7 +6,10 @@ rules:
       details with its own key, or use a programmatic checkout token.
     severity: ERROR
     languages: [typescript, javascript]
-    pattern-regex: expand\s*:\s*\[[^\]]*['"](number|cvc)['"]
+    pattern-either:
+      - pattern-regex: expand\s*:\s*\[[^\]]*['"](number|cvc)['"]
+      # The form-encoded spelling Stripe's REST API takes: expand[]=number, 'expand[0]': 'cvc'.
+      - pattern-regex: expand\[\d*\]['"]?\s*[:=]\s*['"]?(number|cvc)
 
   - id: no-fetch-of-request-controlled-url
     message: >-

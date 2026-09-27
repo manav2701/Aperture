@@ -15,6 +15,15 @@ async function cards() {
 
   // ok: no-card-number-expansion
   await stripe.issuing.cards.retrieve('ic_123', { expand: ['cardholder'] });
+
+  // ruleid: no-card-number-expansion
+  await fetch('https://api.stripe.com/v1/issuing/cards/ic_123?expand[]=number');
+
+  // ruleid: no-card-number-expansion
+  await request('GET', '/v1/issuing/cards/ic_123', { 'expand[0]': 'cvc' });
+
+  // ok: no-card-number-expansion
+  await request('GET', '/v1/issuing/cards/ic_123', { 'expand[0]': 'cardholder' });
 }
 
 async function ssrf() {

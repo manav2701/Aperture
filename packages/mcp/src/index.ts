@@ -166,6 +166,33 @@ export function createApertureMcpServer(client: Aperture): McpServer {
   );
 
   server.registerTool(
+    'create_task_card',
+    {
+      title: 'Ask for a single-use card',
+      description:
+        'Asks a person for a single-use virtual card for one purchase, capped at amount_usd and limited to one merchant category. Returns an approval id; poll check_approval until it shows the card. Aperture never returns card numbers.',
+      inputSchema: {
+        amount_usd: z.string().regex(/^\d+(\.\d{1,2})?$/, 'a USD amount such as "49.00"'),
+        category: z
+          .string()
+          .regex(/^[a-z_]+$/)
+          .describe('Stripe merchant category, e.g. computer_software_stores'),
+        purpose: z.string().min(1).max(500),
+        merchant: z.string().max(200).optional(),
+      },
+    },
+    (input) =>
+      run(() =>
+        client.createTaskCard({
+          amountUsd: input.amount_usd,
+          category: input.category,
+          purpose: input.purpose,
+          ...(input.merchant === undefined ? {} : { merchant: input.merchant }),
+        }),
+      ),
+  );
+
+  server.registerTool(
     'pause_self',
     {
       title: 'Stop this agent',

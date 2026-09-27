@@ -30,6 +30,8 @@ export const apiEnvSchema = serviceEnvSchema(4000).extend({
   SLACK_CLIENT_ID: optional,
   SLACK_CLIENT_SECRET: optional,
   SLACK_SIGNING_SECRET: optional,
+  /** Public origin of this API, for the Stripe webhook URLs (e.g. https://aperture-api.onrender.com). */
+  API_PUBLIC_URL: z.url().optional(),
 });
 
 export type ApiEnv = z.output<typeof apiEnvSchema>;

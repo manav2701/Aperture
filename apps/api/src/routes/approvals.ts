@@ -2,6 +2,7 @@ import { formatUsd, grantFor, micros, parseUsd } from '@aperture/core';
 import { and, decideApproval, desc, eq, inArray, schema, withOrg, type Transaction } from '@aperture/db';
 import { createRoute, z } from '@hono/zod-openapi';
 import { requireUser, type Router } from '../http/access';
+import { taskCardForApproval } from '../cards';
 import { auditByUser } from '../http/audit';
 import type { AppDeps, Membership } from '../http/context';
 import { forbidden, notFound } from '../http/errors';
@@ -31,6 +32,8 @@ const ApprovalSchema = z
     decidedBy: z.string().nullable(),
     note: z.string().nullable(),
     mandateId: z.uuid().nullable(),
+    /** Card approvals: the single-use card issued for the approved purchase. */
+    taskCardId: z.uuid().nullable(),
     expiresAt: Timestamp,
     decidedAt: Timestamp.nullable(),
     createdAt: Timestamp,
@@ -44,11 +47,12 @@ const ApprovalParams = OrgParams.extend({
 interface Row {
   approval: typeof schema.approvals.$inferSelect;
   requester: typeof schema.principals.$inferSelect;
+  taskCardId: string | null;
 }
 
 const usd = (amount: bigint) => formatUsd(micros(amount));
 
-function view({ approval, requester }: Row): z.infer<typeof ApprovalSchema> {
+function view({ approval, requester, taskCardId }: Row): z.infer<typeof ApprovalSchema> {
   return {
     id: approval.id,
     status: approval.status,
@@ -62,6 +66,7 @@ function view({ approval, requester }: Row): z.infer<typeof ApprovalSchema> {
     decidedBy: approval.decidedBy,
     note: approval.decisionNote,
     mandateId: approval.mandateId,
+    taskCardId,
     expiresAt: approval.expiresAt.toISOString(),
     decidedAt: approval.decidedAt?.toISOString() ?? null,
     createdAt: approval.createdAt.toISOString(),
@@ -70,9 +75,10 @@ function view({ approval, requester }: Row): z.infer<typeof ApprovalSchema> {
 
 async function loadApproval(tx: Transaction, orgId: string, approvalId: string): Promise<Row> {
   const [row] = await tx
-    .select({ approval: schema.approvals, requester: schema.principals })
+    .select({ approval: schema.approvals, requester: schema.principals, taskCardId: schema.cards.id })
     .from(schema.approvals)
     .innerJoin(schema.principals, eq(schema.principals.id, schema.approvals.requesterPrincipalId))
+    .leftJoin(schema.cards, eq(schema.cards.approvalId, schema.approvals.id))
     .where(and(eq(schema.approvals.id, approvalId), eq(schema.approvals.orgId, orgId)));
   if (!row) throw notFound('approval');
   return row;
@@ -108,9 +114,10 @@ export function registerApprovalRoutes(router: Router, deps: AppDeps): void {
       const teamOnly = grantFor(membership.role, 'approvals.decide') === 'team' ? membership.teamId : null;
       const rows = await withOrg(deps.db, orgId, (tx) =>
         tx
-          .select({ approval: schema.approvals, requester: schema.principals })
+          .select({ approval: schema.approvals, requester: schema.principals, taskCardId: schema.cards.id })
           .from(schema.approvals)
           .innerJoin(schema.principals, eq(schema.principals.id, schema.approvals.requesterPrincipalId))
+          .leftJoin(schema.cards, eq(schema.cards.approvalId, schema.approvals.id))
           .where(
             and(
               eq(schema.approvals.orgId, orgId),
@@ -181,7 +188,9 @@ export function registerApprovalRoutes(router: Router, deps: AppDeps): void {
         });
         return after;
       });
-      return c.json(view(decided), 200);
+      // Card approvals get a single-use card now (outside the transaction: it calls Stripe).
+      const card = approve ? await taskCardForApproval(deps, decided.approval, user.id) : undefined;
+      return c.json(view({ ...decided, taskCardId: card?.id ?? decided.taskCardId }), 200);
     });
   }
 }

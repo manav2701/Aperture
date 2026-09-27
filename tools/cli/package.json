@@ -10,7 +10,8 @@
     "typecheck": "tsc -p tsconfig.json",
     "test": "vitest run",
     "try-gateway": "tsx src/try-gateway.ts",
-    "mandate-verify": "tsx src/mandate-verify.ts"
+    "mandate-verify": "tsx src/mandate-verify.ts",
+    "try-card": "tsx src/try-card.ts"
   },
   "dependencies": {
     "@aperture/core": "workspace:*",

@@ -20,3 +20,4 @@ One file per decision: context, decision, consequences. Add a new ADR instead of
 | [0014](0014-phases-4-5-connectors-and-gateway.md)  | Provider connectors and the gateway (Phases 4–5)        | Accepted                         |
 | [0015](0015-phase-6-media.md)                      | Media generation (Phase 6)                              | Accepted                         |
 | [0016](0016-phase-7-approvals-and-mandates.md)     | Approvals, mandates and delegation (Phase 7)            | Accepted                         |
+| [0017](0017-phase-8-cards-rail.md)                 | The fiat cards rail on Stripe Issuing (Phase 8)         | Accepted                         |
