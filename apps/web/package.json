@@ -14,6 +14,8 @@
   },
   "dependencies": {
     "@aperture/core": "workspace:*",
+    "@wallet-standard/app": "^1.1.1",
+    "@wallet-standard/base": "^1.1.1",
     "better-auth": "^1.7.5",
     "next": "^16.3.5",
     "openapi-fetch": "^0.17.0",

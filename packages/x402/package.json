@@ -1,0 +1,27 @@
+{
+  "name": "@aperture/x402",
+  "version": "0.0.0",
+  "private": true,
+  "description": "x402 on Solana: payment requirement validation, Path 1 transaction building and verification, budget-account setup, RPC",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./testing": "./test/fakes.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@solana-program/compute-budget": "^0.19.0",
+    "@solana-program/memo": "^0.15.0",
+    "@solana-program/system": "^0.15.0",
+    "@solana-program/token": "^0.17.0",
+    "@solana/kit": "^8.3.0",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@aperture/config": "workspace:*",
+    "fast-check": "^4.10.2"
+  }
+}

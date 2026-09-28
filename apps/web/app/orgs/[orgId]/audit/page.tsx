@@ -16,13 +16,16 @@ export default async function AuditPage({
   const beforeParam = Number((await searchParams).before);
   const before = Number.isSafeInteger(beforeParam) && beforeParam > 0 ? beforeParam : undefined;
   const api = await serverApi();
-  const [org, page] = await Promise.all([
+  const [org, page, anchors] = await Promise.all([
     api.GET('/api/v1/orgs/{orgId}', { params: { path: { orgId } } }).then(unwrap),
     api
       .GET('/api/v1/orgs/{orgId}/audit', {
         params: { path: { orgId }, query: { limit: 50, ...(before === undefined ? {} : { before }) } },
       })
       .then(unwrap),
+    api
+      .GET('/api/v1/orgs/{orgId}/audit/anchors', { params: { path: { orgId } } })
+      .then((result) => result.data?.anchors ?? []),
   ]);
 
   return (
@@ -87,6 +90,33 @@ export default async function AuditPage({
           </Link>
         )}
       </div>
+      {anchors.length === 0 ? null : (
+        <section className="mt-8 space-y-2">
+          <h2 className="font-semibold">Anchored on Solana</h2>
+          <p className="text-sm text-muted-foreground">
+            Each day’s Merkle root, written by Aperture’s notary wallet. Check an export against it with{' '}
+            <code className="font-mono">pnpm audit-verify export.jsonl --check-anchor</code>.
+          </p>
+          <ul className="divide-y divide-border text-sm">
+            {anchors.map((anchor) => (
+              <li key={anchor.day} className="flex flex-wrap justify-between gap-2 py-2">
+                <span>
+                  {anchor.day} · {anchor.events} events ·{' '}
+                  <span className="font-mono text-xs">{anchor.root.slice(0, 16)}…</span>
+                </span>
+                <a
+                  className="text-accent"
+                  target="_blank"
+                  rel="noreferrer"
+                  href={`https://explorer.solana.com/tx/${anchor.signature}${anchor.network === 'mainnet' ? '' : `?cluster=${anchor.network}`}`}
+                >
+                  explorer ↗
+                </a>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
     </>
   );
 }

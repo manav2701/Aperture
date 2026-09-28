@@ -1,7 +1,10 @@
 import { randomBytes } from 'node:crypto';
 import { fakeProvider, json } from '@aperture/connectors/testing';
 import { authorizationObject, transactionObject } from '@aperture/cards/testing';
+import { generateKeyPairSync } from 'node:crypto';
 import { encryptSecret, keyRingFromEnv } from '@aperture/crypto';
+import { ASSETS, destinationFor } from '@aperture/x402';
+import { fakeRpc, newAddress, parsedPayment } from '@aperture/x402/testing';
 import {
   and,
   connect,
@@ -9,7 +12,9 @@ import {
   createPrincipal,
   eq,
   schema,
+  appendAuditEvent,
   requestApproval,
+  reserve,
   upsertPrices,
   withSystem,
   type DatabaseHandle,
@@ -20,7 +25,11 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
   dispatchAlerts,
   expirePendingApprovals,
+  anchorAudits,
   expireTaskCards,
+  reconcileX402,
+  syncStablePrices,
+  watchX402,
   reconcileCards,
   syncFxRates,
   notifyApprovals,
@@ -385,6 +394,187 @@ describe('cards upkeep (Phase 8)', () => {
     expect(await expireTaskCards(deps(stripe.fetch))).toBeGreaterThanOrEqual(1);
     const [task] = await system.db.select().from(schema.cards).where(eq(schema.cards.externalId, 'ic_task1'));
     expect(task?.status).toBe('canceled');
+  });
+});
+
+describe('x402 upkeep (Phase 9)', () => {
+  it('settles by memo, flags unknown transfers, expires dead transactions, notices revocation, anchors audits', async () => {
+    const mint = ASSETS.devnet[0]?.mint ?? '';
+    const tree = await seedTree(system.db, { agent: '10' });
+    const connectionId = crypto.randomUUID();
+    await system.db.insert(schema.connections).values({
+      id: connectionId,
+      orgId: tree.org.id,
+      provider: 'solana',
+      name: 'Solana',
+      secret: encryptSecret(JSON.stringify({ rpcUrls: ['https://rpc.test'] }), `${tree.org.id}|${connectionId}`, ring),
+      config: { network: 'devnet', anchorAudit: true },
+    });
+    const accountId = crypto.randomUUID();
+    const budgetAccount = await newAddress();
+    const delegate = await newAddress();
+    await system.db.insert(schema.x402Accounts).values({
+      id: accountId,
+      orgId: tree.org.id,
+      principalId: tree.agent.id,
+      connectionId,
+      network: 'devnet',
+      asset: 'USDC',
+      mint,
+      decimals: 6,
+      treasury: await newAddress(),
+      budgetAccount,
+      delegate,
+      maxPerPayment: 1_000_000n,
+      status: 'active',
+    });
+    const payment = async (memo: string, lastValid: bigint) => {
+      const id = crypto.randomUUID();
+      const reserved = await reserve(system.db, {
+        orgId: tree.org.id,
+        principalId: tree.agent.id,
+        rail: 'x402',
+        amount: 10_000n,
+        idempotencyKey: `x402:${id}`,
+        ttlSeconds: 3600,
+        onExpiry: 'reconcile',
+        externalRef: id,
+      });
+      if (!reserved.ok) throw new Error('reserve failed');
+      const payTo = await newAddress();
+      await system.db.insert(schema.x402Payments).values({
+        id,
+        orgId: tree.org.id,
+        principalId: tree.agent.id,
+        accountId,
+        holdId: reserved.hold.id,
+        url: 'http://seller/paid',
+        origin: 'http://seller',
+        payTo,
+        feePayer: await newAddress(),
+        amount: 10_000n,
+        memo,
+        requirement: {},
+        status: 'signed',
+        lastValidBlockHeight: lastValid,
+      });
+      return { id, payTo, holdId: reserved.hold.id };
+    };
+    const landed = await payment('aperture:landed', 1_000n);
+    const dead = await payment('aperture:dead', 100n);
+    const txs: Record<string, unknown> = {
+      sigLanded: parsedPayment({
+        signature: 'sigLanded',
+        source: budgetAccount,
+        destination: await destinationFor(landed.payTo, mint),
+        authority: delegate,
+        amount: 10_000n,
+        memo: 'aperture:landed',
+        mint,
+      }),
+      sigRogue: parsedPayment({
+        signature: 'sigRogue',
+        source: budgetAccount,
+        destination: await newAddress(),
+        authority: delegate,
+        amount: 70_000n,
+        mint,
+      }),
+    };
+    const chain = { delegate: delegate as string | null, sent: [] as string[] };
+    const rpc = fakeRpc({
+      getSignaturesForAddress: () => [
+        { signature: 'sigRogue', err: null },
+        { signature: 'sigLanded', err: null },
+      ],
+      getTransaction: (params) => txs[String(params[0])] ?? null,
+      getBlockHeight: () => 900,
+      getAccountInfo: () => ({
+        value: {
+          data: {
+            parsed: {
+              info: {
+                mint,
+                owner: 'x',
+                tokenAmount: { amount: '4920000' },
+                delegate: chain.delegate,
+                delegatedAmount: { amount: '4000000' },
+              },
+            },
+          },
+        },
+      }),
+      getLatestBlockhash: () => ({
+        value: { blockhash: 'EETubP5AKHgjPAhzPAFcb8BAY1hMH639CWCFTqi3hq1k', lastValidBlockHeight: 950 },
+      }),
+      sendTransaction: (params) => {
+        chain.sent.push(String(params[0]));
+        return 'anchorSig';
+      },
+    });
+    const network: JobDeps['fetch'] = (input, init) =>
+      input.startsWith('https://hermes.pyth.network')
+        ? Promise.resolve(
+            Response.json({
+              parsed: [
+                {
+                  id: 'eaa020c61cc479712813461ce153894a96a6c00b21ed0cfc2798d1f9a9e9c94a',
+                  price: { price: '100010000', expo: -8, publish_time: Math.floor(Date.now() / 1000) },
+                },
+              ],
+            }),
+          )
+        : rpc.fetch(input, init);
+
+    expect(await watchX402(deps(network))).toEqual({ settled: 1, expired: 1, unknown: 1 });
+    const rows = await system.db.select().from(schema.x402Payments).where(eq(schema.x402Payments.accountId, accountId));
+    expect(Object.fromEntries(rows.map((r) => [r.memo, r.status]))).toEqual({
+      'aperture:landed': 'settled',
+      'aperture:dead': 'expired',
+    });
+    const holds = await system.db.select().from(schema.holds).where(eq(schema.holds.orgId, tree.org.id));
+    expect(Object.fromEntries(holds.map((hold) => [hold.id, hold.status]))).toEqual({
+      [landed.holdId]: 'settled',
+      [dead.holdId]: 'released',
+    });
+    const usage = await system.db
+      .select()
+      .from(schema.budgetUsage)
+      .where(eq(schema.budgetUsage.budgetId, tree.agentBudget.id));
+    // 0.01 settled + 0.07 moved without Aperture (X6).
+    expect(usage.reduce((sum, row) => sum + row.spent, 0n)).toBe(usd('0.08'));
+    // The cursor means a second pass finds nothing new.
+    expect(await watchX402(deps(network))).toEqual({ settled: 0, expired: 0, unknown: 0 });
+
+    expect(await syncStablePrices(deps(network))).toBe(1);
+    const [price] = await system.db.select().from(schema.stablePrices).where(eq(schema.stablePrices.asset, 'USDC'));
+    expect(price?.micros).toBe(1_000_100n);
+
+    chain.delegate = null;
+    expect(await reconcileX402(deps(network))).toBe(1);
+    const [account] = await system.db.select().from(schema.x402Accounts).where(eq(schema.x402Accounts.id, accountId));
+    expect(account).toMatchObject({ status: 'revoked', balance: 4_920_000n });
+
+    // Anchor the day's audit root with a notary key (64-byte keypair as a JSON array).
+    const pair = generateKeyPairSync('ed25519');
+    const seed = pair.privateKey.export({ format: 'der', type: 'pkcs8' }).subarray(-32);
+    const pub = pair.publicKey.export({ format: 'der', type: 'spki' }).subarray(-32);
+    const notarySecret = JSON.stringify([...seed, ...pub]);
+    await appendAuditEvent(system.db, tree.org.id, {
+      actor: 'system:test',
+      action: 'test.event',
+      subject: 'x',
+      data: {},
+    });
+    const tomorrow = new Date(Date.now() + 86_400_000);
+    expect(await anchorAudits({ ...deps(network), notarySecret }, tomorrow)).toBe(1);
+    const [anchor] = await system.db
+      .select()
+      .from(schema.auditAnchors)
+      .where(eq(schema.auditAnchors.orgId, tree.org.id));
+    expect(anchor).toMatchObject({ signature: 'anchorSig' });
+    expect(chain.sent).toHaveLength(1);
+    expect(await anchorAudits({ ...deps(network), notarySecret }, tomorrow)).toBe(0);
   });
 });
 

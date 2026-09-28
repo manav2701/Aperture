@@ -19,6 +19,7 @@
     "@aperture/db": "workspace:*",
     "@aperture/media": "workspace:*",
     "@aperture/runtime": "workspace:*",
+    "@aperture/x402": "workspace:*",
     "uuid": "^14.0.2"
   },
   "devDependencies": {

@@ -85,6 +85,20 @@
       "when": 1790494023330,
       "tag": "0011_cards_security",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1790618054333,
+      "tag": "0012_x402",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1790618057102,
+      "tag": "0013_x402_security",
+      "breakpoints": true
     }
   ]
 }

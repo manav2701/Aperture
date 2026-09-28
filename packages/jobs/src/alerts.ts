@@ -21,7 +21,9 @@ export type AlertKind =
   | 'card_unknown'
   | 'card_unseen_authorization'
   | 'card_unheld_capture'
-  | 'card_decisions_timing_out';
+  | 'card_decisions_timing_out'
+  | 'x402_unknown_transfer'
+  | 'x402_allowance_revoked';
 
 /** Queues an alert once per dedupe key (C2: a threshold alerts once per budget period). */
 export async function queueAlert(
@@ -144,6 +146,16 @@ export function alertMessage(kind: string, payload: Record<string, unknown>): { 
       return {
         subject: 'Card decisions are timing out',
         text: `${s(payload.count)} card authorizations in the last ${s(payload.days)} days were decided by Stripe because Aperture did not answer in time.`,
+      };
+    case 'x402_unknown_transfer':
+      return {
+        subject: 'Money left an agent budget account without Aperture',
+        text: `Transaction ${s(payload.signature)} moved ${s(payload.amount)} atomic units out of ${s(payload.account)} without a matching Aperture payment. It is counted as spend. Check who holds the delegate key and consider revoking it in the treasury wallet.`,
+      };
+    case 'x402_allowance_revoked':
+      return {
+        subject: 'An agent’s crypto allowance was revoked',
+        text: `The budget account ${s(payload.account)} no longer delegates to the agent (revoked or closed in the treasury wallet). Aperture stopped signing for it.`,
       };
     default:
       return { subject: `Aperture alert: ${kind}`, text: JSON.stringify(payload) };

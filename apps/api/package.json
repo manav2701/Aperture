@@ -21,6 +21,8 @@
     "@aperture/jobs": "workspace:*",
     "@aperture/media": "workspace:*",
     "@aperture/runtime": "workspace:*",
+    "@aperture/signer": "workspace:*",
+    "@aperture/x402": "workspace:*",
     "@hono/zod-openapi": "^1.6.3",
     "better-auth": "^1.7.5",
     "hono": "^4.13.8",

@@ -32,7 +32,7 @@ async function connected(fetch: FetchLike) {
 const text = (result: unknown) => (result as { content: { text: string }[] }).content[0]?.text ?? '';
 
 describe('Aperture MCP tools', () => {
-  it('lists the eight tools', async () => {
+  it('lists the nine tools', async () => {
     const client = await connected(fakeGateway({}).fetch);
     const { tools } = await client.listTools();
     expect(tools.map((tool) => tool.name).sort()).toEqual([
@@ -43,6 +43,7 @@ describe('Aperture MCP tools', () => {
       'get_budget',
       'list_allowed_models',
       'pause_self',
+      'pay_x402',
       'request_approval',
     ]);
   });

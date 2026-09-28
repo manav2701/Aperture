@@ -901,3 +901,140 @@ export const fxRates = pgTable(
   },
   (table) => [primaryKey({ columns: [table.currency, table.day] })],
 );
+
+// ---------------------------------------------------------------------------------------------
+// x402 on Solana (Phase 9): customer-owned budget accounts with a delegate allowance per agent.
+
+export const X402_ACCOUNT_STATUSES = ['pending_setup', 'active', 'revoked'] as const;
+export const X402_PAYMENT_STATUSES = ['authorized', 'signed', 'settled', 'expired', 'failed'] as const;
+export const X402_PAYEE_STATUSES = ['active', 'pending'] as const;
+
+export const x402Accounts = pgTable(
+  'x402_accounts',
+  {
+    id: uuid('id').primaryKey(),
+    orgId: uuid('org_id')
+      .notNull()
+      .references(() => orgs.id),
+    principalId: uuid('principal_id')
+      .notNull()
+      .references(() => principals.id),
+    connectionId: uuid('connection_id')
+      .notNull()
+      .references(() => connections.id),
+    network: text('network').notNull(),
+    asset: text('asset').notNull(),
+    mint: text('mint').notNull(),
+    decimals: integer('decimals').notNull(),
+    /** The customer's wallet: owns the budget account; its key never reaches Aperture. */
+    treasury: text('treasury').notNull(),
+    budgetAccount: text('budget_account').notNull(),
+    /** The agent's delegate public key; the secret is sealed with the signer's own KEK. */
+    delegate: text('delegate'),
+    delegateSecret: jsonb('delegate_secret'),
+    /** On-chain allowance and float as last confirmed (atomic units). */
+    allowance: money('allowance')
+      .notNull()
+      .default(sql`0`),
+    balance: money('balance')
+      .notNull()
+      .default(sql`0`),
+    /** Hard cap for one payment (atomic units). */
+    maxPerPayment: money('max_per_payment').notNull(),
+    status: text('status', { enum: X402_ACCOUNT_STATUSES }).notNull().default('pending_setup'),
+    /** Newest on-chain signature the settlement watcher has seen for this account. */
+    cursor: text('cursor'),
+    checkedAt: timestamp('checked_at', { withTimezone: true, mode: 'date' }),
+    createdAt: createdAt(),
+  },
+  (table) => [
+    unique('x402_accounts_budget_unique').on(table.orgId, table.budgetAccount),
+    index('x402_accounts_principal_idx').on(table.principalId),
+    check('x402_accounts_status_check', inList('status', X402_ACCOUNT_STATUSES)),
+  ],
+);
+
+export const x402Payments = pgTable(
+  'x402_payments',
+  {
+    id: uuid('id').primaryKey(),
+    orgId: uuid('org_id')
+      .notNull()
+      .references(() => orgs.id),
+    principalId: uuid('principal_id')
+      .notNull()
+      .references(() => principals.id),
+    accountId: uuid('account_id')
+      .notNull()
+      .references(() => x402Accounts.id),
+    holdId: uuid('hold_id').references(() => holds.id),
+    url: text('url').notNull(),
+    origin: text('origin').notNull(),
+    payTo: text('pay_to').notNull(),
+    feePayer: text('fee_payer').notNull(),
+    amount: money('amount').notNull(),
+    /** Memo nonce: how the watcher recognises this payment on chain. */
+    memo: text('memo').notNull(),
+    requirement: jsonb('requirement').$type<Record<string, unknown>>().notNull(),
+    status: text('status', { enum: X402_PAYMENT_STATUSES }).notNull().default('authorized'),
+    txSignature: text('tx_signature'),
+    lastValidBlockHeight: bigint('last_valid_block_height', { mode: 'bigint' }),
+    /** HTTP status of the paid resource, as reported by the SDK (X5). */
+    deliveredStatus: integer('delivered_status'),
+    error: text('error'),
+    createdAt: createdAt(),
+    settledAt: timestamp('settled_at', { withTimezone: true, mode: 'date' }),
+  },
+  (table) => [
+    unique('x402_payments_memo_unique').on(table.memo),
+    index('x402_payments_account_status_idx').on(table.accountId, table.status),
+    check('x402_payments_status_check', inList('status', X402_PAYMENT_STATUSES)),
+  ],
+);
+
+/** Which payTo address an origin is bound to (X1): changing it needs a person. */
+export const x402Payees = pgTable(
+  'x402_payees',
+  {
+    id: uuid('id').primaryKey(),
+    orgId: uuid('org_id')
+      .notNull()
+      .references(() => orgs.id),
+    origin: text('origin').notNull(),
+    payTo: text('pay_to').notNull(),
+    network: text('network').notNull(),
+    status: text('status', { enum: X402_PAYEE_STATUSES }).notNull(),
+    approvedBy: text('approved_by').references(() => users.id),
+    createdAt: createdAt(),
+  },
+  (table) => [
+    unique('x402_payees_unique').on(table.orgId, table.origin, table.payTo),
+    check('x402_payees_status_check', inList('status', X402_PAYEE_STATUSES)),
+  ],
+);
+
+/** Daily Merkle roots of an org's audit chain, written to Solana in a memo. */
+export const auditAnchors = pgTable(
+  'audit_anchors',
+  {
+    id: uuid('id').primaryKey(),
+    orgId: uuid('org_id')
+      .notNull()
+      .references(() => orgs.id),
+    day: text('day').notNull(),
+    root: text('root').notNull(),
+    events: integer('events').notNull(),
+    network: text('network').notNull(),
+    signature: text('signature').notNull(),
+    createdAt: createdAt(),
+  },
+  (table) => [unique('audit_anchors_day_unique').on(table.orgId, table.day)],
+);
+
+/** Stablecoin/USD prices for the depeg guard (X13). Global. */
+export const stablePrices = pgTable('stable_prices', {
+  asset: text('asset').primaryKey(),
+  micros: money('micros').notNull(),
+  publishedAt: timestamp('published_at', { withTimezone: true, mode: 'date' }).notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
+});

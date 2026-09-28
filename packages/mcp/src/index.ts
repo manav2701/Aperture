@@ -193,6 +193,34 @@ export function createApertureMcpServer(client: Aperture): McpServer {
   );
 
   server.registerTool(
+    'pay_x402',
+    {
+      title: 'Call a paid (x402) API',
+      description:
+        'Calls a URL; if it asks for payment (HTTP 402, x402 on Solana), Aperture checks the price against this agent’s budget, policies and payee rules, pays it in USDC from the company’s budget account, and returns the response. Refused payments move no money.',
+      inputSchema: {
+        url: z.url(),
+        method: z.enum(['GET', 'POST']).default('GET'),
+        body: z.string().max(100_000).optional(),
+        purpose: z.string().max(500).optional(),
+      },
+    },
+    (input) =>
+      run(async () => {
+        const response = await client.x402Fetch(
+          input.url,
+          {
+            method: input.method,
+            ...(input.body === undefined ? {} : { body: input.body, headers: { 'content-type': 'application/json' } }),
+          },
+          input.purpose === undefined ? {} : { purpose: input.purpose },
+        );
+        const text = await response.text();
+        return { status: response.status, body: text.length > 20_000 ? `${text.slice(0, 20_000)}…` : text };
+      }),
+  );
+
+  server.registerTool(
     'pause_self',
     {
       title: 'Stop this agent',

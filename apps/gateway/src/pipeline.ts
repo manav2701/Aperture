@@ -8,6 +8,7 @@ import type { Logger } from '@aperture/runtime';
 import { v7 as uuidv7 } from 'uuid';
 import type { Adapter, Json, UsageReport } from './adapters';
 import { decide, reserveWithAuthority, resolveAuthority } from './authority';
+import type { SignerClient } from './x402';
 import {
   connectedProviders,
   loadPrincipalContext,
@@ -32,6 +33,8 @@ export interface GatewayDeps {
   fetch?: FetchLike | undefined;
   /** Private object storage for generated media; media routes answer 503 without it. */
   storage?: MediaStorage | undefined;
+  /** The x402 signer (private network); x402 routes answer 503 without it. */
+  signer?: SignerClient | undefined;
   /** Notifies approvers (email/Slack) when a request needs approval. */
   onApprovalRequested?: ((approval: ApprovalRow) => Promise<void>) | undefined;
 }

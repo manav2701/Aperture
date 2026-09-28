@@ -12,10 +12,19 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@aperture/runtime": "workspace:*"
+    "@aperture/crypto": "workspace:*",
+    "@aperture/db": "workspace:*",
+    "@aperture/runtime": "workspace:*",
+    "@aperture/x402": "workspace:*",
+    "@solana/kit": "^8.3.0",
+    "hono": "^4.13.8",
+    "zod": "^4.6.5"
   },
   "devDependencies": {
     "@aperture/config": "workspace:*",
     "tsx": "^4.23.15"
+  },
+  "exports": {
+    ".": "./src/public.ts"
   }
 }

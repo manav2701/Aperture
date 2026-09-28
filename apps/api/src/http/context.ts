@@ -2,6 +2,7 @@ import type { Role } from '@aperture/core';
 import type { KeyRing } from '@aperture/crypto';
 import type { Database } from '@aperture/db';
 import type { JobDeps } from '@aperture/jobs';
+import type { SignerClient } from '@aperture/gateway';
 import type { MediaStorage } from '@aperture/media';
 import type { EmailSender, Logger } from '@aperture/runtime';
 import type { Auth } from '../auth';
@@ -28,6 +29,10 @@ export interface AppDeps {
   slack?: { clientId: string; clientSecret: string; signingSecret: string } | undefined;
   /** Public origin of this API (for webhook URLs shown to people); defaults to the request's. */
   apiPublicUrl?: string | undefined;
+  /** The x402 signer (private network or embedded); crypto payments are off without it. */
+  signer?: SignerClient | undefined;
+  /** Allow Solana mainnet connections (only after the legal opinion, C1). */
+  mainnetX402?: boolean | undefined;
 }
 
 export type SessionUser = NonNullable<Awaited<ReturnType<Auth['api']['getSession']>>>['user'];

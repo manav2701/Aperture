@@ -4,3 +4,4 @@ export { GatewayCache } from './context';
 export { listenForInvalidation } from './invalidation';
 export { RequestLimiter } from './limits';
 export type { GatewayDeps } from './pipeline';
+export { SignerUnavailable, httpSigner, type SignerClient } from './x402';

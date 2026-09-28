@@ -62,4 +62,5 @@ Total: about **25 weeks** of engineering. A pilot with a design partner (for exa
 - [x] Phase 6 — images and video through the gateway, media jobs and poller, private storage, workspace Images/Videos (ADR 0015); live-tested on OpenRouter (image and Veo video)
 - [x] Phase 7 — approvals (dashboard, email, Slack app), signed mandates with JWKS, sub-agents, delegation tree, policy suggestions, `@aperture/sdk`, `@aperture/mcp` (ADR 0016); Slack app awaits credentials
 - [x] Phase 8 — cards rail on Stripe Issuing: real-time authorization, event state machine (INV-11), task cards via approval, FX, reconciliation, Cards UI, SDK/MCP task cards (ADR 0017); built against Stripe's docs and fakes, sandbox verification waits on Stripe access (D5); NymCard deferred
-- [ ] Phases 9–10 — not started. Postponed items are listed in [deferred.md](deferred.md)
+- [x] Phase 9 — x402 on Solana: budget accounts with on-chain allowances, signer, authorize route, payee binding, depeg guard, settlement watcher, audit anchoring, SDK/MCP, test seller (ADR 0018); built on devnet fakes; delegate spike and mainnet (C1) pending
+- [ ] Phase 10 — in progress. Postponed items are listed in [deferred.md](deferred.md)

@@ -11,12 +11,17 @@
     "test": "vitest run",
     "try-gateway": "tsx src/try-gateway.ts",
     "mandate-verify": "tsx src/mandate-verify.ts",
-    "try-card": "tsx src/try-card.ts"
+    "try-card": "tsx src/try-card.ts",
+    "try-x402": "tsx src/try-x402.ts",
+    "x402-spike": "tsx src/x402-spike.ts"
   },
   "dependencies": {
     "@aperture/core": "workspace:*",
     "@aperture/crypto": "workspace:*",
     "@aperture/db": "workspace:*",
+    "@aperture/sdk": "workspace:*",
+    "@aperture/x402": "workspace:*",
+    "@solana/kit": "^8.3.0",
     "drizzle-orm": "^0.45.3",
     "pg": "^8.23.0",
     "yaml": "^2.9.1",

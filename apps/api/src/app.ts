@@ -18,6 +18,7 @@ import { registerPolicyRoutes } from './routes/policies';
 import { registerSpendRoutes } from './routes/spend';
 import { registerTeamRoutes } from './routes/teams';
 import { registerWorkspaceRoutes } from './routes/workspace';
+import { registerX402Routes } from './routes/x402';
 import { registerStripeWebhooks } from './cards';
 import { registerSlackInstallRoute, registerSlackWebhooks } from './slack';
 
@@ -116,6 +117,7 @@ export function buildApp(
   registerMandateRoutes(router, deps);
   registerSlackInstallRoute(router, deps);
   registerCardRoutes(router, deps);
+  registerX402Routes(router, deps);
 
   app.doc31('/api/v1/openapi.json', {
     openapi: '3.1.0',

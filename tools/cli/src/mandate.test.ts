@@ -58,3 +58,23 @@ describe('verifyMandate (offline)', () => {
     });
   });
 });
+
+describe('audit anchors (Phase 9)', () => {
+  it('matches an export against the anchored root and refuses anything else', async () => {
+    const { merkleRoot } = await import('@aperture/crypto');
+    const { anchorMemo } = await import('@aperture/x402');
+    const { checkAnchor } = await import('./anchor-check');
+    const hashes = ['a'.repeat(64), 'b'.repeat(64), 'c'.repeat(64)];
+    const memo = anchorMemo({
+      orgId: '00000000-0000-4000-8000-000000000000',
+      day: '2026-09-27',
+      root: merkleRoot(hashes),
+      events: 3,
+    });
+    expect(checkAnchor(hashes, memo)).toEqual({ ok: true, day: '2026-09-27' });
+    expect(checkAnchor(hashes.slice(0, 2), memo).ok).toBe(false);
+    expect(checkAnchor([...hashes.slice(0, 2), 'd'.repeat(64)], memo).ok).toBe(false);
+    expect(checkAnchor(hashes, 'hello').ok).toBe(false);
+    expect(checkAnchor(hashes, undefined).ok).toBe(false);
+  });
+});

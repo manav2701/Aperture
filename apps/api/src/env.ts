@@ -32,6 +32,18 @@ export const apiEnvSchema = serviceEnvSchema(4000).extend({
   SLACK_SIGNING_SECRET: optional,
   /** Public origin of this API, for the Stripe webhook URLs (e.g. https://aperture-api.onrender.com). */
   API_PUBLIC_URL: z.url().optional(),
+  /** The x402 signer service on the private network, and the secret shared with it. */
+  SIGNER_URL: z.url().optional(),
+  SIGNER_SHARED_SECRET: z.string().min(32).optional(),
+  /** Staging on one host: run the signer in this process (needs SIGNER_KEK_V1). */
+  EMBED_SIGNER: z.stringbool().default(false),
+  SIGNER_KEK_V1: optional,
+  SIGNER_RPC_DEVNET: optional,
+  SIGNER_RPC_MAINNET: optional,
+  /** Solana wallet that writes daily audit anchors (JSON array or base58 of the 64-byte keypair). */
+  NOTARY_SECRET_KEY: optional,
+  /** Allow Solana mainnet connections: only after the legal opinion (C1). */
+  MAINNET_X402_ENABLED: z.stringbool().default(false),
 });
 
 export type ApiEnv = z.output<typeof apiEnvSchema>;

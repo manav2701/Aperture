@@ -1,0 +1,23 @@
+{
+  "name": "x402-test-seller",
+  "version": "0.0.0",
+  "private": true,
+  "description": "A local x402 seller for tests and demos, with configurable misbehaviours",
+  "type": "module",
+  "exports": {
+    ".": "./src/seller.ts"
+  },
+  "scripts": {
+    "dev": "tsx src/main.ts",
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@aperture/x402": "workspace:*",
+    "@hono/node-server": "^2.1.1",
+    "hono": "^4.13.8"
+  },
+  "devDependencies": {
+    "@aperture/config": "workspace:*",
+    "tsx": "^4.23.15"
+  }
+}

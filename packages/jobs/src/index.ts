@@ -1,6 +1,7 @@
 import { dispatchAlerts, scanBudgetThresholds } from './alerts';
 import { expirePendingApprovals, notifyApprovals } from './approvals';
 import { expireTaskCards, reconcileCards, syncFxRates } from './cards';
+import { anchorAudits, reconcileX402, syncStablePrices, watchX402 } from './x402';
 import type { JobDeps } from './deps';
 import { expireAllHolds, syncPrices, verifyLedgers } from './maintenance';
 import { pollMediaJobs } from './media';
@@ -10,6 +11,7 @@ import { syncAllConnections } from './sync';
 export { alertMessage, dispatchAlerts, queueAlert, scanBudgetThresholds, type AlertKind } from './alerts';
 export { expirePendingApprovals, notifyApprovals } from './approvals';
 export { expireTaskCards, reconcileCards, syncFxRates } from './cards';
+export { anchorAudits, reconcileX402, rpcForConnection, syncStablePrices, watchX402 } from './x402';
 export { SYSTEM_ACTOR, type JobDeps } from './deps';
 export { expireAllHolds, syncPrices, verifyLedgers } from './maintenance';
 export { pollMediaJobs } from './media';
@@ -47,6 +49,10 @@ export function standardJobs(deps: JobDeps): Job[] {
     job('fx.sync', 6 * 60 * MINUTE, () => syncFxRates(deps)),
     job('cards.expire', 10 * MINUTE, () => expireTaskCards(deps)),
     job('cards.reconcile', 24 * 60 * MINUTE, () => reconcileCards(deps)),
+    job('x402.watch', 20_000, () => watchX402(deps)),
+    job('x402.reconcile', 24 * 60 * MINUTE, () => reconcileX402(deps)),
+    job('prices.stable', 5 * MINUTE, () => syncStablePrices(deps)),
+    job('audit.anchor', 60 * MINUTE, () => anchorAudits(deps)),
   ];
 }
 

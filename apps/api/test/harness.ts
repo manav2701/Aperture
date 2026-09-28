@@ -8,6 +8,7 @@ import { memoryStorage } from '@aperture/media/testing';
 import { appRoleUrl, createTestDatabase } from '@aperture/db/testing';
 import { createLogger } from '@aperture/runtime';
 import { buildApp } from '../src/app';
+import { signerFromEnv } from '../src/signer';
 import { createAuth } from '../src/auth';
 import type { Email, EmailSender } from '@aperture/runtime';
 
@@ -95,6 +96,11 @@ export async function createHarness(): Promise<Harness> {
       gatewayPublicUrl: 'http://localhost:4000/gw',
       storage,
       slack: { clientId: 'slack-client-id', clientSecret: 'slack-client-secret', signingSecret: SLACK_SIGNING_SECRET },
+      signer: signerFromEnv(
+        { EMBED_SIGNER: true, SIGNER_KEK_V1: randomBytes(32).toString('base64') },
+        appDb.db,
+        logger,
+      ),
     },
     gateway,
   );

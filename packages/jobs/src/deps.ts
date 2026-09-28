@@ -16,6 +16,8 @@ export interface JobDeps {
   fetch?: FetchLike | undefined;
   /** Private media storage; the media poller is idle without it. */
   storage?: MediaStorage | undefined;
+  /** NOTARY_SECRET_KEY: the Solana wallet that writes daily audit anchors; anchoring is off without it. */
+  notarySecret?: string | undefined;
 }
 
 export const dbOf = (deps: JobDeps): Database => deps.database.db;

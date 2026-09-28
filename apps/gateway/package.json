@@ -19,6 +19,7 @@
     "@aperture/mcp": "workspace:*",
     "@aperture/media": "workspace:*",
     "@aperture/runtime": "workspace:*",
+    "@aperture/x402": "workspace:*",
     "hono": "^4.13.8",
     "uuid": "^14.0.2",
     "zod": "^4.6.5"
@@ -26,8 +27,11 @@
   "devDependencies": {
     "@aperture/config": "workspace:*",
     "@aperture/jobs": "workspace:*",
+    "@aperture/sdk": "workspace:*",
+    "@aperture/signer": "workspace:*",
     "fast-check": "^4.10.2",
-    "tsx": "^4.23.15"
+    "tsx": "^4.23.15",
+    "x402-test-seller": "workspace:*"
   },
   "exports": {
     ".": "./src/public.ts"

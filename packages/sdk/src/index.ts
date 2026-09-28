@@ -364,6 +364,35 @@ export class Aperture {
     });
   }
 
+  /**
+   * `fetch` that pays x402 (plan/phases/phase-09 §9.5): on a 402 it asks Aperture to authorize
+   * the seller's price (policy, budget, payee binding, on-chain allowance), retries with the
+   * signed PAYMENT-SIGNATURE, and reports whether the paid resource was delivered. Refusals
+   * throw the usual typed errors; no refusal ever moves money.
+   */
+  async x402Fetch(url: string, init: RequestInit = {}, options: { purpose?: string } = {}): Promise<Response> {
+    const first = await this.#fetch(url, init);
+    if (first.status !== 402) return first;
+    const header = first.headers.get('payment-required');
+    const paymentRequired: unknown = header ?? (await first.json().catch(() => null));
+    const authorized = await this.#call<{ payment_id: string; payment_signature: string }>(
+      'POST',
+      '/v1/x402/authorize',
+      {
+        url,
+        paymentRequired,
+        ...(options.purpose === undefined ? {} : { purpose: options.purpose }),
+      },
+    );
+    const headers = new Headers(init.headers);
+    headers.set('PAYMENT-SIGNATURE', authorized.payment_signature);
+    const paid = await this.#fetch(url, { ...init, headers });
+    await this.#call('POST', `/v1/x402/payments/${authorized.payment_id}/delivered`, { status: paid.status }).catch(
+      () => undefined,
+    );
+    return paid;
+  }
+
   /** The agent's own kill switch. A person has to resume it. */
   async pauseSelf(): Promise<void> {
     await this.#call('POST', '/v1/me/pause');

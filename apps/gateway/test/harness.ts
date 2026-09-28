@@ -17,6 +17,7 @@ import { createLogger } from '@aperture/runtime';
 import { buildApp } from '../src/app';
 import { GatewayCache } from '../src/context';
 import { RequestLimiter } from '../src/limits';
+import type { SignerClient } from '../src/x402';
 
 export const PEPPER = 'test-pepper-that-is-at-least-32-characters';
 export const UPSTREAM_KEY = 'sk-or-v1-gateway-upstream';
@@ -128,7 +129,11 @@ export async function seedGatewayOrg(h: GatewayHarness, limits: { agent?: string
   return { ...tree, key, apiKeyId: apiKey?.id ?? '' };
 }
 
-export function gateway(h: GatewayHarness, routes: Routes, options: { storage?: MediaStorage } = {}) {
+export function gateway(
+  h: GatewayHarness,
+  routes: Routes,
+  options: { storage?: MediaStorage; signer?: SignerClient } = {},
+) {
   const upstream = fakeProvider(routes);
   const app = buildApp({
     db: h.app.db,
@@ -140,6 +145,7 @@ export function gateway(h: GatewayHarness, routes: Routes, options: { storage?: 
     limiter: new RequestLimiter(),
     fetch: upstream.fetch,
     storage: options.storage,
+    signer: options.signer,
   });
   const call = async (path: string, key: string, body: unknown, headers: Record<string, string> = {}) =>
     await app.request(path, {

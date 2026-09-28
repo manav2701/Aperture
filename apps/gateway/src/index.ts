@@ -7,6 +7,7 @@ import { buildApp } from './app';
 import { GatewayCache } from './context';
 import { listenForInvalidation } from './invalidation';
 import { RequestLimiter } from './limits';
+import { httpSigner } from './x402';
 
 const env = loadEnvOrExit(
   serviceEnvSchema(4100).extend({
@@ -14,6 +15,9 @@ const env = loadEnvOrExit(
     DATABASE_URL: z.url(),
     /** Same value as the API's: gateway keys are HMACs under it. */
     APERTURE_KEY_PEPPER: z.string().min(32),
+    /** The x402 signer on the private network; x402 payments are off without both. */
+    SIGNER_URL: z.url().optional(),
+    SIGNER_SHARED_SECRET: z.string().min(32).optional(),
   }),
 );
 const logger = createLogger({ service: 'gateway', level: env.LOG_LEVEL });
@@ -30,6 +34,10 @@ const app = buildApp({
   cache,
   limiter: new RequestLimiter(),
   storage: storageFromEnv(process.env),
+  signer:
+    env.SIGNER_URL === undefined || env.SIGNER_SHARED_SECRET === undefined
+      ? undefined
+      : httpSigner(env.SIGNER_URL, env.SIGNER_SHARED_SECRET),
 });
 
 runService({

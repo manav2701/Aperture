@@ -8,6 +8,7 @@ import { storageFromEnv } from '@aperture/media';
 import { createLogger, loadEnvOrExit, logSender, resendSender, runService } from '@aperture/runtime';
 import { buildApp } from './app';
 import { createAuth } from './auth';
+import { signerFromEnv } from './signer';
 import { apiEnvSchema } from './env';
 
 const env = loadEnvOrExit(apiEnvSchema);
@@ -39,7 +40,16 @@ const email =
     : resendSender({ apiKey: env.RESEND_API_KEY, from: env.EMAIL_FROM, logger });
 const storage = storageFromEnv(process.env);
 if (storage === undefined) logger.warn('MEDIA_S3_* not set: image and video generation are disabled');
-const jobs: JobDeps = { database, ring, logger, email, webOrigin: env.WEB_ORIGIN, storage };
+const jobs: JobDeps = {
+  database,
+  ring,
+  logger,
+  email,
+  webOrigin: env.WEB_ORIGIN,
+  storage,
+  notarySecret: env.NOTARY_SECRET_KEY,
+};
+const signer = signerFromEnv(env, database.db, logger.child({ component: 'signer' }));
 
 const slack =
   env.SLACK_CLIENT_ID !== undefined && env.SLACK_CLIENT_SECRET !== undefined && env.SLACK_SIGNING_SECRET !== undefined
@@ -59,6 +69,7 @@ const gateway = env.EMBED_GATEWAY
       cache,
       limiter: new RequestLimiter(),
       storage,
+      signer,
     })
   : undefined;
 const stopListening = gateway === undefined ? undefined : listenForInvalidation(database, cache, logger);
@@ -80,6 +91,8 @@ const { app } = buildApp(
     storage,
     slack,
     apiPublicUrl: env.API_PUBLIC_URL,
+    signer,
+    mainnetX402: env.MAINNET_X402_ENABLED,
   },
   gateway,
 );
