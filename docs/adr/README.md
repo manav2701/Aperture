@@ -22,3 +22,4 @@ One file per decision: context, decision, consequences. Add a new ADR instead of
 | [0016](0016-phase-7-approvals-and-mandates.md)     | Approvals, mandates and delegation (Phase 7)            | Accepted                         |
 | [0017](0017-phase-8-cards-rail.md)                 | The fiat cards rail on Stripe Issuing (Phase 8)         | Accepted                         |
 | [0018](0018-phase-9-x402-solana.md)                | x402 on Solana with delegate allowances (Phase 9)       | Accepted (devnet)                |
+| [0019](0019-phase-10-production.md)                | Production hardening and launch readiness (Phase 10)    | Accepted                         |

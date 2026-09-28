@@ -18,6 +18,8 @@ export interface RegisteredRoute {
   access: Access;
 }
 
+const PRIVILEGED_ROLES = new Set(['owner', 'admin', 'finance']);
+
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export function requireUser(c: { get: (key: 'user') => SessionUser | null }): SessionUser {
@@ -48,6 +50,20 @@ function accessMiddleware(deps: AppDeps, access: Access): MiddlewareHandler<AppE
     const membership = await loadMembership(deps, orgId, user.id);
     if (!membership) throw notFound('organization');
     if (!can(membership.role, access.permission)) throw forbidden();
+    // Phase 10: owners, admins and finance change nothing without two-factor. Reads stay open so
+    // they can find the setup page.
+    if (
+      deps.enforceTwoFactor === true &&
+      !['GET', 'HEAD', 'OPTIONS'].includes(c.req.method) &&
+      PRIVILEGED_ROLES.has(membership.role) &&
+      (user as { twoFactorEnabled?: boolean | null }).twoFactorEnabled !== true
+    ) {
+      throw new AppError(
+        403,
+        'two_factor_required',
+        'turn on two-factor authentication (Account → Security) to make changes',
+      );
+    }
     c.set('membership', membership);
     return next();
   };

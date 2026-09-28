@@ -19,6 +19,10 @@ if (process.env.VERCEL === '1' && process.env.API_INTERNAL_URL === undefined) {
 const apiUrl = process.env.API_INTERNAL_URL ?? 'http://localhost:4000';
 
 const nextConfig: NextConfig = {
+  // Self-hosted images (infra/docker/web.Dockerfile) run the standalone server.
+  ...(process.env.NEXT_STANDALONE === '1'
+    ? { output: 'standalone' as const, outputFileTracingRoot: new URL('../..', import.meta.url).pathname }
+    : {}),
   reactStrictMode: true,
   poweredByHeader: false,
   transpilePackages: ['@aperture/core'],

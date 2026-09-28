@@ -11,6 +11,7 @@ import {
   verifyStripeSignature,
 } from '@aperture/cards';
 import { and, eq, schema, withOrg, type ApprovalRow } from '@aperture/db';
+import { metrics } from '@aperture/runtime';
 import type { OpenAPIHono } from '@hono/zod-openapi';
 import type { AppDeps, AppEnv } from './http/context';
 
@@ -78,6 +79,8 @@ export function registerStripeWebhooks(app: OpenAPIHono<AppEnv>, deps: AppDeps):
         connectionId: c.req.param('connectionId'),
         authorization: authorization.data,
       });
+      metrics.inc('aperture_card_decisions_total', { approved: String(decision.approved), code: decision.code });
+      metrics.observe('aperture_card_decision_ms', {}, Date.now() - started);
       deps.logger.info(
         {
           authorization: authorization.data.id,

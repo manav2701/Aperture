@@ -1,0 +1,78 @@
+name: Release
+
+# Tag → build and push images → approval → deploy → migrate → smoke (plan/phases/phase-10).
+#   git tag v1.0.0 && git push origin v1.0.0
+# Needs: a GitHub environment "production" with required reviewers, and its secrets
+# PROD_SSH_HOST, PROD_SSH_USER, PROD_SSH_KEY (a deploy key for the server's `deploy` user),
+# plus variables PROD_API_URL, PROD_GATEWAY_URL, PROD_WEB_URL.
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  images:
+    name: Build and push ${{ matrix.app }}
+    runs-on: ubuntu-24.04
+    strategy:
+      matrix:
+        app: [api, gateway, worker, signer]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Log in to GHCR
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+      - name: Build
+        run: >-
+          docker build -f infra/docker/service.Dockerfile --build-arg APP=${{ matrix.app }}
+          -t ghcr.io/${{ github.repository_owner }}/aperture-${{ matrix.app }}:${{ github.ref_name }} .
+      - name: Push
+        run: docker push ghcr.io/${{ github.repository_owner }}/aperture-${{ matrix.app }}:${{ github.ref_name }}
+
+  web-image:
+    name: Build and push the self-hosted web image
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Log in to GHCR
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+      - name: Build and push
+        run: |
+          docker build -f infra/docker/web.Dockerfile --build-arg API_INTERNAL_URL=http://api:4000             -t ghcr.io/${{ github.repository_owner }}/aperture-web:${{ github.ref_name }} .
+          docker push ghcr.io/${{ github.repository_owner }}/aperture-web:${{ github.ref_name }}
+
+  deploy:
+    name: Deploy to production
+    needs: images
+    runs-on: ubuntu-24.04
+    environment: production
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Deploy over SSH
+        env:
+          SSH_KEY: ${{ secrets.PROD_SSH_KEY }}
+          HOST: ${{ secrets.PROD_SSH_HOST }}
+          USER: ${{ secrets.PROD_SSH_USER }}
+          VERSION: ${{ github.ref_name }}
+        run: |
+          install -m 600 /dev/null key && printf '%s\n' "$SSH_KEY" > key
+          ssh -i key -o StrictHostKeyChecking=accept-new "$USER@$HOST" "
+            set -e
+            cd /srv/aperture/repo && git fetch --tags && git checkout -q $VERSION
+            export VERSION=$VERSION
+            docker compose -f infra/compose.prod.yml --env-file /srv/aperture/.env pull api gateway worker signer
+            docker compose -f infra/compose.prod.yml --env-file /srv/aperture/.env --profile release run --rm migrate
+            docker compose -f infra/compose.prod.yml --env-file /srv/aperture/.env up -d --remove-orphans
+          "
+          rm key
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile --filter @aperture/cli...
+      - name: Smoke
+        run: pnpm smoke --api "${{ vars.PROD_API_URL }}" --gateway "${{ vars.PROD_GATEWAY_URL }}" --web "${{ vars.PROD_WEB_URL }}"

@@ -44,6 +44,8 @@ runService({
   app,
   port: env.PORT,
   logger,
+  // Streams can run for a minute; let them finish (and settle) before exiting (O2).
+  shutdownTimeoutMs: 60_000,
   onShutdown: async () => {
     await stopListening();
     await database.close();

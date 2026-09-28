@@ -45,3 +45,25 @@ describe('createServiceApp', () => {
     expect(response.status).toBe(503);
   });
 });
+
+describe('metrics (Phase 10)', () => {
+  it('counts requests by route pattern and only serves /metrics with the token', async () => {
+    const { metrics, metricsMiddleware } = await import('./metrics');
+    metrics.reset();
+    const { Hono } = await import('hono');
+    const app = new Hono();
+    app.use('*', metricsMiddleware());
+    app.route('/', createServiceApp({ service: 'test', logger: createLogger({ service: 'test', level: 'silent' }) }));
+    app.get('/items/:id', (c) => c.json({ id: c.req.param('id') }));
+    await app.request('/items/123');
+    await app.request('/items/456');
+    expect((await app.request('/metrics')).status).toBe(404);
+    process.env.METRICS_TOKEN = 'metrics-token';
+    const scraped = await app.request('/metrics', { headers: { authorization: 'Bearer metrics-token' } });
+    delete process.env.METRICS_TOKEN;
+    const text = await scraped.text();
+    expect(text).toContain('aperture_http_requests_total{method="GET",route="/items/:id",status="200"} 2');
+    expect(text).toContain('aperture_http_request_duration_ms_count{route="/items/:id"} 2');
+    expect(text).not.toContain('123');
+  });
+});

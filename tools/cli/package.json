@@ -13,7 +13,10 @@
     "mandate-verify": "tsx src/mandate-verify.ts",
     "try-card": "tsx src/try-card.ts",
     "try-x402": "tsx src/try-x402.ts",
-    "x402-spike": "tsx src/x402-spike.ts"
+    "x402-spike": "tsx src/x402-spike.ts",
+    "verify-db": "tsx src/verify-db.ts",
+    "smoke": "tsx src/smoke.ts",
+    "admin": "tsx src/admin.ts"
   },
   "dependencies": {
     "@aperture/core": "workspace:*",

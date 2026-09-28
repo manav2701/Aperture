@@ -25,6 +25,7 @@ import {
   type MediaPrice,
   type MediaProvider,
 } from '@aperture/media';
+import { metrics } from '@aperture/runtime';
 import type { Hono } from 'hono';
 import { v7 as uuidv7 } from 'uuid';
 import { z } from 'zod';
@@ -96,6 +97,7 @@ async function logMediaRequest(
     reasons?: unknown[];
   },
 ) {
+  metrics.inc('aperture_gateway_requests_total', { outcome: entry.outcome, provider: entry.provider });
   try {
     await withOrg(deps.db, caller.orgId, (tx) =>
       tx.insert(schema.gatewayRequests).values({

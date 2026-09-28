@@ -1,0 +1,92 @@
+# Self-hosted Aperture (plan/phases/phase-10 §10.9): the whole product on one machine inside your
+# own network, including the web app. See SELF_HOSTING.md.
+#
+#   cp infra/prod.env.example .env   # fill it in
+#   docker compose -f infra/compose.selfhost.yml --env-file .env --profile release run --rm migrate
+#   docker compose -f infra/compose.selfhost.yml --env-file .env up -d
+name: aperture-selfhost
+
+x-service: &service
+  restart: unless-stopped
+  env_file: ${APERTURE_ENV_FILE:-.env}
+  depends_on:
+    postgres: { condition: service_healthy }
+
+services:
+  caddy:
+    image: caddy:2.10
+    restart: unless-stopped
+    ports: ['80:80', '443:443']
+    volumes:
+      - ./caddy/Caddyfile.selfhost:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+    environment:
+      APP_HOST: ${APP_HOST:?set APP_HOST}
+      API_HOST: ${API_HOST:?set API_HOST}
+      GATEWAY_HOST: ${GATEWAY_HOST:?set GATEWAY_HOST}
+    networks: [edge]
+
+  web:
+    <<: *service
+    image: ${IMAGE_PREFIX:-ghcr.io/aperture}/aperture-web:${VERSION:-latest}
+    environment:
+      API_INTERNAL_URL: http://api:4000
+    networks: [edge]
+
+  api:
+    <<: *service
+    image: ${IMAGE_PREFIX:-ghcr.io/aperture}/aperture-api:${VERSION:-latest}
+    environment:
+      RUN_WORKER: 'true'
+      EMBED_GATEWAY: 'false'
+      SIGNER_URL: http://signer:4300
+    networks: [edge, internal]
+
+  gateway:
+    <<: *service
+    image: ${IMAGE_PREFIX:-ghcr.io/aperture}/aperture-gateway:${VERSION:-latest}
+    stop_grace_period: 70s
+    environment:
+      SIGNER_URL: http://signer:4300
+    networks: [edge, internal]
+
+  signer:
+    <<: *service
+    image: ${IMAGE_PREFIX:-ghcr.io/aperture}/aperture-signer:${VERSION:-latest}
+    networks: [internal]
+
+  migrate:
+    <<: *service
+    image: ${IMAGE_PREFIX:-ghcr.io/aperture}/aperture-api:${VERSION:-latest}
+    restart: 'no'
+    environment:
+      RUN_MIGRATIONS: 'true'
+      MIGRATE_ONLY: 'true'
+    profiles: [release]
+    networks: [internal]
+
+  postgres:
+    build:
+      context: ./docker
+      dockerfile: postgres.Dockerfile
+    restart: unless-stopped
+    env_file: ${APERTURE_ENV_FILE:-.env}
+    command:
+      ['postgres', '-c', 'archive_mode=on', '-c', 'archive_command=wal-g wal-push %p', '-c', 'archive_timeout=60']
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    networks: [internal]
+
+networks:
+  edge: {}
+  internal:
+    internal: true
+
+volumes:
+  caddy-data:
+  postgres-data:

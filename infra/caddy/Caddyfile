@@ -1,0 +1,33 @@
+# TLS termination and load balancing (plan/phases/phase-10 §10.1). Cloudflare proxies both
+# hosts; the firewall should only admit Cloudflare's IP ranges on 80/443.
+
+{
+	email {$ACME_EMAIL:ops@example.com}
+	servers {
+		trusted_proxies static 173.245.48.0/20 103.21.244.0/22 103.22.200.0/22 103.31.4.0/22 141.101.64.0/18 108.162.192.0/18 190.93.240.0/20 188.114.96.0/20 197.234.240.0/22 198.41.128.0/17 162.158.0.0/15 104.16.0.0/13 104.24.0.0/14 172.64.0.0/13 131.0.72.0/22
+	}
+}
+
+{$API_HOST} {
+	encode zstd gzip
+	reverse_proxy api:4000 {
+		lb_policy round_robin
+		health_uri /readyz
+		health_interval 10s
+		fail_duration 30s
+	}
+}
+
+{$GATEWAY_HOST} {
+	# Streaming responses (SSE) must not be buffered.
+	reverse_proxy gateway:4100 {
+		lb_policy least_conn
+		flush_interval -1
+		health_uri /readyz
+		health_interval 10s
+		fail_duration 30s
+		transport http {
+			read_timeout 10m
+		}
+	}
+}

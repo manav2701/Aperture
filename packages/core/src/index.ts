@@ -33,6 +33,7 @@ export {
   type TextPrice,
   type TextUsage,
 } from './pricing';
+export { PLAN_LABELS, PLAN_LIMITS, planLimitReason, type Plan, type PlanLimits, type PlanResource } from './plans';
 export { RAILS, type Rail } from './rails';
 export { matchesModel, modelPatternSchema, patternWithin, type ModelPattern } from './policy/patterns';
 export {

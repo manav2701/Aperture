@@ -1,6 +1,6 @@
 import { sql } from '@aperture/db';
 import { handleMcpHttp } from '@aperture/mcp';
-import { createServiceApp } from '@aperture/runtime';
+import { createServiceApp, metricsMiddleware } from '@aperture/runtime';
 import { Hono } from 'hono';
 import { bodyLimit } from 'hono/body-limit';
 import { anthropicAdapter, geminiAdapter, openAiAdapter, type Json, type OpenAiRoute } from './adapters';
@@ -38,6 +38,7 @@ function routeOpenAi(route: OpenAiRoute) {
 
 export function buildApp(deps: GatewayDeps) {
   const app = new Hono();
+  app.use('*', metricsMiddleware());
 
   app.route(
     '/',

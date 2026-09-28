@@ -3,3 +3,4 @@ export { createLogger, REDACT_PATHS, type Logger, type LoggerOptions } from './l
 export { createServiceApp, type ReadinessCheck, type ServiceAppOptions } from './http';
 export { runService, type FetchApp, type RunServiceOptions } from './server';
 export { logSender, resendSender, type Email, type EmailSender } from './email';
+export { metrics, metricsMiddleware } from './metrics';

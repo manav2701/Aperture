@@ -5,6 +5,7 @@ import { createRoute, z } from '@hono/zod-openapi';
 import { v7 as uuidv7 } from 'uuid';
 import { requireUser, type Router } from '../http/access';
 import { auditByUser } from '../http/audit';
+import { assertWithinPlan } from '../plans';
 import type { AppDeps } from '../http/context';
 import { emails } from '../email';
 import { AppError, forbidden, notFound } from '../http/errors';
@@ -296,6 +297,7 @@ export function registerMemberRoutes(router: Router, deps: AppDeps): void {
 
       const token = randomBytes(32).toString('base64url');
       const { invitation, orgName } = await withOrg(deps.db, orgId, async (tx) => {
+        await assertWithinPlan(deps, tx, orgId, 'members');
         await assertActiveTeam(tx, orgId, body.teamId);
         const [alreadyMember] = await tx
           .select({ id: schema.members.id })

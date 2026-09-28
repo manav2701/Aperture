@@ -17,6 +17,7 @@ import { createRoute, z } from '@hono/zod-openapi';
 import { v7 as uuidv7 } from 'uuid';
 import { requireUser, type Router } from '../http/access';
 import { auditByUser } from '../http/audit';
+import { assertWithinPlan } from '../plans';
 import type { AppDeps } from '../http/context';
 import { AppError, notFound } from '../http/errors';
 import { OrgParams, Timestamp, errorResponses, json, jsonBody } from '../http/schemas';
@@ -213,6 +214,7 @@ export function registerConnectionRoutes(router: Router, deps: AppDeps): void {
       const stored: Stored = { tier: connector.capabilities.tier, capabilities: connector.capabilities };
 
       const created = await withOrg(deps.db, orgId, async (tx) => {
+        await assertWithinPlan(deps, tx, orgId, 'connections');
         const [duplicate] = await tx
           .select({ id: schema.connections.id })
           .from(schema.connections)

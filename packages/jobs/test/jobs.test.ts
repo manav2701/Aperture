@@ -26,6 +26,8 @@ import {
   dispatchAlerts,
   expirePendingApprovals,
   anchorAudits,
+  applyRetention,
+  processDeletions,
   expireTaskCards,
   reconcileX402,
   syncStablePrices,
@@ -575,6 +577,73 @@ describe('x402 upkeep (Phase 9)', () => {
     expect(anchor).toMatchObject({ signature: 'anchorSig' });
     expect(chain.sent).toHaveLength(1);
     expect(await anchorAudits({ ...deps(network), notarySecret }, tomorrow)).toBe(0);
+  });
+});
+
+describe('privacy jobs (Phase 10)', () => {
+  it('deletes old request logs and media (objects too), and shuts down orgs past the deletion grace period', async () => {
+    const tree = await seedTree(system.db);
+    await system.db.insert(schema.orgSettings).values({ orgId: tree.org.id, requestLogDays: 7, mediaDays: 1 });
+    const old = new Date(Date.now() - 10 * 86_400_000);
+    const request = (createdAt: Date) => ({
+      id: crypto.randomUUID(),
+      orgId: tree.org.id,
+      principalId: tree.agent.id,
+      route: '/v1/chat/completions',
+      provider: 'openrouter',
+      model: 'openai/gpt-4o-mini',
+      outcome: 'allowed',
+      reasons: [],
+      status: 200,
+      latencyMs: 10,
+      createdAt,
+    });
+    await system.db.insert(schema.gatewayRequests).values([request(old), request(new Date())]);
+    await system.db.insert(schema.mediaJobs).values({
+      id: crypto.randomUUID(),
+      orgId: tree.org.id,
+      principalId: tree.agent.id,
+      kind: 'image',
+      provider: 'openrouter',
+      model: 'm',
+      status: 'succeeded',
+      prompt: 'p',
+      params: {},
+      estimated: 1n,
+      outputs: [{ key: 'org/x/media/y/0.png', contentType: 'image/png', bytes: 1 }],
+      createdAt: old,
+    });
+    const removed: string[] = [];
+    const storage = {
+      put: () => Promise.resolve(),
+      signedUrl: () => Promise.resolve(''),
+      remove: (key: string) => {
+        removed.push(key);
+        return Promise.resolve();
+      },
+    };
+    const result = await applyRetention({ ...deps(), storage });
+    expect(result.requests).toBeGreaterThanOrEqual(1);
+    expect(result.media).toBeGreaterThanOrEqual(1);
+    expect(removed).toContain('org/x/media/y/0.png');
+    const left = await system.db
+      .select()
+      .from(schema.gatewayRequests)
+      .where(eq(schema.gatewayRequests.orgId, tree.org.id));
+    expect(left).toHaveLength(1);
+
+    await system.db
+      .update(schema.orgSettings)
+      .set({ deletion: 'requested', deletionRequestedAt: new Date(Date.now() - 31 * 86_400_000) })
+      .where(eq(schema.orgSettings.orgId, tree.org.id));
+    expect(await processDeletions(deps())).toBeGreaterThanOrEqual(1);
+    const [agent] = await system.db.select().from(schema.principals).where(eq(schema.principals.id, tree.agent.id));
+    expect(agent?.status).toBe('revoked');
+    const [settings] = await system.db
+      .select()
+      .from(schema.orgSettings)
+      .where(eq(schema.orgSettings.orgId, tree.org.id));
+    expect(settings?.deletion).toBe('scheduled');
   });
 });
 

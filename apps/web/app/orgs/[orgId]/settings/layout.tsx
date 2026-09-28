@@ -26,6 +26,12 @@ export default async function SettingsLayout({
         <NavLink href={`${base}/alerts`} exact={false}>
           Alerts
         </NavLink>
+        <NavLink href={`${base}/privacy`} exact={false}>
+          Privacy
+        </NavLink>
+        <NavLink href={`${base}/billing`} exact={false}>
+          Billing
+        </NavLink>
       </nav>
       {children}
     </>

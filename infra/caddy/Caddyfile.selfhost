@@ -1,0 +1,21 @@
+# Self-hosted: web, API and gateway behind one Caddy (TLS from Let's Encrypt, or `tls internal`
+# for private networks).
+
+{$APP_HOST} {
+	encode zstd gzip
+	reverse_proxy web:3000
+}
+
+{$API_HOST} {
+	encode zstd gzip
+	reverse_proxy api:4000
+}
+
+{$GATEWAY_HOST} {
+	reverse_proxy gateway:4100 {
+		flush_interval -1
+		transport http {
+			read_timeout 10m
+		}
+	}
+}

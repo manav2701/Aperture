@@ -49,6 +49,7 @@ Hard rule: **at most USD 1 in total per provider key**, including all testing. P
 - Weekly live contract tests for connectors in GitHub Actions. Needs the provider keys as repository secrets, and each run spends a few cents.
 - Playwright end-to-end tests and two-factor authentication (Phase 10).
 - Policy rule builder UI (policies are edited as JSON today).
+- Phase 10 on production: ZAP scan + manual pen-test, k6 runs (`tools/load`), latency baselines on the real server, docs site build, status page, automated final org purge (runbook step today), ledger statement batching if the 30 ms overhead budget is missed (see docs/performance.md).
 - Cards: dispute helper (§8.6: prefill `POST /v1/issuing/disputes` for over-captures and force captures on single-use cards); partial-reversal release at reversal time rather than at close; confirm Stripe's real-time response headers and payload for API version 2024-06-20 in the sandbox.
 - NymCard connector (§8.7): deferred — no confirmation of real-time decisioning and no API access; build the limit-mirroring mode from the plan once NymCard answers.
 

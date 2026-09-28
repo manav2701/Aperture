@@ -1,10 +1,11 @@
 import { OpenAPIHono } from '@hono/zod-openapi';
 import { orgJwks, sql, withOrg } from '@aperture/db';
 import { bodyLimit } from 'hono/body-limit';
-import { createServiceApp } from '@aperture/runtime';
+import { createServiceApp, metricsMiddleware } from '@aperture/runtime';
 import { createRouter, sameOriginWrites, type RegisteredRoute } from './http/access';
 import type { AppDeps, AppEnv } from './http/context';
 import { errorBody, handleError } from './http/errors';
+import { registerAccountRoutes, registerBillingWebhook } from './routes/account';
 import { registerAgentRoutes } from './routes/agents';
 import { registerCardRoutes } from './routes/cards';
 import { registerApprovalRoutes } from './routes/approvals';
@@ -43,6 +44,8 @@ export function buildApp(
       return undefined;
     },
   });
+
+  app.use('*', metricsMiddleware());
 
   // Health endpoints come from the shared service bootstrap; readiness pings the database.
   app.route(
@@ -94,6 +97,7 @@ export function buildApp(
   // Slack calls these itself (signed), so they sit outside the session and same-origin checks.
   registerSlackWebhooks(app, deps);
   registerStripeWebhooks(app, deps);
+  registerBillingWebhook(app, deps);
 
   app.use('/api/v1/*', sameOriginWrites(deps.webOrigin));
   app.use('/api/v1/*', async (c, next) => {
@@ -118,6 +122,7 @@ export function buildApp(
   registerSlackInstallRoute(router, deps);
   registerCardRoutes(router, deps);
   registerX402Routes(router, deps);
+  registerAccountRoutes(router, deps);
 
   app.doc31('/api/v1/openapi.json', {
     openapi: '3.1.0',

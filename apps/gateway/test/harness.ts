@@ -132,7 +132,7 @@ export async function seedGatewayOrg(h: GatewayHarness, limits: { agent?: string
 export function gateway(
   h: GatewayHarness,
   routes: Routes,
-  options: { storage?: MediaStorage; signer?: SignerClient } = {},
+  options: { storage?: MediaStorage; signer?: SignerClient; limiter?: RequestLimiter } = {},
 ) {
   const upstream = fakeProvider(routes);
   const app = buildApp({
@@ -142,7 +142,7 @@ export function gateway(
     workspaceSecret: PEPPER,
     logger: createLogger({ service: 'gateway-test', level: 'silent' }),
     cache: new GatewayCache(),
-    limiter: new RequestLimiter(),
+    limiter: options.limiter ?? new RequestLimiter(),
     fetch: upstream.fetch,
     storage: options.storage,
     signer: options.signer,

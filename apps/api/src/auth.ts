@@ -2,7 +2,9 @@ import type { Database } from '@aperture/db';
 import { schema } from '@aperture/db';
 import { betterAuth } from 'better-auth';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
-import { magicLink } from 'better-auth/plugins';
+import { APIError } from 'better-auth/api';
+import { magicLink, twoFactor } from 'better-auth/plugins';
+import { eq } from '@aperture/db';
 import { v7 as uuidv7 } from 'uuid';
 import type { EmailSender } from '@aperture/runtime';
 import { emails } from './email';
@@ -38,6 +40,7 @@ export function createAuth(options: {
         account: schema.accounts,
         verification: schema.verifications,
         rateLimit: schema.rateLimits,
+        twoFactor: schema.twoFactors,
       },
     }),
     emailAndPassword: {
@@ -59,6 +62,9 @@ export function createAuth(options: {
     },
     socialProviders: google,
     plugins: [
+      // TOTP with backup codes (Phase 10). Required for owners, admins and finance before they
+      // change anything (see requireUser / accessMiddleware).
+      twoFactor({ issuer: 'Aperture' }),
       magicLink({
         expiresIn: 300,
         sendMagicLink: async ({ email: to, url }) => {
@@ -77,6 +83,27 @@ export function createAuth(options: {
         '/sign-in/magic-link': { window: 60, max: 5 },
         '/forget-password': { window: 60, max: 3 },
         '/request-password-reset': { window: 60, max: 3 },
+      },
+    },
+    databaseHooks: {
+      session: {
+        create: {
+          // The two-factor plugin only guards password sign-in. Someone who turned it on must
+          // not get a session from a magic link or Google without their second factor.
+          before: async (session, context) => {
+            const path = context?.path ?? '';
+            if (!path.startsWith('/magic-link/verify') && !path.startsWith('/callback/')) return;
+            const [user] = await db
+              .select({ twoFactorEnabled: schema.users.twoFactorEnabled })
+              .from(schema.users)
+              .where(eq(schema.users.id, session.userId));
+            if (user?.twoFactorEnabled === true) {
+              throw new APIError('FORBIDDEN', {
+                message: 'Two-factor is on for this account: sign in with your password and authenticator code.',
+              });
+            }
+          },
+        },
       },
     },
     session: {

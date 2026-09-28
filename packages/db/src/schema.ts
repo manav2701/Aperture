@@ -255,9 +255,28 @@ export const users = pgTable('users', {
   email: text('email').notNull().unique(),
   emailVerified: boolean('email_verified').notNull().default(false),
   image: text('image'),
+  /** Better Auth two-factor plugin; required for owners, admins and finance (Phase 10). */
+  twoFactorEnabled: boolean('two_factor_enabled').notNull().default(false),
   createdAt: authTimestamp('created_at').notNull().defaultNow(),
   updatedAt: authTimestamp('updated_at').notNull().defaultNow(),
 });
+
+/** TOTP secrets and backup codes (encrypted by Better Auth with BETTER_AUTH_SECRET). */
+export const twoFactors = pgTable(
+  'two_factors',
+  {
+    id: text('id').primaryKey(),
+    secret: text('secret').notNull(),
+    backupCodes: text('backup_codes').notNull(),
+    userId: text('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    verified: boolean('verified').notNull().default(true),
+    failedVerificationCount: integer('failed_verification_count').notNull().default(0),
+    lockedUntil: authTimestamp('locked_until'),
+  },
+  (table) => [index('two_factors_user_idx').on(table.userId), index('two_factors_secret_idx').on(table.secret)],
+);
 
 export const sessions = pgTable(
   'sessions',
@@ -1038,3 +1057,53 @@ export const stablePrices = pgTable('stable_prices', {
   publishedAt: timestamp('published_at', { withTimezone: true, mode: 'date' }).notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
 });
+
+// ---------------------------------------------------------------------------------------------
+// Production (Phase 10): privacy controls and Aperture's own billing, one row per org.
+
+export const PLANS = ['pilot', 'free', 'team', 'business'] as const;
+export const DELETION_STATES = ['none', 'requested', 'scheduled'] as const;
+
+export const orgSettings = pgTable(
+  'org_settings',
+  {
+    orgId: uuid('org_id')
+      .primaryKey()
+      .references(() => orgs.id),
+    /** Gateway request logs are deleted after this many days. */
+    requestLogDays: integer('request_log_days').notNull().default(90),
+    /** Generated media (objects and rows) are deleted after this many days. */
+    mediaDays: integer('media_days').notNull().default(90),
+    /** Deletion is requested by an owner and carried out after a grace period (audit data is kept, per contract). */
+    deletion: text('deletion', { enum: DELETION_STATES }).notNull().default('none'),
+    deletionRequestedAt: timestamp('deletion_requested_at', { withTimezone: true, mode: 'date' }),
+    deletionRequestedBy: text('deletion_requested_by').references(() => users.id),
+    updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
+  },
+  () => [
+    check('org_settings_deletion_check', inList('deletion', DELETION_STATES)),
+    check('org_settings_retention_check', sql`request_log_days between 7 and 3650 and media_days between 1 and 3650`),
+  ],
+);
+
+export const orgBilling = pgTable(
+  'org_billing',
+  {
+    orgId: uuid('org_id')
+      .primaryKey()
+      .references(() => orgs.id),
+    plan: text('plan', { enum: PLANS }).notNull().default('free'),
+    /** Stripe subscription status (active, trialing, past_due, canceled…); null without one. */
+    status: text('status'),
+    stripeCustomerId: text('stripe_customer_id'),
+    stripeSubscriptionId: text('stripe_subscription_id'),
+    currentPeriodEnd: timestamp('current_period_end', { withTimezone: true, mode: 'date' }),
+    /** Pilot orgs use everything without billing until this date. */
+    pilotEndsAt: timestamp('pilot_ends_at', { withTimezone: true, mode: 'date' }),
+    updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
+  },
+  (table) => [
+    unique('org_billing_customer_unique').on(table.stripeCustomerId),
+    check('org_billing_plan_check', inList('plan', PLANS)),
+  ],
+);

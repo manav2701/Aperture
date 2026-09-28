@@ -17,7 +17,13 @@ const OrgSchema = z
 
 const MeSchema = z
   .object({
-    user: z.object({ id: z.string(), name: z.string(), email: z.string(), emailVerified: z.boolean() }),
+    user: z.object({
+      id: z.string(),
+      name: z.string(),
+      email: z.string(),
+      emailVerified: z.boolean(),
+      twoFactorEnabled: z.boolean(),
+    }),
     memberships: z.array(
       z.object({ orgId: z.uuid(), orgName: z.string(), role: RoleSchema, teamId: z.uuid().nullable() }),
     ),
@@ -54,7 +60,13 @@ export function registerOrgRoutes(router: Router, deps: AppDeps): void {
       );
       return c.json(
         {
-          user: { id: user.id, name: user.name, email: user.email, emailVerified: user.emailVerified },
+          user: {
+            id: user.id,
+            name: user.name,
+            email: user.email,
+            emailVerified: user.emailVerified,
+            twoFactorEnabled: (user as { twoFactorEnabled?: boolean | null }).twoFactorEnabled === true,
+          },
           memberships,
         },
         200,

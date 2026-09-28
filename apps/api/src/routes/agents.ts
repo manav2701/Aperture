@@ -17,6 +17,7 @@ import { createRoute, z } from '@hono/zod-openapi';
 import { v7 as uuidv7 } from 'uuid';
 import { requireUser, type Router } from '../http/access';
 import { auditByUser } from '../http/audit';
+import { assertWithinPlan } from '../plans';
 import { callGatewayAs, passThrough } from '../http/gateway';
 import type { AppDeps, Membership } from '../http/context';
 import { AppError, forbidden, notFound } from '../http/errors';
@@ -189,6 +190,7 @@ export function registerAgentRoutes(router: Router, deps: AppDeps): void {
       const teamId = body.teamId ?? null;
       assertCanManageAgent(c.var.membership, { kind: 'agent', teamId });
       const agent = await withOrg(deps.db, orgId, async (tx) => {
+        await assertWithinPlan(deps, tx, orgId, 'agents');
         if (teamId !== null) {
           const [team] = await tx.select({ id: schema.teams.id }).from(schema.teams).where(eq(schema.teams.id, teamId));
           if (!team) throw new AppError(400, 'invalid_team', 'that team does not exist in this organization');

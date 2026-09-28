@@ -33,6 +33,10 @@ export interface AppDeps {
   signer?: SignerClient | undefined;
   /** Allow Solana mainnet connections (only after the legal opinion, C1). */
   mainnetX402?: boolean | undefined;
+  /** Owners, admins and finance need two-factor to make changes (on in production). */
+  enforceTwoFactor?: boolean | undefined;
+  /** Aperture's own Stripe billing; plan limits apply only when set. */
+  billing?: { secretKey: string; webhookSecret: string; prices: { team: string; business: string } } | undefined;
 }
 
 export type SessionUser = NonNullable<Awaited<ReturnType<Auth['api']['getSession']>>>['user'];

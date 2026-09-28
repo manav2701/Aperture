@@ -43,44 +43,49 @@ export interface Authority {
 
 const usd = (amount: bigint) => formatUsd(micros(amount));
 
+const layersFor = (chain: readonly MandateRow[]): PolicyLayer[] =>
+  chain.map((link) => ({
+    level: 'mandate',
+    scopeId: link.id,
+    version: 1,
+    document: mandateToPolicyDocument(parseScope(link.scope)),
+  }));
+
 export async function resolveAuthority(
   deps: GatewayDeps,
   caller: Caller,
   request: Request,
   action: { rail: ActionInput['rail']; resource: string },
 ): Promise<Authority> {
-  return withOrg(deps.db, caller.orgId, async (tx) => {
-    const approvalId = request.headers.get('x-aperture-approval');
-    let approval: ApprovalRow | undefined;
-    let mandate: MandateRow | undefined;
-    if (approvalId !== null) {
-      approval = /^[0-9a-f-]{36}$/i.test(approvalId)
-        ? await usableApproval(tx, { orgId: caller.orgId, approvalId, principalId: caller.principalId, ...action })
-        : undefined;
-      if (approval === undefined) {
-        throw new GatewayError(
-          'aperture_policy_denied',
-          'that approval is not approved, already used, or for a different request',
-        );
-      }
-      mandate = (await mandateChain(tx, approval.mandateId ?? ''))[0];
-    } else {
-      mandate = await standingMandate(tx, caller.principalId);
-      if (mandate === undefined && (await hasStandingMandate(tx, caller.principalId))) {
-        throw new GatewayError(
-          'aperture_policy_denied',
-          'this caller’s mandate was revoked, has expired, or is used up',
-        );
-      }
+  const approvalId = request.headers.get('x-aperture-approval');
+  if (approvalId === null) {
+    // The standing mandate is read on every request, so it is cached like the policy context
+    // (invalidated by the mandates NOTIFY trigger). Use counts and validity stay authoritative:
+    // they are re-checked with the rows locked when the use is counted (P5, P6).
+    const standing = await deps.cache.get(`authority:${caller.principalId}`, caller.orgId, () =>
+      withOrg(deps.db, caller.orgId, async (tx) => {
+        const mandate = await standingMandate(tx, caller.principalId);
+        const cut = mandate === undefined && (await hasStandingMandate(tx, caller.principalId));
+        return { mandate, cut, layers: mandate === undefined ? [] : layersFor(await mandateChain(tx, mandate.id)) };
+      }),
+    );
+    if (standing.cut) {
+      throw new GatewayError('aperture_policy_denied', 'this caller’s mandate was revoked, has expired, or is used up');
     }
-    const chain = mandate === undefined ? [] : await mandateChain(tx, mandate.id);
-    const layers: PolicyLayer[] = chain.map((link) => ({
-      level: 'mandate',
-      scopeId: link.id,
-      version: 1,
-      document: mandateToPolicyDocument(parseScope(link.scope)),
-    }));
-    return { mandate, approval, layers };
+    return { mandate: standing.mandate, approval: undefined, layers: standing.layers };
+  }
+  return withOrg(deps.db, caller.orgId, async (tx) => {
+    const approval = /^[0-9a-f-]{36}$/i.test(approvalId)
+      ? await usableApproval(tx, { orgId: caller.orgId, approvalId, principalId: caller.principalId, ...action })
+      : undefined;
+    if (approval === undefined) {
+      throw new GatewayError(
+        'aperture_policy_denied',
+        'that approval is not approved, already used, or for a different request',
+      );
+    }
+    const chain = await mandateChain(tx, approval.mandateId ?? '');
+    return { mandate: chain[0], approval, layers: layersFor(chain) };
   });
 }
 

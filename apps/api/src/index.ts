@@ -30,6 +30,8 @@ if (env.RUN_MIGRATIONS) {
   } finally {
     await migrator.close();
   }
+  // Release step: migrate once, then exit, so API replicas never race on migrations.
+  if (env.MIGRATE_ONLY) process.exit(0);
 }
 
 const ring = keyRingFromEnv(process.env);
@@ -93,6 +95,18 @@ const { app } = buildApp(
     apiPublicUrl: env.API_PUBLIC_URL,
     signer,
     mainnetX402: env.MAINNET_X402_ENABLED,
+    enforceTwoFactor: env.ENFORCE_TWO_FACTOR,
+    billing:
+      env.STRIPE_BILLING_SECRET_KEY !== undefined &&
+      env.STRIPE_BILLING_WEBHOOK_SECRET !== undefined &&
+      env.STRIPE_PRICE_TEAM !== undefined &&
+      env.STRIPE_PRICE_BUSINESS !== undefined
+        ? {
+            secretKey: env.STRIPE_BILLING_SECRET_KEY,
+            webhookSecret: env.STRIPE_BILLING_WEBHOOK_SECRET,
+            prices: { team: env.STRIPE_PRICE_TEAM, business: env.STRIPE_PRICE_BUSINESS },
+          }
+        : undefined,
   },
   gateway,
 );

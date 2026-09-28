@@ -1,6 +1,7 @@
 import { dispatchAlerts, scanBudgetThresholds } from './alerts';
 import { expirePendingApprovals, notifyApprovals } from './approvals';
 import { expireTaskCards, reconcileCards, syncFxRates } from './cards';
+import { applyRetention, processDeletions } from './privacy';
 import { anchorAudits, reconcileX402, syncStablePrices, watchX402 } from './x402';
 import type { JobDeps } from './deps';
 import { expireAllHolds, syncPrices, verifyLedgers } from './maintenance';
@@ -11,6 +12,7 @@ import { syncAllConnections } from './sync';
 export { alertMessage, dispatchAlerts, queueAlert, scanBudgetThresholds, type AlertKind } from './alerts';
 export { expirePendingApprovals, notifyApprovals } from './approvals';
 export { expireTaskCards, reconcileCards, syncFxRates } from './cards';
+export { DELETION_GRACE_DAYS, applyRetention, processDeletions } from './privacy';
 export { anchorAudits, reconcileX402, rpcForConnection, syncStablePrices, watchX402 } from './x402';
 export { SYSTEM_ACTOR, type JobDeps } from './deps';
 export { expireAllHolds, syncPrices, verifyLedgers } from './maintenance';
@@ -53,6 +55,8 @@ export function standardJobs(deps: JobDeps): Job[] {
     job('x402.reconcile', 24 * 60 * MINUTE, () => reconcileX402(deps)),
     job('prices.stable', 5 * MINUTE, () => syncStablePrices(deps)),
     job('audit.anchor', 60 * MINUTE, () => anchorAudits(deps)),
+    job('privacy.retention', 24 * 60 * MINUTE, () => applyRetention(deps)),
+    job('privacy.deletions', 60 * MINUTE, () => processDeletions(deps)),
   ];
 }
 

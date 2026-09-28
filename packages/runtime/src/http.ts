@@ -1,4 +1,5 @@
 import { Hono } from 'hono';
+import { metrics, metricsAuthorized } from './metrics';
 import type { Logger } from './logger';
 
 export interface ReadinessCheck {
@@ -54,6 +55,12 @@ export function createServiceApp({
     );
     const ready = checks.every((result) => result.ok);
     return c.json({ status: ready ? 'ready' : 'not_ready', service, checks }, ready ? 200 : 503);
+  });
+
+  // Prometheus scrape endpoint; hidden unless METRICS_TOKEN is set and presented.
+  app.get('/metrics', (c) => {
+    if (!metricsAuthorized(process.env.METRICS_TOKEN, c.req.header('authorization'))) return c.notFound();
+    return c.text(metrics.render(), 200, { 'content-type': 'text/plain; version=0.0.4' });
   });
 
   return app;

@@ -1,0 +1,149 @@
+# Production on one server (plan/phases/phase-10 §10.1). The web app stays on Vercel; this runs
+# the API, the gateway (two replicas each behind Caddy), the worker, the x402 signer on a
+# private network, and Postgres with WAL-G continuous backups.
+#
+#   cp infra/prod.env.example /srv/aperture/.env   # then fill it in (sops for the real file)
+#   docker compose -f infra/compose.prod.yml --env-file /srv/aperture/.env up -d
+#
+# Images are built and pushed by .github/workflows/release.yml (ghcr.io/<owner>/aperture-*).
+name: aperture
+
+x-service: &service
+  restart: unless-stopped
+  env_file: ${APERTURE_ENV_FILE:-/srv/aperture/.env}
+  logging:
+    driver: json-file
+    options: { max-size: '20m', max-file: '5' }
+  depends_on:
+    postgres: { condition: service_healthy }
+
+services:
+  caddy:
+    image: caddy:2.10
+    restart: unless-stopped
+    ports: ['80:80', '443:443']
+    volumes:
+      - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+    environment:
+      API_HOST: ${API_HOST:?set API_HOST, e.g. api.example.com}
+      GATEWAY_HOST: ${GATEWAY_HOST:?set GATEWAY_HOST, e.g. gw.example.com}
+    networks: [edge]
+
+  api:
+    <<: *service
+    image: ${IMAGE_PREFIX:-ghcr.io/aperture}/aperture-api:${VERSION:-latest}
+    deploy: { replicas: 2 }
+    environment:
+      RUN_MIGRATIONS: 'false'
+      RUN_WORKER: 'false'
+      EMBED_GATEWAY: 'false'
+      EMBED_SIGNER: 'false'
+      SIGNER_URL: http://signer:4300
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://127.0.0.1:4000/readyz').then(r=>process.exit(r.ok?0:1),()=>process.exit(1))",
+        ]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+    networks: [edge, internal]
+
+  gateway:
+    <<: *service
+    image: ${IMAGE_PREFIX:-ghcr.io/aperture}/aperture-gateway:${VERSION:-latest}
+    deploy: { replicas: 2 }
+    stop_grace_period: 70s
+    environment:
+      SIGNER_URL: http://signer:4300
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://127.0.0.1:4100/readyz').then(r=>process.exit(r.ok?0:1),()=>process.exit(1))",
+        ]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+    networks: [edge, internal]
+
+  worker:
+    <<: *service
+    image: ${IMAGE_PREFIX:-ghcr.io/aperture}/aperture-worker:${VERSION:-latest}
+    networks: [internal]
+
+  # Holds agent delegate keys. No published port, no route from the edge network (X11).
+  signer:
+    <<: *service
+    image: ${IMAGE_PREFIX:-ghcr.io/aperture}/aperture-signer:${VERSION:-latest}
+    networks: [internal]
+
+  migrate:
+    <<: *service
+    image: ${IMAGE_PREFIX:-ghcr.io/aperture}/aperture-api:${VERSION:-latest}
+    restart: 'no'
+    environment:
+      RUN_MIGRATIONS: 'true'
+      MIGRATE_ONLY: 'true'
+    profiles: [release]
+    networks: [internal]
+
+  postgres:
+    build:
+      context: ./docker
+      dockerfile: postgres.Dockerfile
+    restart: unless-stopped
+    env_file: ${APERTURE_ENV_FILE:-/srv/aperture/.env}
+    command:
+      - postgres
+      - -c
+      - archive_mode=on
+      - -c
+      - archive_command=wal-g wal-push %p
+      - -c
+      - archive_timeout=60
+      - -c
+      - max_connections=200
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    networks: [internal]
+
+  # Nightly base backup (WAL is shipped continuously by archive_command); keeps 30 days (O4).
+  backup:
+    build:
+      context: ./docker
+      dockerfile: postgres.Dockerfile
+    restart: unless-stopped
+    env_file: ${APERTURE_ENV_FILE:-/srv/aperture/.env}
+    entrypoint: ['/bin/sh', '-c']
+    command:
+      - |
+        while true; do
+          sleep $$(( (24 - $$(date -u +%H)) * 3600 ));
+          wal-g backup-push /var/lib/postgresql/data && wal-g delete retain FULL 30 --confirm;
+        done
+    volumes:
+      - postgres-data:/var/lib/postgresql/data:ro
+    depends_on:
+      postgres: { condition: service_healthy }
+    networks: [internal]
+
+networks:
+  edge: {}
+  internal:
+    internal: true
+
+volumes:
+  caddy-data:
+  postgres-data:

@@ -1,4 +1,4 @@
-import { createServiceApp, type Logger } from '@aperture/runtime';
+import { createServiceApp, metrics, metricsMiddleware, type Logger } from '@aperture/runtime';
 import { Hono } from 'hono';
 import { z } from 'zod';
 import { SignerRefusal, createDelegateKey, sharedSecretMatches, signPayment, type SignerDeps } from './signer';
@@ -12,6 +12,7 @@ const ids = z.object({ orgId: z.uuid(), accountId: z.uuid().optional(), paymentI
 
 export function buildApp(logger: Logger, deps?: SignerDeps & { sharedSecret: string }) {
   const app = new Hono();
+  app.use('*', metricsMiddleware());
   app.route('/', createServiceApp({ service: 'signer', logger }));
   if (deps === undefined) return app;
 
@@ -34,6 +35,7 @@ export function buildApp(logger: Logger, deps?: SignerDeps & { sharedSecret: str
       } catch (error) {
         if (error instanceof SignerRefusal) {
           logger.warn({ code: error.code, orgId: parsed.data.orgId }, 'signer refused');
+          metrics.inc('aperture_signer_refusals_total', { code: error.code });
           return c.json({ error: error.code, message: error.message }, 409);
         }
         logger.error({ err: error }, 'signer failed');

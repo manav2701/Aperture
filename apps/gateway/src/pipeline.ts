@@ -4,7 +4,7 @@ import type { KeyRing } from '@aperture/crypto';
 import { budgetHeadroom, lookupPrice, release, schema, settle, withOrg, type Database } from '@aperture/db';
 import type { ApprovalRow } from '@aperture/db';
 import type { MediaStorage } from '@aperture/media';
-import type { Logger } from '@aperture/runtime';
+import { metrics, type Logger } from '@aperture/runtime';
 import { v7 as uuidv7 } from 'uuid';
 import type { Adapter, Json, UsageReport } from './adapters';
 import { decide, reserveWithAuthority, resolveAuthority } from './authority';
@@ -93,6 +93,7 @@ async function logRequest(
     usage?: UsageReport | undefined;
   },
 ) {
+  metrics.inc('aperture_gateway_requests_total', { outcome: entry.outcome, provider: accounting.adapter.provider });
   try {
     await withOrg(deps.db, accounting.caller.orgId, (tx) =>
       tx.insert(schema.gatewayRequests).values({
@@ -238,7 +239,10 @@ export async function governedRequest(
     }
 
     const lookup = priceKey(first.provider, first.model);
-    const price = await withOrg(deps.db, caller.orgId, (tx) => lookupPrice(tx, lookup.provider, lookup.model));
+    // Prices change daily at most; cached per org for the cache TTL.
+    const price = await deps.cache.get(`price:${lookup.provider}:${lookup.model}`, caller.orgId, () =>
+      withOrg(deps.db, caller.orgId, (tx) => lookupPrice(tx, lookup.provider, lookup.model)),
+    );
     if (price === undefined) {
       return await deny(
         new GatewayError(

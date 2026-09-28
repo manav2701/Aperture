@@ -23,7 +23,8 @@ export type AlertKind =
   | 'card_unheld_capture'
   | 'card_decisions_timing_out'
   | 'x402_unknown_transfer'
-  | 'x402_allowance_revoked';
+  | 'x402_allowance_revoked'
+  | 'org_deletion_scheduled';
 
 /** Queues an alert once per dedupe key (C2: a threshold alerts once per budget period). */
 export async function queueAlert(
@@ -156,6 +157,11 @@ export function alertMessage(kind: string, payload: Record<string, unknown>): { 
       return {
         subject: 'An agent’s crypto allowance was revoked',
         text: `The budget account ${s(payload.account)} no longer delegates to the agent (revoked or closed in the treasury wallet). Aperture stopped signing for it.`,
+      };
+    case 'org_deletion_scheduled':
+      return {
+        subject: 'Your Aperture organization is being deleted',
+        text: 'The 30-day grace period after the deletion request has ended. All keys and agents are revoked and connections disabled; the remaining data will be deleted by Aperture operators. The audit chain is kept for the contractual retention period.',
       };
     default:
       return { subject: `Aperture alert: ${kind}`, text: JSON.stringify(payload) };

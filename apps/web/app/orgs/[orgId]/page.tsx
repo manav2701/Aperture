@@ -13,7 +13,7 @@ export default async function OverviewPage({ params }: { params: Promise<{ orgId
   const role = org.role;
 
   const monthStart = new Date(Date.now() - 30 * 86_400_000).toISOString();
-  const [budgets, audit, members, spend] = await Promise.all([
+  const [budgets, audit, members, spend, onboarding] = await Promise.all([
     can(role, 'budgets.read') ? api.GET('/api/v1/orgs/{orgId}/budgets', path).then(unwrap) : null,
     can(role, 'audit.read')
       ? api.GET('/api/v1/orgs/{orgId}/audit', { params: { path: { orgId }, query: { limit: 8 } } }).then(unwrap)
@@ -26,13 +26,33 @@ export default async function OverviewPage({ params }: { params: Promise<{ orgId
           })
           .then(unwrap)
       : null,
+    api.GET('/api/v1/orgs/{orgId}/onboarding', path).then((result) => result.data?.steps ?? []),
   ]);
+  const remaining = onboarding.filter((step) => !step.done);
   const topLevel = budgets?.budgets.filter((b) => b.parentId === null && !b.archived) ?? [];
   const base = `/orgs/${orgId}`;
 
   return (
     <>
       <PageHeader title="Overview" description={`Budgets reset in ${org.timezone.replaceAll('_', ' ')} time.`} />
+      {remaining.length === 0 ? null : (
+        <Card className="mb-6">
+          <CardTitle>Getting started</CardTitle>
+          <ol className="space-y-1 text-sm">
+            {onboarding.map((step) => (
+              <li key={step.id} className={step.done ? 'text-muted-foreground line-through' : ''}>
+                {step.done ? (
+                  step.label
+                ) : (
+                  <Link href={step.href} className="hover:text-accent">
+                    {step.label} →
+                  </Link>
+                )}
+              </li>
+            ))}
+          </ol>
+        </Card>
+      )}
       <div className="grid gap-6 lg:grid-cols-2">
         {budgets === null ? null : (
           <Card>

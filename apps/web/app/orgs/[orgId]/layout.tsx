@@ -34,6 +34,7 @@ export default async function OrgLayout({
     api.GET('/api/v1/me').then(unwrap),
   ]);
   const base = `/orgs/${orgId}`;
+  const needsTwoFactor = ['owner', 'admin', 'finance'].includes(org.role) && !me.user.twoFactorEnabled;
 
   return (
     <div className="flex min-h-screen flex-col md:flex-row">
@@ -72,10 +73,23 @@ export default async function OrgLayout({
             </details>
           ) : null}
           <p className="truncate text-muted-foreground">{me.user.email}</p>
+          <Link href="/account/security" className="block hover:text-accent">
+            Security{me.user.twoFactorEnabled ? '' : ' · set up two-factor'}
+          </Link>
           <SignOutButton />
         </div>
       </aside>
-      <main className="min-w-0 flex-1 p-6 md:p-10">{children}</main>
+      <main className="min-w-0 flex-1 p-6 md:p-10">
+        {needsTwoFactor ? (
+          <p className="mb-6 border border-danger/40 bg-danger/10 p-3 text-sm">
+            As {org.role.replace('_', ' ')}, you need two-factor authentication to make changes.{' '}
+            <Link href="/account/security" className="font-medium underline">
+              Set it up
+            </Link>
+          </p>
+        ) : null}
+        {children}
+      </main>
     </div>
   );
 }

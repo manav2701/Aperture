@@ -10,6 +10,8 @@ export const apiEnvSchema = serviceEnvSchema(4000).extend({
   DATABASE_MIGRATION_URL: z.url().optional(),
   /** Apply pending migrations at startup (staging on hosts without a pre-deploy step). */
   RUN_MIGRATIONS: z.stringbool().default(false),
+  /** With RUN_MIGRATIONS: apply them and exit (the release job in infra/compose.prod.yml). */
+  MIGRATE_ONLY: z.stringbool().default(false),
   /** Public origin of the web app; also Better Auth's base URL (requests arrive via its /api proxy). */
   WEB_ORIGIN: z.url(),
   BETTER_AUTH_SECRET: z.string().min(32, 'BETTER_AUTH_SECRET must be at least 32 characters'),
@@ -44,6 +46,13 @@ export const apiEnvSchema = serviceEnvSchema(4000).extend({
   NOTARY_SECRET_KEY: optional,
   /** Allow Solana mainnet connections: only after the legal opinion (C1). */
   MAINNET_X402_ENABLED: z.stringbool().default(false),
+  /** Require two-factor for owners, admins and finance before any change. */
+  ENFORCE_TWO_FACTOR: z.stringbool().default(true),
+  /** Aperture's own billing (Stripe Billing). All four, or none (self-hosted: no plan limits). */
+  STRIPE_BILLING_SECRET_KEY: optional,
+  STRIPE_BILLING_WEBHOOK_SECRET: optional,
+  STRIPE_PRICE_TEAM: optional,
+  STRIPE_PRICE_BUSINESS: optional,
 });
 
 export type ApiEnv = z.output<typeof apiEnvSchema>;
