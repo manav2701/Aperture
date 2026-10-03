@@ -18,9 +18,17 @@ Agents increasingly pay per request with x402. ADR 0008 chose customer-owned fun
 
 ## Spike results (2026-10-03, devnet)
 
-- **PayAI: rejected.** `verify` answered `invalid_exact_svm_smart_wallet_program_not_allowed`. PayAI accepts only transfers signed by the token account's owner, and treats a delegate-signed transfer as an unsupported smart-wallet payment.
-- **Dexter: inconclusive.** `verify` answered 503 `policy:price_unavailable` ("retry shortly") on three runs. Its devnet pricing service was down. Re-run `x402-spike` against `https://x402.dexter.cash` later.
-- So Outcome A (delegate allowances) does not work with PayAI today. See "If the spike says no" below.
+**Outcome A: delegate-signed payments are accepted.**
+
+| Facilitator                                                      | Result                                                                                                                                     |
+| ---------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| Coinbase CDP (`api.cdp.coinbase.com/platform/v2/x402`, JWT auth) | `verify` valid; `settle` succeeded on chain (tx `MvV5hej1H3W8cpga1UhpHdLfWnao6xn38KDxmpCq5ZrvR82sauXLpn3vwP1FjXnaguZ9z8FRDUmpCYnNdHzeKjf`) |
+| PayAI                                                            | `verify` valid                                                                                                                             |
+| Dexter                                                           | inconclusive: 503 `policy:price_unavailable` on every run (their devnet pricing outage)                                                    |
+
+The first runs failed at both PayAI and CDP. The cause was ours, not the delegate design: `@solana-program/memo` defaults to a newer memo program id, and facilitators only recognise SPL Memo v2 (`MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr`). An unknown memo fails the strict Path 1 check, and PayAI then reported a smart-wallet error. Fixed by pinning SPL Memo v2 in the payment and anchor transactions.
+
+Facilitators report the delegate as the `payer`. The settlement watcher matches by memo and source account, so that is fine.
 
 ## Decisions
 

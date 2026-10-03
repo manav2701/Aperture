@@ -23,6 +23,7 @@ import {
   solanaRpc,
   TOKEN_ACCOUNT_SPACE,
 } from '@aperture/x402';
+import { facilitatorHeaders } from './cdp-auth';
 import { getBase64EncodedWireTransaction, getTransactionDecoder, signTransaction } from '@solana/kit';
 
 const { values } = parseArgs({
@@ -47,7 +48,9 @@ const principalId = `spike-${String(Date.now())}`;
 const step = (text: string) => stdout.write(`• ${text}\n`);
 
 // 1. What fee payer does the facilitator use on devnet?
-const supported = (await (await fetch(`${facilitator}/supported`)).json()) as {
+const supported = (await (
+  await fetch(`${facilitator}/supported`, { headers: facilitatorHeaders('GET', `${facilitator}/supported`) })
+).json()) as {
   kinds?: { scheme: string; network: string; extra?: { feePayer?: string } }[];
 };
 const kind = supported.kinds?.find((k) => k.scheme === 'exact' && k.network === CAIP2.devnet);
@@ -113,7 +116,7 @@ const body = JSON.stringify({
 });
 const verify = await fetch(`${facilitator}/verify`, {
   method: 'POST',
-  headers: { 'content-type': 'application/json' },
+  headers: { 'content-type': 'application/json', ...facilitatorHeaders('POST', `${facilitator}/verify`) },
   body,
 });
 const verified = (await verify.json()) as { isValid?: boolean; invalidReason?: string };
@@ -129,7 +132,7 @@ if (verified.isValid !== true) {
 if (values.settle) {
   const settle = await fetch(`${facilitator}/settle`, {
     method: 'POST',
-    headers: { 'content-type': 'application/json' },
+    headers: { 'content-type': 'application/json', ...facilitatorHeaders('POST', `${facilitator}/settle`) },
     body,
   });
   step(`settle → HTTP ${String(settle.status)} ${await settle.text()}`);

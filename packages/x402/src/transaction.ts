@@ -1,5 +1,5 @@
 import { findAssociatedTokenPda, getTransferCheckedInstruction, TOKEN_PROGRAM_ADDRESS } from '@solana-program/token';
-import { getAddMemoInstruction, MEMO_PROGRAM_ADDRESS } from '@solana-program/memo';
+import { getAddMemoInstruction } from '@solana-program/memo';
 import {
   COMPUTE_BUDGET_PROGRAM_ADDRESS,
   getSetComputeUnitLimitInstruction,
@@ -30,6 +30,12 @@ import {
  * local port of the Path 1 rules, run on every transaction we produce before it leaves the
  * signer, and by the test seller.
  */
+
+/**
+ * SPL Memo v2, the memo program facilitators recognise. @solana-program/memo defaults to a newer
+ * program id, which PayAI and Coinbase CDP reject as an unknown instruction.
+ */
+export const SPL_MEMO_PROGRAM = address('MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr');
 
 /** What we request; well under facilitator caps (VERIFY caps against the spec). */
 const COMPUTE_UNIT_LIMIT = 40_000;
@@ -87,7 +93,7 @@ export async function buildPaymentTransaction(
             amount: intent.amount,
             decimals: intent.decimals,
           }),
-          getAddMemoInstruction({ memo: intent.memo }),
+          getAddMemoInstruction({ memo: intent.memo }, { programAddress: SPL_MEMO_PROGRAM }),
         ],
         m,
       ),
@@ -185,7 +191,7 @@ export async function verifyPaymentTransaction(
 
   let memo: string | null = null;
   if (instructions.length === 4) {
-    if (program(3) !== MEMO_PROGRAM_ADDRESS) return fail('instruction 4 may only be a memo');
+    if (program(3) !== SPL_MEMO_PROGRAM) return fail('instruction 4 may only be a memo');
     memo = new TextDecoder().decode(Uint8Array.from(data(3)));
   }
   if (expected.memo !== undefined && memo !== expected.memo) return fail('the memo does not match');

@@ -1,4 +1,5 @@
 import { getAddMemoInstruction } from '@solana-program/memo';
+import { SPL_MEMO_PROGRAM } from './transaction';
 import {
   appendTransactionMessageInstructions,
   compileTransaction,
@@ -58,7 +59,8 @@ export async function buildMemoTransaction(
         { blockhash: lifetime.blockhash as Blockhash, lastValidBlockHeight: lifetime.lastValidBlockHeight },
         m,
       ),
-    (m) => appendTransactionMessageInstructions([getAddMemoInstruction({ memo })], m),
+    (m) =>
+      appendTransactionMessageInstructions([getAddMemoInstruction({ memo }, { programAddress: SPL_MEMO_PROGRAM })], m),
   );
   const signed = await signTransaction([notary.keyPair], compileTransaction(message));
   return getBase64EncodedWireTransaction(signed);
