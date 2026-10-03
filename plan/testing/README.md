@@ -37,6 +37,7 @@ Coverage targets: `packages/core` ≥ 95% lines and branches; connectors and ser
 | INV-13 | Gateway: for any request body, if the policy denies, no bytes are sent upstream | Fuzzed bodies against a fake upstream that records calls | 5 |
 | INV-14 | Connector import idempotency: importing the same usage window N times yields the same ledger | Recorded fixtures replayed with random overlap | 4 |
 | INV-15 | Audit chain: any single-byte change in any stored event is detected by verification | Random chains + random mutations | 2 |
+| INV-16 | External spend is evidence only: no sequence of statement imports, assignments, or dismissals changes `ledger_entries`, `holds`, or `budget_usage` | Random statement files + random resolve actions | 11 |
 
 ## Fuzz targets (parsers that face the outside world)
 

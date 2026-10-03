@@ -16,7 +16,7 @@ Everything here was written on **2026-09-23** against the repository at commit `
 8. [security/](security/README.md) — threat model and controls.
 9. [deployment/](deployment/README.md) — environments, infrastructure, CI/CD, backups, monitoring, cost.
 10. [conventions/](conventions/README.md) — how code in this repo is written (and how we stop "slop" code).
-11. [phases/](phases/) — the build plan, Phase 0 to Phase 10. Each phase has its own README with tasks, tests, security checklist, deployment steps, a hands-on "try it yourself" section, and exit criteria.
+11. [phases/](phases/) — the build plan, Phase 0 to Phase 11. Each phase has its own README with tasks, tests, security checklist, deployment steps, a hands-on "try it yourself" section, and exit criteria.
 
 ## The phases at a glance
 
@@ -35,6 +35,7 @@ Estimates assume one full-time engineer. "You can test" means a live check you c
 | [8](phases/phase-08-fiat-cards-rail/README.md) | Fiat cards rail (Stripe Issuing, NymCard) | 3 wk | Real-time card authorization against the ledger; single-use task cards; reconciliation | Simulate purchases with Stripe test helpers |
 | [9](phases/phase-09-crypto-x402-rail/README.md) | Crypto rail (x402 on Solana, USDC/USDT) | 3 wk | Non-custodial agent allowances, policy signer, x402 payments, on-chain audit anchoring | Pay a devnet x402 API; get blocked over budget |
 | [10](phases/phase-10-production-and-launch/README.md) | Production hardening, deployment, launch | 2.5 wk | Production infra, backups, monitoring, security review, billing, pilot launch | Restore drill, load test, pilot onboarding |
+| [11](phases/phase-11-posture-inventory-attestation/README.md) | Governance posture, AI inventory, attestations | 3 wk | Pass/fail posture checks with fix links, inventory with governance coverage, shadow-AI detection, signed attestations anyone can verify | Get a score, fix a check, upload a statement, verify an attestation |
 
 Total: about **25 weeks** of engineering. A pilot with a design partner (for example the Hala contact) becomes possible **after Phase 5** (about 12 weeks): visibility across providers, budgets, a governed gateway, and a chat workspace.
 
@@ -64,5 +65,6 @@ Total: about **25 weeks** of engineering. A pilot with a design partner (for exa
 - [x] Phase 8 — cards rail on Stripe Issuing: real-time authorization, event state machine (INV-11), task cards via approval, FX, reconciliation, Cards UI, SDK/MCP task cards (ADR 0017); built against Stripe's docs and fakes, sandbox verification waits on Stripe access (D5); NymCard deferred
 - [x] Phase 9 — x402 on Solana: budget accounts with on-chain allowances, signer, authorize route, payee binding, depeg guard, settlement watcher, audit anchoring, SDK/MCP, test seller (ADR 0018); built on devnet fakes; delegate spike and mainnet (C1) pending
 - [x] Phase 10 — 2FA for privileged roles, privacy controls, Aperture billing, production and self-host compose with WAL-G backups and restore drill, release workflow, metrics, runbooks, security review, legal drafts, docs (ADR 0019); production itself waits on the server and domain
+- [ ] Phase 11 — planned 2026-10-02: posture checks, AI inventory and coverage, shadow-AI detection, signed attestations; needs no new accounts
 
 **What only you can do next:** [your-checklist.md](your-checklist.md) Postponed items are listed in [deferred.md](deferred.md)

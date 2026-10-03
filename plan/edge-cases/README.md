@@ -135,3 +135,24 @@ This is the architecture "tested in ideation": each scenario was walked through 
 | O6 | KEK lost | All connection secrets unreadable | KEK backed up offline (two copies); rotation procedure documented | L (Phase 10) |
 | O7 | Noisy tenant saturates the gateway | Other tenants slow | Per-org concurrency limits; per-key rate limits | L: k6 (Phase 10) |
 | O8 | Dependency supply-chain attack (LiteLLM/axios-style) | Credential theft | pnpm `minimumReleaseAge`, no install scripts, pinned GitHub Actions by SHA, lockfile review, least-privilege CI tokens | CI (Phase 1) |
+
+## Posture, inventory, and attestations
+
+| ID | Scenario | What could go wrong | Handling | Test |
+|---|---|---|---|---|
+| V1 | A check's data is missing or stale (connection broken, sync 3 days old) | Check reports "pass" because it found nothing wrong | Result is `unknown` and scores as a failure; the UI names the missing source | U (Phase 11) |
+| V2 | The org hasn't set up a rail (no cards, no x402) | Score punished for features not in use | Checks for that rail are `not_applicable` and left out of the total | U (Phase 11) |
+| V3 | The check catalogue changes between runs | Score drops with no config change; looks like a regression | Each run stores `catalogue_version`; new checks are shown as "new" and don't trigger regression alerts on their first run | I (Phase 11) |
+| V4 | A waiver expires | Risk silently comes back, or stays hidden forever | Expiry is required (≤180 days); the check fails again on the next run; an alert goes out 7 days before | I (Phase 11) |
+| V5 | An attestation covers a period where the audit chain broke | Attestation claims an intact log | The builder runs verification first; the attestation states "chain broken at seq N" and can never say "intact" | I (Phase 11) |
+| V6 | Request logs for the period were already deleted by retention | Attestation numbers are wrong or the build fails | Statistics come from the ledger and audit events (kept), never from `gateway_requests` | I (Phase 11) |
+| V7 | The attestation key is rotated after issuing | Old attestations stop verifying | Retired keys stay in the JWKS; the CLI accepts a saved JWKS for offline use | U (Phase 11) |
+| V8 | The org is deleted or leaves Aperture | Its auditor can no longer verify past attestations | Cloud attestations are signed with the platform key, which stays published; the CLI verifies offline | U (Phase 11) |
+| V9 | The same statement is uploaded twice, or two overlapping statements | Shadow spend counted twice | `dedupe_hash` over (date, amount, currency, descriptor), unique per org | I (Phase 11) |
+| V10 | Statement is in AED or another currency | Wrong USD figures | Convert at the `fx_rates` rate for that day; keep the original amount and currency | U (Phase 11) |
+| V11 | A refund or chargeback row matches an AI vendor | Shadow spend overstated | Negative amounts are kept as negatives and net against the vendor | U (Phase 11) |
+| V12 | The company card pays the invoice of a provider account Aperture already connects | Governed spend counted again as shadow AI | Rows for a provider with an active connection are tagged `provider_billing` and left out of "external" | I (Phase 11) |
+| V13 | Large org (10k agents, 50k keys) | Posture run or inventory page times out | Snapshot uses SQL aggregates, not per-row loops; p95 < 2 s budget | L: perf test (Phase 11) |
+| V14 | An auditor or team lead opens posture | They waive checks or see other teams' subjects | `posture.waive` is owner/admin only; team leads only see their team's subjects; RLS on every new table | I (Phase 11) |
+| V15 | Verifying the full audit chain on every daily run | Runs get slower without limit | Store a checkpoint (last verified seq and hash); verify incrementally; full verification weekly | P (Phase 11) |
+| V16 | Period boundaries for attestations and posture history | Off-by-one day across time zones | Periods use the org timezone through `period.ts`, as budgets do | P (Phase 11) |
