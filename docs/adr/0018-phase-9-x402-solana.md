@@ -16,6 +16,12 @@ Agents increasingly pay per request with x402. ADR 0008 chose customer-owned fun
 - Dexter advertises `smartWalletSupported`, the Path 2 fallback.
 - **Not yet known:** whether either one accepts a `TransferChecked` signed by a token-account _delegate_. `pnpm --filter @aperture/cli x402-spike` answers it on devnet in one run, for about 0.02 test USDC.
 
+## Spike results (2026-10-03, devnet)
+
+- **PayAI: rejected.** `verify` answered `invalid_exact_svm_smart_wallet_program_not_allowed`. PayAI accepts only transfers signed by the token account's owner, and treats a delegate-signed transfer as an unsupported smart-wallet payment.
+- **Dexter: inconclusive.** `verify` answered 503 `policy:price_unavailable` ("retry shortly") on three runs. Its devnet pricing service was down. Re-run `x402-spike` against `https://x402.dexter.cash` later.
+- So Outcome A (delegate allowances) does not work with PayAI today. See "If the spike says no" below.
+
 ## Decisions
 
 1. **Budget accounts are seeded token accounts owned by the treasury.**

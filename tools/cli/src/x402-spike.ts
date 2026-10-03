@@ -118,6 +118,10 @@ const verify = await fetch(`${facilitator}/verify`, {
 });
 const verified = (await verify.json()) as { isValid?: boolean; invalidReason?: string };
 step(`verify → HTTP ${String(verify.status)} ${JSON.stringify(verified)}`);
+if (verify.status >= 500) {
+  stdout.write('INCONCLUSIVE: the facilitator had a temporary error; run the spike again later.\n');
+  exit(3);
+}
 if (verified.isValid !== true) {
   stdout.write('OUTCOME B: the facilitator rejects delegate-signed transfers (see ADR 0018 fallbacks).\n');
   exit(2);
