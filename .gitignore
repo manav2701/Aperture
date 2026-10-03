@@ -39,3 +39,6 @@ target/
 .anchor/
 tmp-aperture-ws/
 test-ledger/
+
+# Local copies of hosted env files (contain secrets)
+*.env

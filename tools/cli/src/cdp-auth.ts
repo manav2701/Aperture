@@ -8,7 +8,7 @@ import { createPrivateKey, randomBytes, sign } from 'node:crypto';
 
 const b64url = (value: Buffer | string) => Buffer.from(value).toString('base64url');
 
-export function cdpJwt(keyId: string, secret: string, method: string, url: string): string {
+function cdpJwt(keyId: string, secret: string, method: string, url: string): string {
   const raw = Buffer.from(secret, 'base64');
   if (raw.length !== 64) throw new Error('CDP_API_KEY_SECRET must be an Ed25519 key (64 bytes, base64)');
   const pkcs8 = Buffer.concat([Buffer.from('302e020100300506032b657004220420', 'hex'), raw.subarray(0, 32)]);
