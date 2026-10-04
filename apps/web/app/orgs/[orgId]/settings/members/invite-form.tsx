@@ -2,6 +2,7 @@
 
 import type { Role } from '@aperture/core';
 import { useState, type SubmitEvent } from 'react';
+import { SecretOnce } from '@/components/secret-once';
 import { Button } from '@/components/ui/button';
 import { Field, FormError, FormNotice, Input, Select } from '@/components/ui/form';
 import { api } from '@/lib/api/browser';
@@ -15,19 +16,27 @@ export function InviteForm({ orgId, teams, actorRole }: { orgId: string; teams: 
   const [role, setRole] = useState<Role>('member');
   const [teamId, setTeamId] = useState('');
   const [sentTo, setSentTo] = useState<string | null>(null);
+  const [unsent, setUnsent] = useState<{ email: string; url: string } | null>(null);
   const { submit, pending, error } = useSubmit();
 
   const onSubmit = (event: SubmitEvent) => {
     event.preventDefault();
     const invited = email;
+    let created: { emailSent: boolean; inviteUrl: string } | undefined;
+    setSentTo(null);
+    setUnsent(null);
     submit(
-      () =>
-        api.POST('/api/v1/orgs/{orgId}/invitations', {
+      async () => {
+        const result = await api.POST('/api/v1/orgs/{orgId}/invitations', {
           params: { path: { orgId } },
           body: { email, role, teamId: teamId === '' ? null : teamId },
-        }),
+        });
+        created = result.data;
+        return result;
+      },
       () => {
-        setSentTo(invited);
+        if (created?.emailSent === false) setUnsent({ email: invited, url: created.inviteUrl });
+        else setSentTo(invited);
         setEmail('');
       },
     );
@@ -84,6 +93,15 @@ export function InviteForm({ orgId, teams, actorRole }: { orgId: string; teams: 
       </Field>
       <FormError message={error} />
       {sentTo === null ? null : <FormNotice>Invitation sent to {sentTo}. It is valid for 7 days.</FormNotice>}
+      {unsent === null ? null : (
+        <SecretOnce
+          label={`The email to ${unsent.email} did not go out. Send them this link yourself; it is valid for 7 days.`}
+          secret={unsent.url}
+          onDone={() => {
+            setUnsent(null);
+          }}
+        />
+      )}
       <Button type="submit" className="w-full" disabled={pending}>
         Send invitation
       </Button>

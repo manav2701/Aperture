@@ -36,6 +36,11 @@ const InvitationSchema = z
   })
   .openapi('Invitation');
 
+const CreatedInvitationSchema = InvitationSchema.extend({
+  emailSent: z.boolean().openapi({ description: 'False when the email provider refused the message.' }),
+  inviteUrl: z.url().openapi({ description: 'The acceptance link, for sharing when the email did not arrive.' }),
+}).openapi('CreatedInvitation');
+
 const MemberParams = OrgParams.extend({ memberId: z.uuid().openapi({ param: { name: 'memberId', in: 'path' } }) });
 const InvitationParams = OrgParams.extend({
   invitationId: z.uuid().openapi({ param: { name: 'invitationId', in: 'path' } }),
@@ -285,7 +290,7 @@ export function registerMemberRoutes(router: Router, deps: AppDeps): void {
         params: OrgParams,
         ...jsonBody(z.object({ email: z.email().max(254), role: RoleSchema, teamId: z.uuid().nullable().optional() })),
       },
-      responses: { 201: json(InvitationSchema, 'Created'), ...errorResponses },
+      responses: { 201: json(CreatedInvitationSchema, 'Created'), ...errorResponses },
     }),
     async (c) => {
       const user = requireUser(c);
@@ -330,15 +335,18 @@ export function registerMemberRoutes(router: Router, deps: AppDeps): void {
         return { invitation: created, orgName: org?.name ?? 'an organization' };
       });
 
-      await deps.email.send({
-        to: email,
-        ...emails.invitation({
-          orgName,
-          inviterName: user.name,
-          role: body.role,
-          url: `${deps.webOrigin}/invite/${token}`,
-        }),
-      });
+      const inviteUrl = `${deps.webOrigin}/invite/${token}`;
+      // The invitation stands even if the email bounces; the inviter can share the link instead.
+      let emailSent = true;
+      try {
+        await deps.email.send({
+          to: email,
+          ...emails.invitation({ orgName, inviterName: user.name, role: body.role, url: inviteUrl }),
+        });
+      } catch (error) {
+        emailSent = false;
+        deps.logger.warn({ err: error, invitation: invitation.id }, 'invitation email failed');
+      }
       return c.json(
         {
           id: invitation.id,
@@ -347,6 +355,8 @@ export function registerMemberRoutes(router: Router, deps: AppDeps): void {
           teamId: invitation.teamId,
           expiresAt: invitation.expiresAt.toISOString(),
           createdAt: invitation.createdAt.toISOString(),
+          emailSent,
+          inviteUrl,
         },
         201,
       );

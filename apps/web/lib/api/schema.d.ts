@@ -770,7 +770,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["Invitation"];
+                        "application/json": components["schemas"]["CreatedInvitation"];
                     };
                 };
                 /** @description Invalid request */
@@ -8337,6 +8337,15 @@ export interface components {
             expiresAt: string;
             /** Format: date-time */
             createdAt: string;
+        };
+        CreatedInvitation: components["schemas"]["Invitation"] & {
+            /** @description False when the email provider refused the message. */
+            emailSent: boolean;
+            /**
+             * Format: uri
+             * @description The acceptance link, for sharing when the email did not arrive.
+             */
+            inviteUrl: string;
         };
         Team: {
             /** Format: uuid */

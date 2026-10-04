@@ -129,6 +129,19 @@ describe('roles', () => {
 });
 
 describe('invitations', () => {
+  it('still creates the invitation and hands back the link when the email bounces', async () => {
+    const { owner, base } = await newOrg();
+    const email = uniqueEmail('bounce');
+    h.outbox.refuse.add(email);
+    const response = await post(`${base}/invitations`, owner, { email, role: 'member' });
+    expect(response.status).toBe(201);
+    const created = await body<{ emailSent: boolean; inviteUrl: string }>(response);
+    expect(created.emailSent).toBe(false);
+    const token = created.inviteUrl.split('/invite/')[1] ?? '';
+    const preview = await body<{ status: string }>(await h.request(`/api/v1/invitations/${token}`));
+    expect(preview.status).toBe('pending');
+  });
+
   it('can only be accepted by the invited, verified email, once', async () => {
     const { owner, base } = await newOrg();
     const email = uniqueEmail('invitee');

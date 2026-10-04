@@ -18,8 +18,11 @@ const WEB_ORIGIN = 'http://localhost:3000';
 /** Captures emails so tests can follow verification and invitation links. */
 class Outbox implements EmailSender {
   readonly sent: Email[] = [];
+  /** Addresses the fake provider refuses, like Resend's test sender for anyone but the owner. */
+  readonly refuse = new Set<string>();
 
   send(email: Email): Promise<void> {
+    if (this.refuse.has(email.to)) return Promise.reject(new Error('Resend answered 403'));
     this.sent.push(email);
     return Promise.resolve();
   }

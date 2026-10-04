@@ -220,6 +220,31 @@
           "createdAt"
         ]
       },
+      "CreatedInvitation": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/Invitation"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "emailSent": {
+                "type": "boolean",
+                "description": "False when the email provider refused the message."
+              },
+              "inviteUrl": {
+                "type": "string",
+                "format": "uri",
+                "description": "The acceptance link, for sharing when the email did not arrive."
+              }
+            },
+            "required": [
+              "emailSent",
+              "inviteUrl"
+            ]
+          }
+        ]
+      },
       "Team": {
         "type": "object",
         "properties": {
@@ -2761,7 +2786,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Invitation"
+                  "$ref": "#/components/schemas/CreatedInvitation"
                 }
               }
             }

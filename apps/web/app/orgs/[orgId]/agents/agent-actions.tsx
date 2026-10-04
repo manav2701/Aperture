@@ -103,7 +103,7 @@ export function AgentActions({ orgId, agentId, status }: { orgId: string; agentI
               setKeyName(e.target.value);
             }}
           />
-          <Button type="submit" size="sm" variant="secondary" disabled={pending}>
+          <Button type="submit" size="sm" variant="secondary" className="whitespace-nowrap" disabled={pending}>
             New key
           </Button>
         </form>

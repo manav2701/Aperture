@@ -47,6 +47,8 @@ export function TwoFactorSetup({ enabled }: { enabled: boolean }) {
         setError(result.error.message ?? 'That code did not work.');
         return;
       }
+      setPassword('');
+      setCode('');
       setStep({ kind: 'done' });
       router.refresh();
     });
