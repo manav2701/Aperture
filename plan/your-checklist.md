@@ -73,6 +73,8 @@ Generate every secret with `openssl rand -base64 32` (or `node -e "console.log(r
 
 ## E. Going to production (Phase 10)
 
+> **Superseded for hosting by [deployment/production-gcp.md](deployment/production-gcp.md)** (Google Cloud, $300 credit). Items 16 (D1, D2), 21–24 still apply; items 17–20 are replaced by that plan's steps.
+
 16. **Decisions** (from `plan/phases/phase-00-requirements`):
     - **D1:** the legal entity (a UAE free-zone company).
     - **D2:** the domain name. Then move DNS to **Cloudflare** (free).

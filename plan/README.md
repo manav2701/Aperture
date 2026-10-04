@@ -14,7 +14,7 @@ Everything here was written on **2026-09-23** against the repository at commit `
 6. [frontend/](frontend/README.md) — the new dashboard and workspace UI.
 7. [testing/](testing/README.md) — unit, property-based, fuzz, integration, end-to-end, load, and live "try it yourself" testing.
 8. [security/](security/README.md) — threat model and controls.
-9. [deployment/](deployment/README.md) — environments, infrastructure, CI/CD, backups, monitoring, cost.
+9. [deployment/](deployment/README.md) — environments, infrastructure, CI/CD, backups, monitoring, cost. **Production target: [Google Cloud](deployment/production-gcp.md).**
 10. [conventions/](conventions/README.md) — how code in this repo is written (and how we stop "slop" code).
 11. [phases/](phases/) — the build plan, Phase 0 to Phase 11. Each phase has its own README with tasks, tests, security checklist, deployment steps, a hands-on "try it yourself" section, and exit criteria.
 
