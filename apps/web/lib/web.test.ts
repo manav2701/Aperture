@@ -60,5 +60,6 @@ describe('generated API types', () => {
     const generated = COMMENT_HEADER + astToString(await openapiTS(spec, { defaultNonNullable: false }));
     const committed = readFileSync(new URL('./api/schema.d.ts', import.meta.url), 'utf8');
     expect(generated.replaceAll('\r\n', '\n')).toBe(committed.replaceAll('\r\n', '\n'));
-  });
+    // Generating types for the whole API takes several seconds on CI runners.
+  }, 60_000);
 });
