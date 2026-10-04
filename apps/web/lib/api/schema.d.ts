@@ -4,6 +4,91 @@
  */
 
 export interface paths {
+    "/api/v1/me/password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create a password for an account that has none (Google or magic-link sign-up) */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        newPassword: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description Password created */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Invalid request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description Not signed in */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description Not allowed */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description Not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/me": {
         parameters: {
             query?: never;
@@ -8193,6 +8278,13 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        Error: {
+            error: {
+                code: string;
+                message: string;
+                details?: unknown;
+            };
+        };
         Me: {
             user: {
                 id: string;
@@ -8200,6 +8292,7 @@ export interface components {
                 email: string;
                 emailVerified: boolean;
                 twoFactorEnabled: boolean;
+                hasPassword: boolean;
             };
             memberships: {
                 /** Format: uuid */
@@ -8212,13 +8305,6 @@ export interface components {
         };
         /** @enum {string} */
         Role: "owner" | "admin" | "finance" | "team_lead" | "member" | "auditor";
-        Error: {
-            error: {
-                code: string;
-                message: string;
-                details?: unknown;
-            };
-        };
         Org: {
             /** Format: uuid */
             id: string;

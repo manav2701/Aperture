@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { Card, CardTitle, PageHeader } from '@/components/ui/card';
 import { serverApi, unwrap } from '@/lib/api/server';
+import { CreatePassword } from './create-password';
 import { TwoFactorSetup } from './two-factor-setup';
 
 export default async function SecurityPage() {
@@ -17,9 +18,24 @@ export default async function SecurityPage() {
           </Link>
         }
       />
+      {me.user.hasPassword ? null : (
+        <Card>
+          <CardTitle>Step 1: create a password</CardTitle>
+          <p className="mb-4 text-sm text-muted-foreground">
+            You sign in with Google, so your account has no password yet. Two-factor works with password sign-in: once
+            it is on, you sign in with your email ({me.user.email}), this password and a code from your authenticator
+            app. Google sign-in is then turned off for your account so it can’t skip the code.
+          </p>
+          <CreatePassword />
+        </Card>
+      )}
       <Card>
-        <CardTitle>Two-factor authentication</CardTitle>
-        <TwoFactorSetup enabled={me.user.twoFactorEnabled} />
+        <CardTitle>{me.user.hasPassword ? 'Two-factor authentication' : 'Step 2: two-factor authentication'}</CardTitle>
+        {me.user.hasPassword ? (
+          <TwoFactorSetup enabled={me.user.twoFactorEnabled} />
+        ) : (
+          <p className="text-sm text-muted-foreground">Create a password first.</p>
+        )}
       </Card>
     </main>
   );

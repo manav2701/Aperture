@@ -1,7 +1,7 @@
 import { isValidTimeZone } from '@aperture/core';
 import { schema, withOrg, withSystem } from '@aperture/db';
 import { createRoute, z } from '@hono/zod-openapi';
-import { and, eq } from '@aperture/db';
+import { and, eq, isNotNull } from '@aperture/db';
 import { v7 as uuidv7 } from 'uuid';
 import { requireUser, type Router } from '../http/access';
 import { auditByUser } from '../http/audit';
@@ -23,6 +23,8 @@ const MeSchema = z
       email: z.string(),
       emailVerified: z.boolean(),
       twoFactorEnabled: z.boolean(),
+      /** False for accounts that only sign in with Google or a magic link. */
+      hasPassword: z.boolean(),
     }),
     memberships: z.array(
       z.object({ orgId: z.uuid(), orgName: z.string(), role: RoleSchema, teamId: z.uuid().nullable() }),
@@ -33,6 +35,31 @@ const MeSchema = z
 const OrgName = z.string().trim().min(1).max(100);
 
 export function registerOrgRoutes(router: Router, deps: AppDeps): void {
+  // Accounts created with Google or a magic link have no password; two-factor works on
+  // password sign-in, so they create one first (Account → Security).
+  router.add(
+    'authenticated',
+    createRoute({
+      method: 'post',
+      path: '/api/v1/me/password',
+      tags: ['me'],
+      summary: 'Create a password for an account that has none (Google or magic-link sign-up)',
+      request: jsonBody(z.object({ newPassword: z.string().min(12).max(128) })),
+      responses: { 204: { description: 'Password created' }, ...errorResponses },
+    }),
+    async (c) => {
+      requireUser(c);
+      const { newPassword } = c.req.valid('json');
+      try {
+        await deps.auth.api.setPassword({ body: { newPassword }, headers: c.req.raw.headers });
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'could not set the password';
+        throw new AppError(400, 'password_not_set', message);
+      }
+      return c.body(null, 204);
+    },
+  );
+
   router.add(
     'authenticated',
     createRoute({
@@ -58,6 +85,18 @@ export function registerOrgRoutes(router: Router, deps: AppDeps): void {
           .where(eq(schema.members.userId, user.id))
           .orderBy(schema.orgs.name),
       );
+      const [credential] = await withSystem(deps.db, (tx) =>
+        tx
+          .select({ id: schema.accounts.id })
+          .from(schema.accounts)
+          .where(
+            and(
+              eq(schema.accounts.userId, user.id),
+              eq(schema.accounts.providerId, 'credential'),
+              isNotNull(schema.accounts.password),
+            ),
+          ),
+      );
       return c.json(
         {
           user: {
@@ -66,6 +105,7 @@ export function registerOrgRoutes(router: Router, deps: AppDeps): void {
             email: user.email,
             emailVerified: user.emailVerified,
             twoFactorEnabled: (user as { twoFactorEnabled?: boolean | null }).twoFactorEnabled === true,
+            hasPassword: credential !== undefined,
           },
           memberships,
         },

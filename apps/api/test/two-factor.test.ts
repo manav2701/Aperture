@@ -93,4 +93,59 @@ describe('two-factor (Phase 10)', () => {
     const viaLink = await h.request(`${link.pathname}${link.search}`, { redirect: 'manual' });
     expect(cookiesOf(viaLink)).not.toMatch(/session_token=[^;]/);
   });
+
+  it('accounts without a password (Google, magic link) create one, then can turn on two-factor', async () => {
+    const email = 'passwordless-2fa@example.com';
+    await h.request('/api/auth/sign-in/magic-link', {
+      method: 'POST',
+      body: JSON.stringify({ email, callbackURL: '/app' }),
+    });
+    const link = new URL(h.outbox.linkFor(email));
+    const cookie = cookiesOf(await h.request(`${link.pathname}${link.search}`, { redirect: 'manual' }));
+    expect(cookie).toMatch(/session_token=[^;]/);
+    expect(await body(await h.request('/api/v1/me', { cookie }))).toMatchObject({ user: { hasPassword: false } });
+
+    const wrong = await h.request('/api/auth/two-factor/enable', {
+      method: 'POST',
+      cookie,
+      body: JSON.stringify({ password: 'x'.repeat(12) }),
+    });
+    expect(wrong.status).not.toBe(200);
+    expect(
+      (
+        await h.request('/api/v1/me/password', {
+          method: 'POST',
+          cookie,
+          body: JSON.stringify({ newPassword: 'short' }),
+        })
+      ).status,
+    ).toBe(400);
+    expect(
+      (
+        await h.request('/api/v1/me/password', {
+          method: 'POST',
+          cookie,
+          body: JSON.stringify({ newPassword: PASSWORD }),
+        })
+      ).status,
+    ).toBe(204);
+    expect(await body(await h.request('/api/v1/me', { cookie }))).toMatchObject({ user: { hasPassword: true } });
+    // A second call can't overwrite it (changing a password needs the old one).
+    expect(
+      (
+        await h.request('/api/v1/me/password', {
+          method: 'POST',
+          cookie,
+          body: JSON.stringify({ newPassword: 'another password 123' }),
+        })
+      ).status,
+    ).toBe(400);
+
+    const enabled = await h.request('/api/auth/two-factor/enable', {
+      method: 'POST',
+      cookie,
+      body: JSON.stringify({ password: PASSWORD }),
+    });
+    expect(enabled.status).toBe(200);
+  });
 });
