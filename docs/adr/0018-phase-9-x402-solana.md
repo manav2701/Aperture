@@ -50,7 +50,7 @@ Facilitators report the delegate as the `payer`. The settlement watcher matches 
    - a per-payment cap;
    - a sane timeout;
    - a distinct fee payer;
-   - the depeg guard on mainnet (Pyth, ±2 %, 1 h staleness; X13);
+   - the depeg guard on mainnet (CoinGecko prices; Pyth Hermes needs a key since 2026-10; ±2 %, 1 h staleness; X13);
    - the payee binding (X1): trust on first use, and a changed `payTo` waits for Finance;
    - policy (`x402_payees` and the other rules), approvals and mandates;
    - the reservation.

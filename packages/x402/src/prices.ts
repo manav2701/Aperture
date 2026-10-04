@@ -1,14 +1,12 @@
 import type { RpcFetch } from './rpc';
 
 /*
- * The depeg guard's input (X13): USDC/USD and USDT/USD from Pyth's public Hermes API (free, no
- * key). Budgets treat one stablecoin unit as one dollar, which is only safe near the peg.
+ * The depeg guard's input (X13): USDC/USD and USDT/USD from CoinGecko's public price API (free,
+ * no key; Pyth's Hermes API started requiring a key in 2026-10). Budgets treat one stablecoin unit
+ * as one dollar, which is only safe near the peg.
  */
 
-export const PYTH_FEEDS = {
-  USDC: '0xeaa020c61cc479712813461ce153894a96a6c00b21ed0cfc2798d1f9a9e9c94a',
-  USDT: '0x2b89b9dc8fdf9f34709a5b106b472f0f39bb6ca9ce04b0fd7f2e971688e2e53b',
-} as const;
+export const COINGECKO_IDS = { USDC: 'usd-coin', USDT: 'tether' } as const;
 
 /** ±2 % of the dollar. */
 export const DEPEG_TOLERANCE = 0.02;
@@ -23,26 +21,22 @@ export interface StablePrice {
 }
 
 export async function fetchStablecoinPrices(fetchImpl: RpcFetch): Promise<StablePrice[]> {
-  const query = Object.values(PYTH_FEEDS)
-    .map((id) => `ids[]=${id}`)
-    .join('&');
-  const response = await fetchImpl(`https://hermes.pyth.network/v2/updates/price/latest?${query}&parsed=true`, {
-    signal: AbortSignal.timeout(10_000),
-  });
-  if (!response.ok) throw new Error(`Pyth answered ${String(response.status)}`);
-  const body = (await response.json()) as {
-    parsed?: { id: string; price: { price: string; expo: number; publish_time: number } }[];
-  };
+  const ids = Object.values(COINGECKO_IDS).join(',');
+  const response = await fetchImpl(
+    `https://api.coingecko.com/api/v3/simple/price?ids=${ids}&vs_currencies=usd&include_last_updated_at=true`,
+    { signal: AbortSignal.timeout(10_000) },
+  );
+  if (!response.ok) throw new Error(`CoinGecko answered ${String(response.status)}`);
+  const body = (await response.json()) as Record<string, { usd?: number; last_updated_at?: number } | undefined>;
   const prices: StablePrice[] = [];
-  for (const entry of body.parsed ?? []) {
-    const asset = (Object.keys(PYTH_FEEDS) as (keyof typeof PYTH_FEEDS)[]).find(
-      (name) => PYTH_FEEDS[name].replace(/^0x/, '') === entry.id.replace(/^0x/, ''),
-    );
-    if (asset === undefined) continue;
-    const shift = entry.price.expo + 6;
-    const raw = BigInt(entry.price.price);
-    const micros = shift >= 0 ? raw * 10n ** BigInt(shift) : raw / 10n ** BigInt(-shift);
-    prices.push({ asset, micros, publishedAt: new Date(entry.price.publish_time * 1000) });
+  for (const asset of Object.keys(COINGECKO_IDS) as (keyof typeof COINGECKO_IDS)[]) {
+    const entry = body[COINGECKO_IDS[asset]];
+    if (entry?.usd === undefined || entry.last_updated_at === undefined || !Number.isFinite(entry.usd)) continue;
+    prices.push({
+      asset,
+      micros: BigInt(Math.round(entry.usd * 1_000_000)),
+      publishedAt: new Date(entry.last_updated_at * 1000),
+    });
   }
   return prices;
 }

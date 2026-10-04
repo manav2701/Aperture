@@ -234,21 +234,13 @@ describe('budget accounts and RPC', () => {
     expect(paymentsOutOf(tx, 'OTHER')).toEqual([]);
   });
 
-  it('reads Pyth prices and refuses depegged or stale stablecoins (X13)', async () => {
+  it('reads stablecoin prices and refuses depegged or stale stablecoins (X13)', async () => {
     const now = Math.floor(Date.now() / 1000);
     const prices = await fetchStablecoinPrices(() =>
       Promise.resolve(
         Response.json({
-          parsed: [
-            {
-              id: 'eaa020c61cc479712813461ce153894a96a6c00b21ed0cfc2798d1f9a9e9c94a',
-              price: { price: '99990000', expo: -8, publish_time: now },
-            },
-            {
-              id: '2b89b9dc8fdf9f34709a5b106b472f0f39bb6ca9ce04b0fd7f2e971688e2e53b',
-              price: { price: '95000000', expo: -8, publish_time: now },
-            },
-          ],
+          'usd-coin': { usd: 0.9999, last_updated_at: now },
+          tether: { usd: 0.95, last_updated_at: now },
         }),
       ),
     );

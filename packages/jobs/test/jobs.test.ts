@@ -515,16 +515,9 @@ describe('x402 upkeep (Phase 9)', () => {
       },
     });
     const network: JobDeps['fetch'] = (input, init) =>
-      input.startsWith('https://hermes.pyth.network')
+      input.startsWith('https://api.coingecko.com')
         ? Promise.resolve(
-            Response.json({
-              parsed: [
-                {
-                  id: 'eaa020c61cc479712813461ce153894a96a6c00b21ed0cfc2798d1f9a9e9c94a',
-                  price: { price: '100010000', expo: -8, publish_time: Math.floor(Date.now() / 1000) },
-                },
-              ],
-            }),
+            Response.json({ 'usd-coin': { usd: 1.0001, last_updated_at: Math.floor(Date.now() / 1000) } }),
           )
         : rpc.fetch(input, init);
 

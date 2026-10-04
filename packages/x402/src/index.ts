@@ -18,7 +18,7 @@ export {
   type SolanaNetwork,
   type StableAsset,
 } from './networks';
-export { DEPEG_TOLERANCE, PYTH_FEEDS, depegReason, fetchStablecoinPrices, type StablePrice } from './prices';
+export { DEPEG_TOLERANCE, COINGECKO_IDS, depegReason, fetchStablecoinPrices, type StablePrice } from './prices';
 export {
   MAX_TIMEOUT_SECONDS,
   X402Error,

@@ -9,7 +9,7 @@ x402 on Solana for Aperture: validating a seller's payment requirement, building
 | `transaction.ts`  | `buildPaymentTransaction` (compute limit + price, TransferChecked as delegate, memo) and `verifyPaymentTransaction` (our port of the facilitator's checks) |
 | `accounts.ts`     | Seeded budget accounts; setup, top-up and revoke transactions (unsigned, for the treasury wallet)                                                          |
 | `rpc.ts`          | JSON-RPC with provider fallback; `paymentsOutOf` for the settlement watcher                                                                                |
-| `prices.ts`       | Pyth Hermes USDC/USDT prices and `depegReason`                                                                                                             |
+| `prices.ts`       | CoinGecko USDC/USDT prices and `depegReason`                                                                                                               |
 | `anchor.ts`       | Audit anchor memo format and the notary's memo transaction                                                                                                 |
 
 The signer (`apps/signer`), the authorize route (`apps/gateway/src/x402.ts`), the jobs (`x402.watch`, `x402.reconcile`, `prices.stable`, `audit.anchor`) and the local test seller (`tools/x402-test-seller`) build on this package.
