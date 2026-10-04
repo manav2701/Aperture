@@ -10,6 +10,9 @@ import { useSubmit } from '@/lib/use-submit';
 
 type Period = 'hour' | 'day' | 'week' | 'month' | 'none';
 
+// Static classes: the CSP blocks inline style attributes, and Tailwind needs literal class names.
+const INDENT = ['ml-0', 'ml-5', 'ml-10', 'ml-15', 'ml-20'] as const;
+
 /** One agent's mandates as a delegation tree (its own → its sub-agents'), with revoke. */
 export function MandateTree({ orgId, mandates, manage }: { orgId: string; mandates: Mandate[]; manage: boolean }) {
   const { submit, pending, error } = useSubmit();
@@ -18,7 +21,7 @@ export function MandateTree({ orgId, mandates, manage }: { orgId: string; mandat
   const children = (id: string) => mandates.filter((m) => m.parentId === id);
 
   const node = (mandate: Mandate, depth: number) => (
-    <li key={mandate.id} className="space-y-1" style={{ marginLeft: `${String(depth * 1.25)}rem` }}>
+    <li key={mandate.id} className={`space-y-1 ${INDENT[Math.min(depth, INDENT.length - 1)] ?? 'ml-20'}`}>
       <div className="flex flex-wrap items-center gap-2 text-sm">
         {depth > 0 ? <span className="text-muted-foreground">↳ {mandate.subject.name}</span> : null}
         <span>{mandate.purpose}</span>

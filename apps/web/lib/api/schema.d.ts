@@ -2745,7 +2745,7 @@ export interface paths {
         get?: never;
         put?: never;
         post?: never;
-        /** Disconnect (Aperture stops syncing and the gateway stops using it; keys at the provider are untouched) */
+        /** Disconnect (Aperture stops syncing and disables the gateway key it created; other keys at the provider are untouched) */
         delete: {
             parameters: {
                 query?: never;

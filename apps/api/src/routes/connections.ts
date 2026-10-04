@@ -94,6 +94,35 @@ async function loadConnection(deps: AppDeps, orgId: string, connectionId: string
   return row;
 }
 
+/**
+ * Disables, at the provider, the gateway keys Aperture created for this connection. Only Aperture
+ * holds them and they carry no provider-side limit, so one left behind is an unlimited key nobody
+ * watches. Best effort: a provider outage must not block a disconnect.
+ */
+async function retireGatewayKeys(deps: AppDeps, connection: ConnectionRow): Promise<void> {
+  const keys = await withOrg(deps.db, connection.orgId, (tx) =>
+    tx
+      .select({ externalId: schema.credentials.externalId })
+      .from(schema.credentials)
+      .where(
+        and(
+          eq(schema.credentials.connectionId, connection.id),
+          eq(schema.credentials.managedByGateway, true),
+          eq(schema.credentials.createdByAperture, true),
+          eq(schema.credentials.status, 'active'),
+        ),
+      ),
+  );
+  if (keys.length === 0) return;
+  try {
+    const connector = await connectorForConnection(deps.jobs, connection);
+    if (!connector.capabilities.revoke) return;
+    for (const key of keys) await connector.revoke(key.externalId);
+  } catch (error) {
+    deps.logger.warn({ err: error, connection: connection.id }, 'could not disable a gateway key at the provider');
+  }
+}
+
 async function presentConnections(deps: AppDeps, orgId: string) {
   return withOrg(deps.db, orgId, async (tx) => {
     const rows = await tx
@@ -284,7 +313,8 @@ export function registerConnectionRoutes(router: Router, deps: AppDeps): void {
       method: 'delete',
       path: '/api/v1/orgs/{orgId}/connections/{connectionId}',
       tags: ['connections'],
-      summary: 'Disconnect (Aperture stops syncing and the gateway stops using it; keys at the provider are untouched)',
+      summary:
+        'Disconnect (Aperture stops syncing and disables the gateway key it created; other keys at the provider are untouched)',
       request: { params: ConnectionParams },
       responses: { 204: { description: 'Disconnected' }, ...errorResponses },
     }),
@@ -292,11 +322,18 @@ export function registerConnectionRoutes(router: Router, deps: AppDeps): void {
       const user = requireUser(c);
       const { orgId, connectionId } = c.req.valid('param');
       const connection = await loadConnection(deps, orgId, connectionId);
+      await retireGatewayKeys(deps, connection);
       await withOrg(deps.db, orgId, async (tx) => {
         await tx
           .update(schema.connections)
           .set({ status: 'disabled', updatedAt: new Date() })
           .where(eq(schema.connections.id, connection.id));
+        await tx
+          .update(schema.credentials)
+          .set({ status: 'revoked', revokedAt: new Date() })
+          .where(
+            and(eq(schema.credentials.connectionId, connection.id), eq(schema.credentials.managedByGateway, true)),
+          );
         await auditByUser(tx, {
           orgId,
           userId: user.id,
@@ -355,6 +392,7 @@ export function registerConnectionRoutes(router: Router, deps: AppDeps): void {
         );
       }
 
+      await retireGatewayKeys(deps, connection);
       const credentialId = uuidv7();
       await withOrg(deps.db, orgId, async (tx) => {
         await tx

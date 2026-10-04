@@ -5228,7 +5228,7 @@
         "tags": [
           "connections"
         ],
-        "summary": "Disconnect (Aperture stops syncing and the gateway stops using it; keys at the provider are untouched)",
+        "summary": "Disconnect (Aperture stops syncing and disables the gateway key it created; other keys at the provider are untouched)",
         "parameters": [
           {
             "schema": {

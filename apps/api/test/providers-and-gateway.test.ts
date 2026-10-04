@@ -54,6 +54,7 @@ const orKey = (hash: string, usage = 0, limit: number | null = null) => ({
 
 /** OpenRouter as the fake provider: management-key check, key list, key creation, chat. */
 function fakeOpenRouter() {
+  let gatewayKeys = 0;
   return h.provider({
     'GET /api/v1/key': json({ data: { is_management_key: true, organization_id: 'or-org-1' } }),
     'GET /api/v1/keys': (call) =>
@@ -62,13 +63,19 @@ function fakeOpenRouter() {
       const name = (call.body as { name: string }).name;
       return Response.json({
         data: orKey(
-          name === 'aperture-gateway' ? 'gw-hash' : 'agent-hash',
+          name !== 'aperture-gateway'
+            ? 'agent-hash'
+            : (gatewayKeys += 1) === 1
+              ? 'gw-hash'
+              : `gw-hash-${String(gatewayKeys)}`,
           0,
           (call.body as { limit: number | null }).limit,
         ),
         key: `sk-or-v1-${name}`,
       });
     },
+    'PATCH /api/v1/keys/gw-hash': json({ data: { ...orKey('gw-hash'), disabled: true } }),
+    'PATCH /api/v1/keys/gw-hash-2': json({ data: { ...orKey('gw-hash-2'), disabled: true } }),
     'POST /api/v1/chat/completions': json({
       id: 'gen-1',
       choices: [{ message: { content: 'hi' } }],
@@ -159,6 +166,27 @@ describe('connections (Phase 4)', () => {
       calls.find((c) => c.method === 'POST' && (c.body as { name: string }).name === 'aperture:research-bot')?.body,
     ).toMatchObject({ limit: 2.5, limit_reset: null });
     expect(await (await h.request(`${base}/credentials`, { cookie: owner })).text()).not.toContain('sk-or-v1-aperture');
+  });
+});
+
+describe('gateway key lifecycle', () => {
+  it('disables the gateway key Aperture created when it is replaced or the connection is disconnected', async () => {
+    const { owner, base } = await newOrg();
+    const calls = fakeOpenRouter();
+    const connection = await body<{ id: string }>(
+      await post(`${base}/connections`, owner, { provider: 'openrouter', secret: 'sk-or-v1-m' }),
+    );
+    const disabled = () => calls.filter((c) => c.method === 'PATCH').map((c) => c.url.pathname);
+
+    expect((await post(`${base}/connections/${connection.id}/gateway-key`, owner)).status).toBe(201);
+    expect(disabled()).toHaveLength(0);
+    expect((await post(`${base}/connections/${connection.id}/gateway-key`, owner)).status).toBe(201);
+    expect(disabled()).toEqual(['/api/v1/keys/gw-hash']);
+    expect(calls.find((c) => c.method === 'PATCH')?.body).toEqual({ disabled: true });
+
+    const gone = await h.request(`${base}/connections/${connection.id}`, { method: 'DELETE', cookie: owner });
+    expect(gone.status).toBe(204);
+    expect(disabled()).toEqual(['/api/v1/keys/gw-hash', '/api/v1/keys/gw-hash-2']);
   });
 });
 
