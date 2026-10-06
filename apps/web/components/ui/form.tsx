@@ -3,7 +3,7 @@ import { cn } from '@/lib/cn';
 
 const control =
   'w-full border border-border bg-background px-3 text-foreground placeholder:text-muted-foreground ' +
-  'focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-accent disabled:opacity-50';
+  'focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-highlight disabled:opacity-50';
 
 export function Input({ className, ...props }: InputHTMLAttributes<HTMLInputElement>) {
   return <input className={cn(control, 'h-10', className)} {...props} />;

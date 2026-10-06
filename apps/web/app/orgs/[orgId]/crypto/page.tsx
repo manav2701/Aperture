@@ -84,7 +84,7 @@ export default async function CryptoPage({ params }: { params: Promise<{ orgId: 
                     <span className="text-xs text-muted-foreground">
                       {payment.txSignature === null ? null : (
                         <a
-                          className="hover:text-accent"
+                          className="hover:text-highlight"
                           href={explorerUrl(payment.txSignature, payment.network)}
                           target="_blank"
                           rel="noreferrer"

@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
+import { Logo } from '@/components/logo';
 import { serverApi } from '@/lib/api/server';
 import { AcceptInvitation } from './accept-invitation';
 
@@ -23,7 +24,7 @@ export default async function InvitePage({ params }: { params: Promise<{ token: 
 
   return (
     <main className="mx-auto flex min-h-screen max-w-md flex-col justify-center gap-6 px-6 py-16">
-      <p className="font-mono text-sm uppercase tracking-widest text-accent">Aperture</p>
+      <Logo />
       <h1 className="text-2xl font-bold">Join {invitation.orgName}</h1>
       <p className="text-muted-foreground">
         You were invited as <strong className="text-foreground">{invitation.role.replace('_', ' ')}</strong> using{' '}

@@ -13,7 +13,7 @@ export default async function SecurityPage() {
         title="Security"
         description="Owners, admins and finance need two-factor authentication before they can change anything."
         action={
-          <Link href="/app" className="text-sm hover:text-accent">
+          <Link href="/app" className="text-sm hover:text-highlight">
             ← Back
           </Link>
         }

@@ -67,7 +67,7 @@ export function ConnectForm({ orgId, providers }: { orgId: string; providers: Pr
               href={info.secretUrl}
               target="_blank"
               rel="noreferrer"
-              className="text-accent underline-offset-4 hover:underline"
+              className="text-highlight underline-offset-4 hover:underline"
             >
               Open {info.name}
             </a>

@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { Logo } from '@/components/logo';
 import { serverApi, unwrap } from '@/lib/api/server';
 import { CreateOrgForm } from './create-org-form';
 
@@ -10,7 +11,7 @@ export default async function OnboardingPage() {
   return (
     <main className="mx-auto flex min-h-screen max-w-md flex-col justify-center gap-8 px-6 py-16">
       <div className="space-y-2">
-        <p className="font-mono text-sm uppercase tracking-widest text-accent">Aperture</p>
+        <Logo />
         <h1 className="text-2xl font-bold">Welcome, {me.user.name}</h1>
         <p className="text-muted-foreground">
           Create an organization for your company. You can invite your team and set budgets next.

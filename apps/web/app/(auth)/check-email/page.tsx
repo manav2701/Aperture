@@ -15,7 +15,7 @@ export default async function CheckEmailPage({ searchParams }: { searchParams: P
       </p>
       <p className="text-sm text-muted-foreground">
         Nothing arrived? Check spam, or{' '}
-        <Link href="/login" className="text-accent underline-offset-4 hover:underline">
+        <Link href="/login" className="text-highlight underline-offset-4 hover:underline">
           sign in
         </Link>{' '}
         to get a new link.

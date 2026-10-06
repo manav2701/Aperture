@@ -19,7 +19,7 @@ export default async function SignupPage({
         <p className="text-sm text-muted-foreground">
           Already have one?{' '}
           <Link
-            className="text-accent underline-offset-4 hover:underline"
+            className="text-highlight underline-offset-4 hover:underline"
             href={`/login?next=${encodeURIComponent(next)}`}
           >
             Sign in

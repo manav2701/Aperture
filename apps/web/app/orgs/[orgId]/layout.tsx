@@ -1,6 +1,8 @@
 import { can, type Permission } from '@aperture/core';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
+import { Logo } from '@/components/logo';
+import { ThemeToggle } from '@/components/theme-toggle';
 import { serverApi, unwrap } from '@/lib/api/server';
 import { NavLink } from './nav-link';
 import { SignOutButton } from './sign-out-button';
@@ -39,9 +41,10 @@ export default async function OrgLayout({
   return (
     <div className="flex min-h-screen flex-col md:flex-row">
       <aside className="flex flex-col gap-6 border-b border-border p-5 md:w-60 md:shrink-0 md:border-b-0 md:border-r">
-        <Link href="/app" className="font-mono text-sm uppercase tracking-widest text-accent">
-          Aperture
-        </Link>
+        <div className="flex items-center justify-between">
+          <Logo href="/app" />
+          <ThemeToggle />
+        </div>
         <div className="space-y-1">
           <p className="truncate font-semibold">{org.name}</p>
           <p className="font-mono text-xs text-muted-foreground">{org.role.replace('_', ' ')}</p>
@@ -64,7 +67,7 @@ export default async function OrgLayout({
                   .filter((m) => m.orgId !== orgId)
                   .map((m) => (
                     <li key={m.orgId}>
-                      <Link href={`/orgs/${m.orgId}`} className="hover:text-accent">
+                      <Link href={`/orgs/${m.orgId}`} className="hover:text-highlight">
                         {m.orgName}
                       </Link>
                     </li>
@@ -73,7 +76,7 @@ export default async function OrgLayout({
             </details>
           ) : null}
           <p className="truncate text-muted-foreground">{me.user.email}</p>
-          <Link href="/account/security" className="block hover:text-accent">
+          <Link href="/account/security" className="block hover:text-highlight">
             Security{me.user.twoFactorEnabled ? '' : ' · set up two-factor'}
           </Link>
           <SignOutButton />

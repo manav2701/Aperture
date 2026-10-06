@@ -37,7 +37,7 @@ export function PageHeader({
 export function Badge({ children, tone = 'muted' }: { children: ReactNode; tone?: 'muted' | 'accent' | 'danger' }) {
   const tones = {
     muted: 'border-border text-muted-foreground',
-    accent: 'border-accent text-accent',
+    accent: 'border-accent text-highlight',
     danger: 'border-danger text-danger',
   };
   return <span className={cn('inline-block border px-1.5 py-0.5 font-mono text-xs', tones[tone])}>{children}</span>;

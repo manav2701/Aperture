@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { JetBrains_Mono, Space_Grotesk } from 'next/font/google';
+import { cookies } from 'next/headers';
 import { connection } from 'next/server';
 import type { ReactNode } from 'react';
 import './globals.css';
@@ -16,8 +17,10 @@ export const metadata: Metadata = {
 export default async function RootLayout({ children }: { children: ReactNode }) {
   // Render per request so Next.js can stamp the CSP nonce from proxy.ts onto its scripts.
   await connection();
+  // The theme toggle stores the choice in a cookie, so the first paint is already in that theme.
+  const theme = (await cookies()).get('theme')?.value === 'light' ? 'light' : 'dark';
   return (
-    <html lang="en" className={`${spaceGrotesk.variable} ${jetbrainsMono.variable}`}>
+    <html lang="en" data-theme={theme} className={`${spaceGrotesk.variable} ${jetbrainsMono.variable}`}>
       <body className="min-h-screen font-sans antialiased">{children}</body>
     </html>
   );

@@ -27,7 +27,7 @@ export default async function CardPage({ params }: { params: Promise<{ orgId: st
         title={card === undefined ? 'Card' : `Card •• ${card.last4 ?? '????'} · ${card.principal.name}`}
         description="Every purchase attempt with Aperture’s real-time decision. Holds settle when Stripe closes the authorization."
         action={
-          <Link href={`/orgs/${orgId}/cards`} className="text-sm hover:text-accent">
+          <Link href={`/orgs/${orgId}/cards`} className="text-sm hover:text-highlight">
             ← All cards
           </Link>
         }

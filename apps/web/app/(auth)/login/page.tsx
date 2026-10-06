@@ -14,7 +14,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
         <p className="text-sm text-muted-foreground">
           New to Aperture?{' '}
           <Link
-            className="text-accent underline-offset-4 hover:underline"
+            className="text-highlight underline-offset-4 hover:underline"
             href={`/signup?next=${encodeURIComponent(next)}`}
           >
             Create an account

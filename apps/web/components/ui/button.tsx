@@ -19,7 +19,7 @@ export function Button({ variant = 'primary', size = 'md', className, type = 'bu
       type={type}
       className={cn(
         'inline-flex items-center justify-center gap-2 font-medium transition-colors',
-        'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent',
+        'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-highlight',
         'disabled:pointer-events-none disabled:opacity-50',
         size === 'sm' ? 'h-8 px-3 text-sm' : 'h-10 px-4',
         variants[variant],

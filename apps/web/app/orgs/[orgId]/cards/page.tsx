@@ -35,7 +35,7 @@ export default async function CardsPage({ params }: { params: Promise<{ orgId: s
                 {cards.map((card) => (
                   <li key={card.id} className="flex flex-wrap items-center justify-between gap-3 py-3 text-sm">
                     <span className="space-x-2">
-                      <Link href={`/orgs/${orgId}/cards/${card.id}`} className="font-mono hover:text-accent">
+                      <Link href={`/orgs/${orgId}/cards/${card.id}`} className="font-mono hover:text-highlight">
                         •• {card.last4 ?? '????'}
                       </Link>
                       <span>{card.principal.name}</span>

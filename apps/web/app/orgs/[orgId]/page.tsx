@@ -44,7 +44,7 @@ export default async function OverviewPage({ params }: { params: Promise<{ orgId
                 {step.done ? (
                   step.label
                 ) : (
-                  <Link href={step.href} className="hover:text-accent">
+                  <Link href={step.href} className="hover:text-highlight">
                     {step.label} →
                   </Link>
                 )}
@@ -58,7 +58,7 @@ export default async function OverviewPage({ params }: { params: Promise<{ orgId
           <Card>
             <CardTitle
               action={
-                <Link href={`${base}/budgets`} className="text-sm text-accent">
+                <Link href={`${base}/budgets`} className="text-sm text-highlight">
                   All budgets
                 </Link>
               }
@@ -86,7 +86,7 @@ export default async function OverviewPage({ params }: { params: Promise<{ orgId
           <Card>
             <CardTitle
               action={
-                <Link href={`${base}/spend`} className="text-sm text-accent">
+                <Link href={`${base}/spend`} className="text-sm text-highlight">
                   Spend
                 </Link>
               }
@@ -109,7 +109,7 @@ export default async function OverviewPage({ params }: { params: Promise<{ orgId
           <Card>
             <CardTitle
               action={
-                <Link href={`${base}/settings/members`} className="text-sm text-accent">
+                <Link href={`${base}/settings/members`} className="text-sm text-highlight">
                   Manage
                 </Link>
               }
@@ -125,7 +125,7 @@ export default async function OverviewPage({ params }: { params: Promise<{ orgId
           <Card className="lg:col-span-2">
             <CardTitle
               action={
-                <Link href={`${base}/audit`} className="text-sm text-accent">
+                <Link href={`${base}/audit`} className="text-sm text-highlight">
                   Audit log
                 </Link>
               }

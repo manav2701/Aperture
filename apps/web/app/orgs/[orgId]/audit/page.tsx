@@ -80,12 +80,12 @@ export default async function AuditPage({
       )}
       <div className="mt-6 flex gap-4 text-sm">
         {before === undefined ? null : (
-          <Link href={`/orgs/${orgId}/audit`} className="text-accent">
+          <Link href={`/orgs/${orgId}/audit`} className="text-highlight">
             Newest
           </Link>
         )}
         {page.nextBefore === null ? null : (
-          <Link href={`/orgs/${orgId}/audit?before=${String(page.nextBefore)}`} className="text-accent">
+          <Link href={`/orgs/${orgId}/audit?before=${String(page.nextBefore)}`} className="text-highlight">
             Older
           </Link>
         )}
@@ -105,7 +105,7 @@ export default async function AuditPage({
                   <span className="font-mono text-xs">{anchor.root.slice(0, 16)}…</span>
                 </span>
                 <a
-                  className="text-accent"
+                  className="text-highlight"
                   target="_blank"
                   rel="noreferrer"
                   href={`https://explorer.solana.com/tx/${anchor.signature}${anchor.network === 'mainnet' ? '' : `?cluster=${anchor.network}`}`}
