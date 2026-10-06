@@ -13,3 +13,7 @@ allowBuilds:
 # Supply-chain defence: don't install versions published less than 3 days ago
 # (the LiteLLM and axios compromises of March 2026 were pulled within hours).
 minimumReleaseAge: 4320
+
+overrides:
+  # GHSA-68fv-2mgg-jv7q (event-loop DoS); reached through postcss. Drop once postcss requires >=1.2.2.
+  source-map-js: '>=1.2.2'
