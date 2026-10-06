@@ -24,7 +24,12 @@ export function KeysTable({
 }) {
   const { submit, pending, error } = useSubmit();
   const [created, setCreated] = useState<string | null>(null);
-  const [connectionId, setConnectionId] = useState(connections[0]?.id ?? '');
+  const [chosenConnectionId, setConnectionId] = useState(connections[0]?.id ?? '');
+  // The list can change after the first render (a provider connected on this page), so fall back
+  // to the first connection rather than keep a stale or empty choice.
+  const connectionId = connections.some((c) => c.id === chosenConnectionId)
+    ? chosenConnectionId
+    : (connections[0]?.id ?? '');
   const [principalId, setPrincipalId] = useState('');
 
   return (
