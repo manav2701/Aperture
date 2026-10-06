@@ -457,11 +457,14 @@ export function registerBillingWebhook(app: OpenAPIHono<AppEnv>, deps: AppDeps):
     ) {
       const customer = typeof object.customer === 'string' ? object.customer : undefined;
       if (customer === undefined) return c.json({ received: true });
-      const items = (object.items as { data?: { price?: { id?: string } }[] } | undefined)?.data ?? [];
+      const items =
+        (object.items as { data?: { price?: { id?: string }; current_period_end?: unknown }[] } | undefined)?.data ??
+        [];
       const plan = planFor(items[0]?.price?.id);
       const status = typeof object.status === 'string' ? object.status : null;
-      const periodEnd =
-        typeof object.current_period_end === 'number' ? new Date(object.current_period_end * 1000) : null;
+      // API versions from 2025-03-31 moved the period from the subscription onto its items.
+      const periodEndSeconds = object.current_period_end ?? items[0]?.current_period_end;
+      const periodEnd = typeof periodEndSeconds === 'number' ? new Date(periodEndSeconds * 1000) : null;
       const [row] = await withSystem(deps.db, (tx) =>
         tx
           .select({ orgId: schema.orgBilling.orgId })

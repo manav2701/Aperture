@@ -116,6 +116,7 @@ describe('billing (Phase 10)', () => {
     expect(checkout.url).toContain('checkout.stripe.com');
     expect(String(calls.find((call) => call.url.pathname === '/v1/checkout/sessions')?.body)).toContain('price_team');
 
+    const periodEnd = Math.floor(Date.now() / 1000) + 30 * 86_400;
     const event = JSON.stringify({
       type: 'customer.subscription.updated',
       data: {
@@ -123,8 +124,8 @@ describe('billing (Phase 10)', () => {
           id: 'sub_1',
           customer: 'cus_123',
           status: 'active',
-          current_period_end: Math.floor(Date.now() / 1000) + 30 * 86_400,
-          items: { data: [{ price: { id: 'price_team' } }] },
+          // Current API versions carry the period on the item, as the real sandbox sent it.
+          items: { data: [{ price: { id: 'price_team' }, current_period_end: periodEnd }] },
         },
       },
     });
@@ -142,6 +143,7 @@ describe('billing (Phase 10)', () => {
     expect(genuine.status).toBe(200);
     const [row] = await billed.system.db.select().from(schema.orgBilling).where(eq(schema.orgBilling.orgId, orgId));
     expect(row).toMatchObject({ plan: 'team', status: 'active', stripeSubscriptionId: 'sub_1' });
+    expect(row?.currentPeriodEnd?.getTime()).toBe(periodEnd * 1000);
     expect((await post(`${base}/agents`, { name: 'three' })).status).toBe(201);
   });
 });
