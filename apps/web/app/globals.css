@@ -294,6 +294,89 @@ meter::-moz-meter-bar {
   animation-delay: 3s;
 }
 
+/* Hero budget skyline (budget-skyline.tsx). Each rule's resting state is the final picture, and the
+   keyframes only say where it starts from, so with reduced motion everything simply shows. */
+@keyframes sky-rise {
+  from {
+    transform: translateY(100%);
+  }
+}
+
+@keyframes sky-heat {
+  from {
+    fill: var(--accent);
+  }
+}
+
+@keyframes sky-ring-in {
+  from {
+    opacity: 0;
+    transform: translateY(-18px);
+  }
+}
+
+@keyframes sky-ring-heat {
+  from {
+    stroke: var(--foreground);
+  }
+}
+
+@keyframes sky-ring-pulse {
+  50% {
+    stroke-opacity: 0.3;
+  }
+}
+
+@keyframes sky-fade {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes sky-pop {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
+@layer components {
+  .sky-rise {
+    transform-box: fill-box;
+    animation: sky-rise 1.2s cubic-bezier(0.2, 0.7, 0.1, 1) both;
+  }
+  .sky-heat {
+    animation: sky-heat 400ms ease both;
+  }
+  .sky-ring-in {
+    animation: sky-ring-in 800ms cubic-bezier(0.2, 0.7, 0.1, 1) both;
+  }
+  /* A full team's ring turns red as the pillar reaches it, then keeps a slow pulse. */
+  .sky-ring-hot {
+    animation:
+      sky-ring-heat 400ms ease both,
+      sky-ring-pulse 2.4s ease-in-out infinite;
+  }
+  .sky-fade {
+    animation: sky-fade 900ms ease both;
+  }
+  .sky-pop {
+    animation: sky-pop 500ms cubic-bezier(0.2, 0.7, 0.1, 1) both;
+  }
+  .sky-cube {
+    color: var(--foreground);
+  }
+  .sky-cube-held {
+    color: var(--danger);
+  }
+  .sky-tick {
+    fill: var(--highlight);
+  }
+  .sky-tick-held {
+    fill: var(--danger);
+  }
+}
+
 /* Budget stack: isometric plates (org, teams, agent). They spread apart as the section scrolls
    into view, via a scroll-driven animation of a registered custom property. */
 @property --gap {
@@ -347,7 +430,13 @@ meter::-moz-meter-bar {
   .label-hold,
   .label-settled,
   .rail-row,
-  .cursor-blink {
+  .cursor-blink,
+  .sky-rise,
+  .sky-heat,
+  .sky-ring-in,
+  .sky-ring-hot,
+  .sky-fade,
+  .sky-pop {
     animation: none;
   }
   .label-hold {

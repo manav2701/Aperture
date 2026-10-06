@@ -14,8 +14,8 @@ import Link from 'next/link';
 import type { ReactNode } from 'react';
 import { ApprovalDemo } from '@/components/landing/approval-demo';
 import { AuditDemo } from '@/components/landing/audit-demo';
+import { BudgetSkyline } from '@/components/landing/budget-skyline';
 import { AgentsDemo, BudgetDemo, BudgetStack, FeatureCard, RailsDemo } from '@/components/landing/cards';
-import { HeroScene } from '@/components/landing/hero-scene';
 import { PolicyDemo } from '@/components/landing/policy-demo';
 import { SpotlightGrid } from '@/components/landing/spotlight-grid';
 import { Logo } from '@/components/logo';
@@ -138,14 +138,17 @@ export default function HomePage() {
               </div>
             </div>
 
-            <div className="fade-up">
-              <HeroScene className="relative h-[340px] overflow-hidden sm:h-[460px] lg:h-[580px]" />
-              <p className="mt-2 flex justify-end gap-5 font-mono text-[11px] text-muted-foreground">
+            <div>
+              <BudgetSkyline className="mx-auto max-w-[680px]" />
+              <p className="mt-2 flex flex-wrap justify-end gap-x-5 gap-y-1 font-mono text-[11px] text-muted-foreground">
                 <span className="inline-flex items-center gap-1.5">
-                  <span className="size-2 bg-accent" /> allowed
+                  <span className="size-2 bg-accent" /> spent
                 </span>
                 <span className="inline-flex items-center gap-1.5">
-                  <span className="size-2 bg-danger" /> blocked
+                  <span className="size-2 rotate-45 border border-foreground" /> ceiling
+                </span>
+                <span className="inline-flex items-center gap-1.5">
+                  <span className="size-2 bg-danger" /> at ceiling, requests held
                 </span>
               </p>
             </div>
