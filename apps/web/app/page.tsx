@@ -180,7 +180,7 @@ export default function HomePage() {
 
         {/* Product */}
         <section id="product" className="mx-auto max-w-7xl scroll-mt-16 px-4 py-24 sm:px-6 sm:py-32">
-          <div className="reveal mb-12 flex flex-wrap items-end justify-between gap-6">
+          <div className="reveal mb-16 flex flex-wrap items-end justify-between gap-6">
             <div className="max-w-2xl space-y-4">
               <Eyebrow>Product</Eyebrow>
               <h2 className="text-4xl font-bold tracking-tight sm:text-5xl">Rules up front. Receipts after.</h2>
@@ -190,7 +190,7 @@ export default function HomePage() {
             </p>
           </div>
 
-          <SpotlightGrid className="grid grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-3">
+          <SpotlightGrid className="grid grid-cols-[minmax(0,1fr)] gap-6 lg:grid-cols-3 lg:gap-8">
             <FeatureCard
               className="reveal lg:col-span-2"
               icon={<Lock aria-hidden="true" className="size-4" />}

@@ -41,8 +41,8 @@ export function PolicyDemo() {
   const outcome = OUTCOME[decision.outcome];
 
   return (
-    <div className="flex h-full flex-col gap-4">
-      <pre className="overflow-x-auto border border-border bg-background p-3 font-mono text-[11px] leading-6 sm:text-xs">
+    <div className="flex h-full flex-col gap-6">
+      <pre className="overflow-x-auto border border-border bg-background p-4 font-mono text-[11px] leading-6 sm:text-xs">
         <span className="text-muted-foreground">{'// policy: research-team'}</span>
         {'\n'}
         {RULES.map((rule) => (
@@ -58,10 +58,10 @@ export function PolicyDemo() {
         ))}
       </pre>
 
-      <div className="grid gap-4 sm:grid-cols-2">
-        <fieldset className="space-y-2">
+      <div className="grid gap-6 sm:grid-cols-2 sm:gap-8">
+        <fieldset className="space-y-3">
           <legend className="font-mono text-xs uppercase tracking-wider text-muted-foreground">Provider</legend>
-          <div className="flex flex-wrap gap-1.5">
+          <div className="flex flex-wrap gap-2">
             {PROVIDERS.map((name) => (
               <button
                 key={name}
@@ -82,7 +82,7 @@ export function PolicyDemo() {
             ))}
           </div>
         </fieldset>
-        <div className="space-y-2">
+        <div className="space-y-3">
           <label htmlFor={amountId} className="flex justify-between font-mono text-xs uppercase tracking-wider">
             <span className="text-muted-foreground">Amount</span>
             <span className="tabular-nums">${amount.toFixed(2)}</span>
@@ -102,7 +102,7 @@ export function PolicyDemo() {
       </div>
 
       <p
-        className="mt-auto flex flex-wrap items-center gap-3 border-t border-border pt-4 font-mono text-xs"
+        className="mt-auto flex flex-wrap items-center gap-3 border-t border-border pt-5 font-mono text-xs"
         aria-live="polite"
       >
         <span className={cn('border px-2 py-1 font-semibold transition-colors duration-300', outcome.className)}>

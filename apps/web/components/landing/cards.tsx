@@ -19,16 +19,16 @@ export function FeatureCard({
   return (
     <article
       className={cn(
-        'spotlight flex min-w-0 flex-col gap-5 border border-border bg-background p-5 hover:border-foreground/30 sm:p-6',
+        'spotlight flex min-h-80 min-w-0 flex-col gap-8 border border-border bg-background p-6 hover:border-foreground/30 sm:p-8',
         className,
       )}
     >
-      <header className="space-y-2">
+      <header className="space-y-3">
         <p className="flex items-center gap-2 font-mono text-xs uppercase tracking-wider text-muted-foreground">
           <span className="text-highlight">{icon}</span>
           {title}
         </p>
-        <h3 className="text-lg font-semibold leading-snug text-balance">{line}</h3>
+        <h3 className="text-xl font-semibold leading-snug text-balance">{line}</h3>
       </header>
       <div className="relative flex-1">{children}</div>
     </article>
@@ -38,7 +38,7 @@ export function FeatureCard({
 /** Budget: a hold is placed before the call, then settles at the real cost. */
 export function BudgetDemo() {
   return (
-    <div className="flex h-full flex-col justify-end gap-3 font-mono text-xs">
+    <div className="flex h-full flex-col justify-end gap-4 font-mono text-xs">
       <div className="flex justify-between">
         <span className="text-muted-foreground">research team · june</span>
         <span className="tabular-nums">$3,680 / $8,000</span>
@@ -66,9 +66,9 @@ const AGENTS = [
 /** Agents: one key and one daily cap each. */
 export function AgentsDemo() {
   return (
-    <ul className="flex h-full flex-col justify-end gap-3 font-mono text-xs">
+    <ul className="flex h-full flex-col justify-end gap-5 font-mono text-xs">
       {AGENTS.map((agent) => (
-        <li key={agent.name} className="space-y-1.5">
+        <li key={agent.name} className="space-y-2">
           <div className="flex justify-between gap-2">
             <span className="truncate">{agent.name}</span>
             <span className="shrink-0 text-muted-foreground">{agent.key}</span>
@@ -115,14 +115,14 @@ const RAILS = [
 /** Rails: three kinds of spend, checked one after another by the same policy. */
 export function RailsDemo() {
   return (
-    <ul className="flex h-full flex-col justify-end gap-2">
+    <ul className="flex h-full flex-col justify-end gap-3">
       {RAILS.map((row) => (
         <li
           key={row.rail}
-          className="rail-row flex items-center gap-3 border border-border px-3 py-2.5 font-mono text-xs"
+          className="rail-row flex items-center gap-4 border border-border px-4 py-3.5 font-mono text-xs"
         >
           <span className="text-highlight">{row.icon}</span>
-          <span className="w-24 shrink-0 text-foreground">{row.rail}</span>
+          <span className="w-28 shrink-0 text-foreground">{row.rail}</span>
           <span className="truncate text-muted-foreground">{row.detail}</span>
           <span className="ml-auto tabular-nums">{row.amount}</span>
           <span className="hidden text-highlight sm:inline">checked</span>

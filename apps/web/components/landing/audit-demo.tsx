@@ -58,8 +58,8 @@ export function AuditDemo() {
   }
 
   return (
-    <div className="flex h-full flex-col gap-3">
-      <ol className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+    <div className="flex h-full flex-col gap-6">
+      <ol className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         {ENTRIES.map((entry, i) => {
           const broken = firstBad !== -1 && i >= firstBad;
           const hash = current?.[i]?.slice(0, 10) ?? '··········';
@@ -67,7 +67,7 @@ export function AuditDemo() {
             <li
               key={entry.who}
               className={cn(
-                'relative flex flex-col gap-1.5 border p-2.5 font-mono text-[11px] transition-colors duration-300',
+                'relative flex flex-col gap-2 border p-3.5 font-mono text-[11px] transition-colors duration-300',
                 broken ? 'border-danger bg-danger/5' : 'border-border',
               )}
             >
@@ -94,7 +94,7 @@ export function AuditDemo() {
           );
         })}
       </ol>
-      <div className="mt-auto flex items-center justify-between gap-3 border-t border-border pt-3 font-mono text-xs">
+      <div className="mt-auto flex items-center justify-between gap-3 border-t border-border pt-4 font-mono text-xs">
         <p aria-live="polite" className={firstBad === -1 ? 'text-muted-foreground' : 'text-danger'}>
           {firstBad === -1
             ? `verified · ${String(ENTRIES.length)} entries · sha-256`

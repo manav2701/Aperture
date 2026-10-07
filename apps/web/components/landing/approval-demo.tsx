@@ -11,8 +11,8 @@ export function ApprovalDemo() {
   const [state, setState] = useState<State>('pending');
 
   return (
-    <div className="flex h-full flex-col gap-3">
-      <div className="border border-border bg-background p-3">
+    <div className="flex h-full flex-col gap-6">
+      <div className="border border-border bg-background p-4">
         <div className="flex items-center justify-between font-mono text-[11px] text-muted-foreground">
           <span>#finance-approvals</span>
           <span className="inline-flex items-center gap-1.5">
@@ -20,11 +20,11 @@ export function ApprovalDemo() {
             {state === 'pending' ? 'waiting' : 'closed'}
           </span>
         </div>
-        <p className="mt-3 text-sm">
+        <p className="mt-4 text-sm leading-relaxed">
           <span className="font-semibold">support-bot</span> wants to spend{' '}
           <span className="font-semibold tabular-nums">$180.00</span> on a long anthropic run.
         </p>
-        <p className="mt-1 font-mono text-[11px] text-muted-foreground">rule big-spend · above $100.00</p>
+        <p className="mt-2 font-mono text-[11px] text-muted-foreground">rule big-spend · above $100.00</p>
       </div>
 
       <div className="mt-auto" aria-live="polite">
