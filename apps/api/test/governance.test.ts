@@ -458,6 +458,53 @@ describe('receipts', () => {
     expect(external.rows).toEqual([expect.objectContaining({ toolId: 'replicate', source: 'receipt' })]);
   });
 
+  it('attaches a team-plan receipt to the seat a connector reports, but keeps a personal plan separate (S2)', async () => {
+    const { owner, ownerEmail, base } = await org();
+    h.provider({
+      'GET /teams/members': () =>
+        Response.json({ teamMembers: [{ id: 1, email: ownerEmail, name: 'Owner', isRemoved: false }] }),
+      'POST /teams/spend': () => Response.json({ teamMemberSpend: [], totalPages: 1 }),
+      'POST /teams/daily-usage-data': () => Response.json({ data: [], pagination: { hasNextPage: false } }),
+    });
+    expect(
+      (await post(`${base}/seat-connections`, owner, { provider: 'seat:cursor', secret: 'cursor-admin-key' })).status,
+    ).toBe(201);
+
+    const review = async () => {
+      const raw = receiptEml('Billing <billing@reseller.example>', 'Invoice', 'Total $40.00\nDate: 2026-10-01');
+      const created = await body<{ id: string; status: string }>(
+        await post(`${base}/me/receipts`, owner, {
+          eml: Buffer.from(`${raw}\n${crypto.randomUUID()}`).toString('base64'),
+        }),
+      );
+      expect(created.status).toBe('review');
+      return created.id;
+    };
+    const resolve = async (plan: string) =>
+      body<{ status: string }>(
+        await post(`${base}/receipts/${await review()}/resolve`, owner, {
+          action: 'import',
+          toolId: 'cursor',
+          plan,
+          amount: '40.00',
+          currency: 'USD',
+          occurredOn: '2026-10-01',
+        }),
+      );
+    const cursorSeats = async () =>
+      (
+        await body<{ seats: { toolId: string; source: string; monthlyCost: string | null }[] }>(
+          await get(`${base}/seats`, owner),
+        )
+      ).seats.filter((s) => s.toolId === 'cursor');
+
+    expect(await resolve('teams')).toMatchObject({ status: 'imported' });
+    expect(await cursorSeats()).toEqual([expect.objectContaining({ source: 'connector', monthlyCost: '40.00' })]);
+
+    await resolve('pro');
+    expect((await cursorSeats()).map((s) => s.source).sort()).toEqual(['connector', 'receipt']);
+  });
+
   it('accepts signed inbound mail for a known address and rejects bad signatures', async () => {
     const { owner, ownerEmail, base } = await org();
     const { receiptsAddress } = await body<{ receiptsAddress: string }>(await get(`${base}/me/tools`, owner));

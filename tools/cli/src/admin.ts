@@ -4,10 +4,11 @@
  *   pnpm --filter @aperture/cli admin pilot <orgId> <days>     # unlimited plan until the date
  *   pnpm --filter @aperture/cli admin rotate-kek               # re-wrap secrets under the newest APERTURE_KEK_V<n>
  *   pnpm --filter @aperture/cli admin rotate-signer-kek        # same for x402 delegate keys (SIGNER_KEK_V<n>)
+ *   pnpm --filter @aperture/cli admin rotate-attestation-key   # retire the platform attestation key, make a new one
  */
 import { argv, env, exit, stdout } from 'node:process';
 import { keyRingFromEnv, rewrapSecret } from '@aperture/crypto';
-import { connect, eq, isNotNull, schema, withSystem } from '@aperture/db';
+import { connect, eq, isNotNull, rotatePlatformSigningKey, schema, withSystem } from '@aperture/db';
 
 const [command, ...args] = argv.slice(2);
 if (env.DATABASE_URL === undefined) {
@@ -57,6 +58,14 @@ try {
           .where(eq(schema.orgSigningKeys.kid, row.kid));
         count += 1;
       }
+      // Retired attestation keys too: they're never used again, but V1 must be removable.
+      for (const row of await tx.select().from(schema.platformSigningKeys)) {
+        await tx
+          .update(schema.platformSigningKeys)
+          .set({ privateKey: rewrapSecret(row.privateKey, `platform|attestation-key|${row.kid}`, ring) })
+          .where(eq(schema.platformSigningKeys.kid, row.kid));
+        count += 1;
+      }
     });
     stdout.write(`re-wrapped ${String(count)} secrets under APERTURE_KEK_V${String(ring.currentVersion)}\n`);
   } else if (command === 'rotate-signer-kek') {
@@ -80,8 +89,12 @@ try {
       }
     });
     stdout.write(`re-wrapped ${String(count)} delegate keys under SIGNER_KEK_V${String(ring.currentVersion)}\n`);
+  } else if (command === 'rotate-attestation-key') {
+    const ring = keyRingFromEnv(env);
+    const kid = await withSystem(database.db, (tx) => rotatePlatformSigningKey(tx, ring));
+    stdout.write(`new attestation key ${kid}; retired keys stay in the JWKS so earlier attestations still verify\n`);
   } else {
-    throw new Error('commands: pilot <orgId> <days> | rotate-kek | rotate-signer-kek');
+    throw new Error('commands: pilot <orgId> <days> | rotate-kek | rotate-signer-kek | rotate-attestation-key');
   }
 } catch (error) {
   stdout.write(`${error instanceof Error ? error.message : String(error)}\n`);

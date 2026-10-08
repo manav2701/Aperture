@@ -1,6 +1,17 @@
 import { createHash, createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
 import { MimeError, dkimPassDomains, parseEmail, parseReceipt, toolById, type ParsedReceipt } from '@aperture/core';
-import { and, convertToMicros, eq, schema, sql, upsertSeat, withOrg, withSystem, type Transaction } from '@aperture/db';
+import {
+  and,
+  convertToMicros,
+  eq,
+  ne,
+  schema,
+  sql,
+  upsertSeat,
+  withOrg,
+  withSystem,
+  type Transaction,
+} from '@aperture/db';
 import type { OpenAPIHono } from '@hono/zod-openapi';
 import { bodyLimit } from 'hono/body-limit';
 import { v7 as uuidv7 } from 'uuid';
@@ -45,6 +56,32 @@ export async function importParsedReceipt(
   if (tool === undefined || parsed.occurredOn === null || parsed.amount === null || parsed.currency === null)
     return { seatId: null, externalSpendId: null };
   if (!parsed.oneOff) {
+    // S2: a team-plan receipt for a seat a connector already reports is evidence for that seat,
+    // not a second seat. A personal plan stays separate, so "paid twice" still shows.
+    const teamPlan = tool.plans.some((plan) => plan.id === parsed.plan && plan.team);
+    if (teamPlan && input.userId !== null) {
+      const [reported] = await tx
+        .select({ id: schema.seats.id })
+        .from(schema.seats)
+        .where(
+          and(
+            eq(schema.seats.orgId, input.orgId),
+            eq(schema.seats.userId, input.userId),
+            eq(schema.seats.toolId, tool.id),
+            eq(schema.seats.source, 'connector'),
+            ne(schema.seats.status, 'cancelled'),
+          ),
+        )
+        .limit(1);
+      if (reported !== undefined) {
+        // The connector's data wins; the receipt only fills a cost the connector didn't report.
+        await tx
+          .update(schema.seats)
+          .set({ monthlyCost: sql`coalesce(${schema.seats.monthlyCost}, ${input.amountMicros})` })
+          .where(eq(schema.seats.id, reported.id));
+        return { seatId: reported.id, externalSpendId: null };
+      }
+    }
     const { id } = await upsertSeat(tx, {
       orgId: input.orgId,
       dedupeKey: `receipt:${input.userId ?? parsed.vendorDomain ?? 'unknown'}:${tool.id}`,
