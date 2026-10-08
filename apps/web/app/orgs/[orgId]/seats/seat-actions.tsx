@@ -370,3 +370,131 @@ export function ImportSeats({ orgId, tools }: { orgId: string; tools: Tool[] }) 
     </div>
   );
 }
+
+interface ReviewReceipt {
+  id: string;
+  reason: string | null;
+  toolId: string | null;
+  plan: string | null;
+  amount: string | null;
+  currency: string | null;
+  occurredOn: string | null;
+  senderDomain: string | null;
+  trust: string;
+  submittedBy: { id: string; name: string } | null;
+  createdAt: string;
+}
+
+/** One receipt in the review queue: fill in what didn't parse, then import it or dismiss it. */
+export function ReviewReceiptForm({
+  orgId,
+  receipt,
+  tools,
+}: {
+  orgId: string;
+  receipt: ReviewReceipt;
+  tools: { id: string; product: string }[];
+}) {
+  const { submit, pending, error } = useSubmit();
+  const [toolId, setToolId] = useState(receipt.toolId ?? '');
+  const [amount, setAmount] = useState(receipt.amount ?? '');
+  const [currency, setCurrency] = useState(receipt.currency ?? 'USD');
+  const [occurredOn, setOccurredOn] = useState(receipt.occurredOn ?? '');
+  const [oneOff, setOneOff] = useState(false);
+  const resolve = (action: 'import' | 'dismiss') => {
+    submit(() =>
+      api.POST('/api/v1/orgs/{orgId}/receipts/{receiptId}/resolve', {
+        params: { path: { orgId, receiptId: receipt.id } },
+        body:
+          action === 'dismiss'
+            ? { action, oneOff: false }
+            : { action, toolId, amount, currency: currency.toUpperCase(), occurredOn, oneOff },
+      }),
+    );
+  };
+  return (
+    <form
+      className="grid gap-2 text-xs sm:grid-cols-[1fr_7rem_4.5rem_9rem]"
+      onSubmit={(event) => {
+        event.preventDefault();
+        resolve('import');
+      }}
+    >
+      <Select
+        aria-label="Tool"
+        className="h-8 text-xs"
+        value={toolId}
+        required
+        onChange={(e) => {
+          setToolId(e.target.value);
+        }}
+      >
+        <option value="">Choose the tool…</option>
+        {tools.map((t) => (
+          <option key={t.id} value={t.id}>
+            {t.product}
+          </option>
+        ))}
+      </Select>
+      <Input
+        aria-label="Amount"
+        placeholder="Amount"
+        className="h-8 text-xs"
+        value={amount}
+        required
+        pattern="\d{1,12}(\.\d{1,6})?"
+        onChange={(e) => {
+          setAmount(e.target.value);
+        }}
+      />
+      <Input
+        aria-label="Currency"
+        className="h-8 text-xs"
+        value={currency}
+        required
+        pattern="[A-Za-z]{3}"
+        onChange={(e) => {
+          setCurrency(e.target.value);
+        }}
+      />
+      <Input
+        aria-label="Date"
+        type="date"
+        className="h-8 text-xs"
+        value={occurredOn}
+        required
+        onChange={(e) => {
+          setOccurredOn(e.target.value);
+        }}
+      />
+      <label className="flex items-center gap-2 sm:col-span-2">
+        <input
+          type="checkbox"
+          checked={oneOff}
+          onChange={(e) => {
+            setOneOff(e.target.checked);
+          }}
+        />
+        One-off purchase, not a subscription
+      </label>
+      <div className="flex gap-2 sm:col-span-2 sm:justify-end">
+        <Button type="submit" size="sm" variant="secondary" disabled={pending}>
+          Import
+        </Button>
+        <Button
+          size="sm"
+          variant="ghost"
+          disabled={pending}
+          onClick={() => {
+            resolve('dismiss');
+          }}
+        >
+          Dismiss
+        </Button>
+      </div>
+      <div className="sm:col-span-4">
+        <FormError message={error} />
+      </div>
+    </form>
+  );
+}

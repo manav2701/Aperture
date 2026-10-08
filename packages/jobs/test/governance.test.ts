@@ -6,7 +6,7 @@ import { appRoleUrl, createTestDatabase, seedTree } from '@aperture/db/testing';
 import { createLogger } from '@aperture/runtime';
 import { v7 as uuidv7 } from 'uuid';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { runAllPosture, runPosture, syncSeatConnection, type JobDeps } from '../src/index';
+import { refreshAllSeatIdleness, runAllPosture, runPosture, syncSeatConnection, type JobDeps } from '../src/index';
 
 let system: DatabaseHandle & { url: string };
 let app: DatabaseHandle;
@@ -149,6 +149,57 @@ describe('seat sync', () => {
         .where(eq(schema.ledgerEntries.orgId, tree.org.id))
     )[0]?.n;
     expect(ledgerAfter).toBe(ledgerBefore);
+  });
+
+  it('marks seats idle past the org threshold, active again on use, and leaves declared seats alone', async () => {
+    const tree = await seedTree(system.db);
+    const created = await createConnection(system.db, ring, {
+      orgId: tree.org.id,
+      provider: 'seat:cursor',
+      name: 'Cursor',
+      secret: 'key',
+    });
+    const [conn] = await system.db.select().from(schema.connections).where(eq(schema.connections.id, created.id));
+    if (conn === undefined) throw new Error('connection missing');
+    await system.db.insert(schema.seats).values({
+      id: uuidv7(),
+      orgId: tree.org.id,
+      toolId: 'chatgpt',
+      source: 'declared',
+      dedupeKey: 'declared:someone:chatgpt',
+    });
+    await system.db
+      .insert(schema.orgSettings)
+      .values({ orgId: tree.org.id, idleSeatDays: 14 })
+      .onConflictDoUpdate({
+        target: schema.orgSettings.orgId,
+        set: { idleSeatDays: 14 },
+      });
+
+    await syncSeatConnection(deps(cursorFake(4).fetch), conn);
+    const statuses = async () =>
+      Object.fromEntries(
+        (await system.db.select().from(schema.seats).where(eq(schema.seats.orgId, tree.org.id))).map((s) => [
+          s.externalUserRef ?? s.source,
+          s.status,
+        ]),
+      );
+    // The contractor never shows activity; the developer used Cursor today.
+    expect(await statuses()).toEqual({
+      'dev@acme.example': 'active',
+      'contractor@elsewhere.example': 'idle',
+      declared: 'active',
+    });
+
+    const later = new Date(Date.now() + 15 * 86_400_000);
+    expect(await refreshAllSeatIdleness(deps(), later)).toBeGreaterThanOrEqual(1);
+    expect((await statuses())['dev@acme.example']).toBe('idle');
+    expect((await statuses()).declared).toBe('active');
+
+    // Running again changes nothing; activity coming back makes the seat active.
+    await refreshAllSeatIdleness(deps(), later);
+    await syncSeatConnection(deps(cursorFake(2).fetch), conn);
+    expect((await statuses())['dev@acme.example']).toBe('active');
   });
 
   it('marks the connection broken and alerts when the vendor refuses the key', async () => {

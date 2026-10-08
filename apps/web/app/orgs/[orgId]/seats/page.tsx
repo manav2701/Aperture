@@ -2,7 +2,7 @@ import { can } from '@aperture/core';
 import { Badge, Card, CardTitle, EmptyState, PageHeader } from '@/components/ui/card';
 import { serverApi, unwrap } from '@/lib/api/server';
 import { formatAmount, formatDateTime } from '@/lib/format';
-import { ConnectSeats, EditSeat, ImportSeats, SeatConnectionActions } from './seat-actions';
+import { ConnectSeats, EditSeat, ImportSeats, ReviewReceiptForm, SeatConnectionActions } from './seat-actions';
 
 const PAYER_LABEL: Record<string, string> = {
   company: 'Company',
@@ -24,7 +24,8 @@ export default async function SeatsPage({ params }: { params: Promise<{ orgId: s
   const path = { params: { path: { orgId } } };
   const org = await api.GET('/api/v1/orgs/{orgId}', path).then(unwrap);
   const manage = can(org.role, 'seats.manage');
-  const [seats, insights, connections, providers, usage, tools, members] = await Promise.all([
+  const review = can(org.role, 'receipts.review');
+  const [seats, insights, connections, providers, usage, tools, members, receipts] = await Promise.all([
     api.GET('/api/v1/orgs/{orgId}/seats', path).then(unwrap),
     api.GET('/api/v1/orgs/{orgId}/seats/insights', path).then(unwrap),
     api.GET('/api/v1/orgs/{orgId}/seat-connections', path).then(unwrap),
@@ -32,7 +33,13 @@ export default async function SeatsPage({ params }: { params: Promise<{ orgId: s
     api.GET('/api/v1/orgs/{orgId}/tool-usage', path).then(unwrap),
     api.GET('/api/v1/orgs/{orgId}/tools', path).then(unwrap),
     can(org.role, 'members.read') ? api.GET('/api/v1/orgs/{orgId}/members', path).then(unwrap) : null,
+    review
+      ? api
+          .GET('/api/v1/orgs/{orgId}/receipts', { params: { path: { orgId }, query: { status: 'review' } } })
+          .then(unwrap)
+      : null,
   ]);
+  const queue = receipts?.receipts ?? [];
   const people = (members?.members ?? []).map((m) => ({ userId: m.userId, name: m.name, email: m.email }));
   const live = seats.seats.filter((s) => s.status !== 'cancelled');
   const cancelled = seats.seats.filter((s) => s.status === 'cancelled');
@@ -95,6 +102,38 @@ export default async function SeatsPage({ params }: { params: Promise<{ orgId: s
               </ul>
             )}
           </Card>
+
+          {queue.length === 0 ? null : (
+            <Card>
+              <CardTitle>Receipts to review ({queue.length})</CardTitle>
+              <p className="mb-3 text-sm text-muted-foreground">
+                These didn’t come from a known vendor with a verified signature, or didn’t parse. Check them, then
+                import or dismiss. Only the fields below are kept; the email itself was discarded.
+              </p>
+              <ul className="divide-y divide-border">
+                {queue.map((receipt) => (
+                  <li key={receipt.id} className="space-y-2 py-3">
+                    <p className="text-sm">
+                      {receipt.senderDomain ?? 'unknown sender'}
+                      <span className="text-muted-foreground">
+                        {' '}
+                        · {receipt.submittedBy?.name ?? 'inbound address'} ·{' '}
+                        {formatDateTime(receipt.createdAt, org.timezone)}
+                      </span>
+                      {receipt.reason === null ? null : (
+                        <span className="block text-xs text-muted-foreground">{receipt.reason}</span>
+                      )}
+                    </p>
+                    <ReviewReceiptForm
+                      orgId={orgId}
+                      receipt={receipt}
+                      tools={tools.tools.map((t) => ({ id: t.id, product: t.product }))}
+                    />
+                  </li>
+                ))}
+              </ul>
+            </Card>
+          )}
 
           <Card>
             <CardTitle>All seats ({live.length})</CardTitle>

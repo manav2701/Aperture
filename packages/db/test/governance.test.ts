@@ -326,7 +326,13 @@ describe('attestations', () => {
       fromSeq: document.audit.firstSeq ?? 0,
       toSeq: document.audit.lastSeq ?? 0,
     });
+    // What `pnpm attestation-verify --audit` recomputes from the export.
     expect(document.audit.merkleRoot).toBe(merkleRoot(records.map((r) => r.hash)));
+    expect(document.audit).toMatchObject({
+      events: records.length,
+      prevHash: records[0]?.prevHash,
+      lastHash: records.at(-1)?.hash,
+    });
     expect(JSON.stringify(document)).not.toMatch(/@example\.com/);
 
     // One flipped character in the payload breaks the signature.

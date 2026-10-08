@@ -9,7 +9,7 @@ import { pollMediaJobs } from './media';
 import { startScheduler, type Job, type Scheduler } from './scheduler';
 import { syncAllConnections } from './sync';
 import { runAllPosture } from './posture';
-import { checkSeatOverage, syncAllSeatConnections } from './seats';
+import { checkSeatOverage, refreshAllSeatIdleness, syncAllSeatConnections } from './seats';
 
 export { alertMessage, dispatchAlerts, queueAlert, scanBudgetThresholds, type AlertKind } from './alerts';
 export { expirePendingApprovals, notifyApprovals } from './approvals';
@@ -24,6 +24,7 @@ export { startScheduler, type Job, type Scheduler } from './scheduler';
 export { REVOCABLE_PROVIDERS, runAllPosture, runPosture, type PostureRun } from './posture';
 export {
   checkSeatOverage,
+  refreshAllSeatIdleness,
   seatConnectorForConnection,
   syncAllSeatConnections,
   syncSeatConnection,
@@ -69,6 +70,7 @@ export function standardJobs(deps: JobDeps): Job[] {
     job('privacy.deletions', 60 * MINUTE, () => processDeletions(deps)),
     job('posture.run', 24 * 60 * MINUTE, () => runAllPosture(deps)),
     job('seats.sync', 6 * 60 * MINUTE, () => syncAllSeatConnections(deps)),
+    job('seats.idle', 24 * 60 * MINUTE, () => refreshAllSeatIdleness(deps)),
     job('seats.overage', 24 * 60 * MINUTE, () => checkSeatOverage(deps)),
   ];
 }

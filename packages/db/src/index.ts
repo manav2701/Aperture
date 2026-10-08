@@ -106,7 +106,15 @@ export {
   rotatePlatformSigningKey,
   type AttestationInput,
 } from './attestations';
-export { addToolUsage, convertToMicros, recordSeatDay, setSeatExtraUsage, upsertSeat, type SeatInput } from './seats';
+export {
+  addToolUsage,
+  convertToMicros,
+  recordSeatDay,
+  refreshSeatIdleness,
+  setSeatExtraUsage,
+  upsertSeat,
+  type SeatInput,
+} from './seats';
 // Query helpers, re-exported so every package uses this package's single drizzle-orm instance.
 export {
   and,

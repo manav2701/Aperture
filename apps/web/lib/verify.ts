@@ -6,6 +6,8 @@
  * (`pnpm attestation-verify --audit`).
  */
 
+import { ATTESTATION_JWS_TYP, ATTESTATION_TYPE } from '@aperture/core';
+
 export interface Jwk {
   kty?: string;
   crv?: string;
@@ -35,15 +37,18 @@ export async function verifyAttestationJws(jws: string, jwks: { keys: Jwk[] }): 
   const parts = jws.trim().split('.');
   if (parts.length !== 3) return { ok: false, kid: null, reason: 'not a compact JWS', payload: null };
   const [headerPart = '', bodyPart = '', signaturePart = ''] = parts;
-  let header: { alg?: string; kid?: string };
+  let header: { alg?: string; kid?: string; typ?: string };
   let payload: Record<string, unknown>;
   try {
-    header = JSON.parse(new TextDecoder().decode(fromBase64Url(headerPart))) as { alg?: string; kid?: string };
+    header = JSON.parse(new TextDecoder().decode(fromBase64Url(headerPart))) as typeof header;
     payload = JSON.parse(new TextDecoder().decode(fromBase64Url(bodyPart))) as Record<string, unknown>;
   } catch {
     return { ok: false, kid: null, reason: 'the JWS is not valid JSON', payload: null };
   }
   if (header.alg !== 'EdDSA') return { ok: false, kid: header.kid ?? null, reason: 'unsupported algorithm', payload };
+  // The same key signs agent cards; a validly signed card must not pass as an attestation.
+  if (header.typ !== ATTESTATION_JWS_TYP || payload.type !== ATTESTATION_TYPE)
+    return { ok: false, kid: header.kid ?? null, reason: 'this is not an Aperture attestation', payload: null };
   const jwk = jwks.keys.find((key) => key.kid === header.kid);
   if (jwk?.x === undefined)
     return { ok: false, kid: header.kid ?? null, reason: 'the signing key is not published', payload };

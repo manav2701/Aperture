@@ -2,11 +2,12 @@
   "name": "@aperture/cli",
   "version": "0.0.0",
   "private": true,
-  "description": "Developer tools: the scenario simulator, the offline audit and mandate verifiers, and the gateway try script",
+  "description": "Developer tools: the scenario simulator, the offline audit, mandate and attestation verifiers, and the gateway try script",
   "type": "module",
   "scripts": {
     "simulate": "tsx src/simulate.ts",
     "audit-verify": "tsx src/audit-verify.ts",
+    "attestation-verify": "tsx src/attestation-verify.ts",
     "typecheck": "tsc -p tsconfig.json",
     "test": "vitest run",
     "try-gateway": "tsx src/try-gateway.ts",

@@ -6,6 +6,7 @@ import {
   inArray,
   readConnectionSecret,
   recordSeatDay,
+  refreshSeatIdleness,
   schema,
   setSeatExtraUsage,
   sql,
@@ -115,6 +116,8 @@ export async function syncSeatConnection(deps: JobDeps, connection: ConnectionRo
         .update(schema.connections)
         .set({ lastSyncedAt: new Date(), lastError: null, status: 'active', updatedAt: new Date() })
         .where(eq(schema.connections.id, connection.id));
+      // A sync reports every seat as it is now, so idleness is worked out again straight away.
+      await refreshSeatIdleness(tx, orgId, new Date());
       return { seats: records.length, matched, days: written };
     });
     return result;
@@ -158,6 +161,23 @@ export async function syncAllSeatConnections(deps: JobDeps): Promise<number> {
     }
   }
   return synced;
+}
+
+/**
+ * Daily: mark connector and imported seats idle once they pass the org's idle threshold, and
+ * active again when activity comes back (§12.7). Returns how many seats changed.
+ */
+export async function refreshAllSeatIdleness(deps: JobDeps, now = new Date()): Promise<number> {
+  const orgs = await withSystem(dbOf(deps), (tx) =>
+    tx
+      .selectDistinct({ orgId: schema.seats.orgId })
+      .from(schema.seats)
+      .where(inArray(schema.seats.source, ['connector', 'import'])),
+  );
+  let changed = 0;
+  for (const { orgId } of orgs)
+    changed += await withOrg(dbOf(deps), orgId, (tx) => refreshSeatIdleness(tx, orgId, now));
+  return changed;
 }
 
 /** Daily: alert when seat overage in the last 30 days passes the org's threshold (§12.7). */

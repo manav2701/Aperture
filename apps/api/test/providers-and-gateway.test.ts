@@ -1,5 +1,5 @@
 import { json } from '@aperture/connectors/testing';
-import { upsertMediaPrices, upsertPrices, withSystem } from '@aperture/db';
+import { and, eq, schema, upsertMediaPrices, upsertPrices, withSystem } from '@aperture/db';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { body, createHarness, createOrg, joinAs, signUp, type Harness } from './harness';
 
@@ -156,6 +156,16 @@ describe('connections (Phase 4)', () => {
       body: JSON.stringify({ principalId: agent.id }),
     });
     expect(assign.status).toBe(204);
+    const [claimed] = await h.system.db
+      .select({ data: schema.auditEvents.data })
+      .from(schema.auditEvents)
+      .where(
+        and(
+          eq(schema.auditEvents.action, 'credential.assigned'),
+          eq(schema.auditEvents.subject, `credential:${credentials[0]?.id ?? ''}`),
+        ),
+      );
+    expect(claimed?.data).toMatchObject({ principalId: agent.id, previousPrincipalId: null });
 
     const created = await post(`${base}/connections/${connection.id}/credentials`, owner, { principalId: agent.id });
     expect(created.status).toBe(201);

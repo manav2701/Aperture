@@ -1,5 +1,5 @@
 import { readFileSync } from 'node:fs';
-import { policyDocumentSchema } from '@aperture/core';
+import { ATTESTATION_JWS_TYP, ATTESTATION_TYPE, policyDocumentSchema } from '@aperture/core';
 import { generateSigningKey, merkleRoot as serverMerkleRoot, sha256Hex, signJws } from '@aperture/crypto';
 import { describe, expect, it } from 'vitest';
 import { RULE_EXAMPLES, STARTER_POLICY } from '../app/orgs/[orgId]/policies/rule-examples';
@@ -77,13 +77,20 @@ describe('attestation verification in the browser', () => {
   it('accepts what the server signs and rejects a changed byte or an unknown key', async () => {
     const key = generateSigningKey();
     const jwks = { keys: [key.publicJwk] };
-    const jws = signJws({ type: 'aperture.attestation', spend: '12.50' }, key, 'aperture-attestation+jws');
+    const jws = signJws({ type: ATTESTATION_TYPE, spend: '12.50' }, key, ATTESTATION_JWS_TYP);
     expect(await verifyAttestationJws(jws, jwks)).toMatchObject({ ok: true, kid: key.kid });
 
     const [header = '', body = '', signature = ''] = jws.split('.');
     const forged = Buffer.from(body, 'base64url').toString().replace('12.50', '1.50');
     const tampered = `${header}.${Buffer.from(forged).toString('base64url')}.${signature}`;
     expect(await verifyAttestationJws(tampered, jwks)).toMatchObject({ ok: false });
+
+    // An agent card signed by the same key is not an attestation.
+    const card = signJws({ type: 'aperture.agent-card', version: 1 }, key, 'aperture-agent-card+jws');
+    expect(await verifyAttestationJws(card, jwks)).toMatchObject({
+      ok: false,
+      reason: 'this is not an Aperture attestation',
+    });
 
     expect(await verifyAttestationJws(jws, { keys: [generateSigningKey().publicJwk] })).toMatchObject({
       ok: false,

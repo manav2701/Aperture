@@ -499,12 +499,17 @@ export function registerConnectionRoutes(router: Router, deps: AppDeps): void {
             throw new AppError(400, 'invalid_principal', 'choose a person or agent in this organization');
         }
         await tx.update(schema.credentials).set({ principalId }).where(eq(schema.credentials.id, credentialId));
+        // Claiming a key (§11.4) moves its usage from now on; what was already booked stays where it was.
         await auditByUser(tx, {
           orgId,
           userId: user.id,
           action: 'credential.assigned',
           subject: `credential:${credentialId}`,
-          data: { principalId },
+          data: {
+            principalId,
+            previousPrincipalId: credential.principalId,
+            note: 'usage already imported stays with its earlier owner; new usage goes to the new one',
+          },
         });
       });
       return c.body(null, 204);

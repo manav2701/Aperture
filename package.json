@@ -26,6 +26,7 @@
     "smoke": "pnpm --filter @aperture/cli smoke --",
     "audit-verify": "pnpm --filter @aperture/cli audit-verify",
     "mandate-verify": "pnpm --filter @aperture/cli mandate-verify",
+    "attestation-verify": "pnpm --filter @aperture/cli attestation-verify",
     "db:migrate": "pnpm --filter @aperture/db db:migrate"
   },
   "devDependencies": {

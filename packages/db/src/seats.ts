@@ -193,3 +193,28 @@ export async function addToolUsage(
       });
   }
 }
+
+/**
+ * Sets `idle` or `active` on the seats whose activity a source reports (connectors and CSV
+ * imports), from `last_active_at` and the org's idle threshold. It uses the same rule as the
+ * `seats.idle` posture check. Receipts, statements, and declarations carry no activity, so they're
+ * never called idle, and a cancelled seat stays cancelled. Returns how many seats changed.
+ */
+export async function refreshSeatIdleness(tx: DbOrTx, orgId: string, now: Date): Promise<number> {
+  const result = await tx.execute(sql`
+    with threshold as (
+      select coalesce((select idle_seat_days from org_settings where org_id = ${orgId}), 30) as days
+    )
+    update seats set
+      status = case
+        when last_active_at is null or last_active_at < ${now.toISOString()}::timestamptz - make_interval(days => (select days from threshold))
+        then 'idle' else 'active' end,
+      updated_at = ${now.toISOString()}::timestamptz
+    where org_id = ${orgId}
+      and source in ('connector', 'import')
+      and status <> 'cancelled'
+      and status <> case
+        when last_active_at is null or last_active_at < ${now.toISOString()}::timestamptz - make_interval(days => (select days from threshold))
+        then 'idle' else 'active' end`);
+  return result.rowCount ?? 0;
+}
