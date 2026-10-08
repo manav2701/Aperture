@@ -1,5 +1,7 @@
 # Phase 12 — Seats, subscriptions, and terminal tools
 
+> **Status (2026-10-08):** code complete. What was built, how it differs from this plan, and what is still open: [phase-11-12-checklist.md](../phase-11-12-checklist.md). Decisions: ADR 0021.
+
 **Goal:** see the AI that never touches an API key. Most companies use AI mainly through **seats**: ChatGPT Business/Enterprise, Claude Team/Enterprise, Cursor, GitHub Copilot, Microsoft 365 Copilot, Gemini in Workspace, personal ChatGPT Plus or Claude Pro plans people expense, and terminal tools such as Claude Code, Codex, and Gemini CLI logged in with a subscription. None of that passes through our gateway, so today Aperture can't see it.
 
 After this phase an org can answer:

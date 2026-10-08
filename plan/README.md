@@ -44,7 +44,7 @@ Estimates assume one full-time engineer. "You can test" means a live check you c
 | [15](phases/phase-15-interop-and-distribution/README.md) | Interop and distribution | 3.5 wk | Bedrock/Azure/Vertex, LiteLLM connector, OTel export, SCIM, accounting push, Claude/ChatGPT connector and Claude Code plugin listings, framework adapters, evidence packs | Ask Claude for your budget; SCIM-deactivate a test user |
 | [16](phases/phase-16-browser-extension/README.md) | Browser extension | 3 wk | Privacy-first AI tool discovery and steering in Chrome and Edge | See a browser AI tool show up; block an unapproved one |
 
-Total: about **25 weeks** of engineering for Phases 0–10 (done), plus about **19 weeks** for Phases 11–16. A pilot with a design partner (for example the Hala contact) becomes possible **after Phase 5** (about 12 weeks): visibility across providers, budgets, a governed gateway, and a chat workspace.
+Total: about **25 weeks** of engineering for Phases 0–10 (done), plus about **19 weeks** for Phases 11–16 (11 and 12 are code complete). **Architecture as built:** [docs/architecture.md](../docs/architecture.md). A pilot with a design partner (for example the Hala contact) becomes possible **after Phase 5** (about 12 weeks): visibility across providers, budgets, a governed gateway, and a chat workspace.
 
 ## Key decisions (details in [architecture/](architecture/README.md#adr-index))
 
@@ -72,7 +72,8 @@ Total: about **25 weeks** of engineering for Phases 0–10 (done), plus about **
 - [x] Phase 8 — cards rail on Stripe Issuing: real-time authorization, event state machine (INV-11), task cards via approval, FX, reconciliation, Cards UI, SDK/MCP task cards (ADR 0017); built against Stripe's docs and fakes, sandbox verification waits on Stripe access (D5); NymCard deferred
 - [x] Phase 9 — x402 on Solana: budget accounts with on-chain allowances, signer, authorize route, payee binding, depeg guard, settlement watcher, audit anchoring, SDK/MCP, test seller (ADR 0018); built on devnet fakes; delegate spike and mainnet (C1) pending
 - [x] Phase 10 — 2FA for privileged roles, privacy controls, Aperture billing, production and self-host compose with WAL-G backups and restore drill, release workflow, metrics, runbooks, security review, legal drafts, docs (ADR 0019); production itself waits on the server and domain
-- [ ] Phase 11 — planned 2026-10-02, agent cards added 2026-10-07: posture checks, AI inventory and coverage, shadow-AI detection, signed attestations, agent cards; needs no new accounts
-- [ ] Phases 12–16 — planned 2026-10-07 from a review of Credo AI, IBM watsonx.governance, JFrog, Finout, Langfuse, and LiteLLM; see [roadmap.md](roadmap.md)
+- [x] Phase 11 — code complete 2026-10-08: posture (catalogue v1, 37 checks), waivers, daily run and regression alerts, inventory and coverage, shadow AI (claim keys, in-browser statement import), signed attestations with `/verify` and `pnpm attestation-verify`, agent cards (ADR 0020); staging test pending
+- [x] Phase 12 — code complete 2026-10-08: seats and seat connectors (Cursor, Claude Enterprise, Claude Code, GitHub Copilot, M365 Copilot, CSV import), idle seats and insights, receipts inbox and review queue, My AI tools, Claude Code telemetry, `@aperture/connect`, the Claude Code plugin (ADR 0021); live connector and inbox tests need [your-checklist §G](your-checklist.md). Build log: [phase-11-12-checklist.md](phases/phase-11-12-checklist.md)
+- [ ] Phases 13–16 — planned 2026-10-07 from a review of Credo AI, IBM watsonx.governance, JFrog, Finout, Langfuse, and LiteLLM; see [roadmap.md](roadmap.md)
 
 **Every step ahead:** [roadmap.md](roadmap.md). **What only you can do next:** [your-checklist.md](your-checklist.md). Postponed items are listed in [deferred.md](deferred.md)

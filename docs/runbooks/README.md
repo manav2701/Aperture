@@ -19,6 +19,7 @@ Each page covers one alert or procedure: what it means, how to check it, and how
 - [Deploy and roll back](deploy.md)
 - [Restore from backup, and the monthly drill](restore.md)
 - [Rotate a KEK](rotate-kek.md)
+- [Rotate the platform attestation key](rotate-attestation-key.md)
 - [Incident: revoke everything for an org](incident-revoke-org.md)
 - [Delete an organization](org-deletion.md)
 - [Give an org a pilot](pilot.md)

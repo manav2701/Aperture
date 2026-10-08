@@ -29,8 +29,8 @@ This came out of reviewing Credo AI, IBM watsonx.governance, JFrog's MCP Registr
 | # | Work | Est. | Needs from you |
 |---|---|---|---|
 | P0 | Production on Google Cloud: G1–G8 in [production-gcp.md](deployment/production-gcp.md#6-what-i-still-have-to-build-before-step-10). **On hold until after Phase 16** | 2 days | A scratch GCP project |
-| [11](phases/phase-11-posture-inventory-attestation/README.md) | Posture, inventory and coverage, shadow AI, attestations, agent cards | 3.5 wk | Nothing |
-| [12](phases/phase-12-seats-and-tools/README.md) | Seats, subscriptions, receipts inbox, terminal-tool telemetry, Claude Code plugin | 3.5 wk | Domain (for the receipts inbox); a Claude Team / ChatGPT Business workspace for a live test |
+| [11](phases/phase-11-posture-inventory-attestation/README.md) | Posture, inventory and coverage, shadow AI, attestations, agent cards. **Code complete 2026-10-08** ([checklist](phases/phase-11-12-checklist.md)); staging test next | 3.5 wk | Nothing |
+| [12](phases/phase-12-seats-and-tools/README.md) | Seats, subscriptions, receipts inbox, terminal-tool telemetry, Claude Code plugin. **Code complete 2026-10-08**; live connector and inbox tests need [your-checklist §G](your-checklist.md) | 3.5 wk | Domain (for the receipts inbox); a Claude Team / ChatGPT Business workspace for a live test |
 | [13](phases/phase-13-guardrails-and-routing/README.md) | Rate limits, anomaly detection, budget-aware routing, remote MCP rules | 3 wk | Nothing |
 | [14](phases/phase-14-finance-layer/README.md) | Cost centres, chargeback, close, forecasts, accounting CSV | 2 wk | The pilot's cost-centre list; an accountant on VAT |
 | [15](phases/phase-15-interop-and-distribution/README.md) | Cloud connectors, LiteLLM, OTel, SCIM, accounting push, listings, adapters, evidence packs | 3.5 wk | AWS/Azure test accounts, Okta/Entra dev tenant, marketplace accounts |
@@ -99,7 +99,7 @@ Production (GCP setup, first release, restore drill) moves to the end, after Pha
 
 Each phase README marks these **VERIFY**. The main ones:
 - Admin and analytics APIs per seat product, and which plan unlocks each (Phase 12)
-- Claude Code, Codex, and Gemini CLI telemetry names and managed-settings keys (Phase 12)
-- Remote MCP connector requirements in Claude and ChatGPT, and the Claude Code plugin format (Phases 12, 15)
+- Claude Code telemetry names and managed-settings keys: confirmed 2026-10-08 (`docs/guides/claude-code.md`). Codex and Gemini CLI: still open (Phase 12, D12-2)
+- Remote MCP connector requirements in Claude and ChatGPT (Phase 15). The Claude Code plugin format was confirmed on 2026-10-08, and `claude plugin validate` passes
 - LiteLLM admin API endpoints; Bedrock, Azure, and Vertex cost sources (Phase 15)
 - Accounting import templates and UAE VAT treatment (Phase 14)

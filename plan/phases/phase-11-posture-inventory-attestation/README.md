@@ -1,5 +1,7 @@
 # Phase 11 — Governance posture, AI inventory, and signed attestations
 
+> **Status (2026-10-08):** code complete. What was built, how it differs from this plan, and what is still open: [phase-11-12-checklist.md](../phase-11-12-checklist.md). Decisions: ADR 0020.
+
 **Goal:** answer three questions a buyer's CISO or compliance lead asks before they trust Aperture, and again every quarter after:
 
 1. **What AI is in use here, and who owns it?** One inventory across agents, keys, providers, models, cards, and wallets, including AI spend that Aperture doesn't govern yet.

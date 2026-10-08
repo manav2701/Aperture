@@ -12,6 +12,11 @@ For data the Customer puts into Aperture (its members, agents, spend records), t
 - **Usage and spend records:** the gateway requests (model, token counts, cost, outcome), card authorizations (merchant, amount; **never card numbers**), crypto payments (addresses, amounts, transaction signatures), approvals and the audit log.
 - **Prompts and generated media:** prompt content is not logged by default. Generated images and videos are stored privately for the retention period the org sets.
 - **Billing:** handled by Stripe. We keep the Stripe customer id and the subscription status.
+- **AI tool seats and subscriptions** (when the Customer connects a seat product or imports a member list): the member's work email or the vendor's user id, the tool and plan, who pays, the cost, and daily activity counts (active or not, number of requests, tokens where the vendor reports them). Never conversation content.
+- **Receipts** (when a member forwards or uploads one): the vendor, plan, amount, currency, dates, the sender's domain and a hash of the message. The email body, attachments and the sender's address are discarded once these fields are read.
+- **Terminal-tool telemetry** (when a developer connects Claude Code): per day and per model, the number of sessions, tokens by type, list-price-equivalent cost, and lines of code added or removed. Prompt text, tool input and file content are not collected; attributes that could carry them are dropped before storage.
+- **Statement rows** (when a Customer uploads a bank or card statement): only rows that match an AI vendor (date, amount, currency, descriptor). Other transactions are filtered out in the browser and never sent to us.
+- **AI tool declarations:** the tools, plans and payer a member declares about themselves.
 
 ## Why
 

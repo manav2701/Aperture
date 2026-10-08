@@ -2,24 +2,26 @@
 
 One file per decision: context, decision, consequences. Add a new ADR instead of editing an accepted one; mark the old one "Superseded by NNNN".
 
-| ADR                                                | Title                                                   | Status                           |
-| -------------------------------------------------- | ------------------------------------------------------- | -------------------------------- |
-| [0001](0001-control-plane-customer-owned-rails.md) | Control plane on customer-owned rails                   | Accepted                         |
-| [0002](0002-micro-usd-ledger-with-holds.md)        | Integer micro-USD ledger with holds                     | Accepted                         |
-| [0003](0003-typescript-monorepo-stack.md)          | TypeScript monorepo and stack                           | Accepted                         |
-| [0004](0004-own-passthrough-gateway.md)            | Own passthrough gateway                                 | Accepted                         |
-| [0005](0005-policy-engine-typed-json-rules.md)     | Policy engine as typed JSON rules                       | Accepted                         |
-| [0006](0006-mandates-as-ed25519-jws.md)            | Mandates as Ed25519 JWS with attenuation                | Accepted                         |
-| [0007](0007-bring-your-own-card-issuer.md)         | Bring-your-own card issuer; never handle card numbers   | Accepted                         |
-| [0008](0008-x402-delegate-allowances.md)           | x402 via SPL delegate allowances and an isolated signer | Accepted, gated on legal opinion |
-| [0009](0009-archive-anchor-programs.md)            | Archive the Anchor programs                             | Accepted                         |
-| [0010](0010-fail-closed.md)                        | Fail closed by default                                  | Accepted                         |
-| [0011](0011-phase-1-tooling.md)                    | Phase 1 tooling choices                                 | Accepted                         |
-| [0012](0012-phase-2-ledger-details.md)             | Phase 2 ledger and time decisions                       | Accepted                         |
-| [0013](0013-phase-3-identity-and-tenancy.md)       | Phase 3 identity, tenancy and delivery                  | Accepted                         |
-| [0014](0014-phases-4-5-connectors-and-gateway.md)  | Provider connectors and the gateway (Phases 4–5)        | Accepted                         |
-| [0015](0015-phase-6-media.md)                      | Media generation (Phase 6)                              | Accepted                         |
-| [0016](0016-phase-7-approvals-and-mandates.md)     | Approvals, mandates and delegation (Phase 7)            | Accepted                         |
-| [0017](0017-phase-8-cards-rail.md)                 | The fiat cards rail on Stripe Issuing (Phase 8)         | Accepted                         |
-| [0018](0018-phase-9-x402-solana.md)                | x402 on Solana with delegate allowances (Phase 9)       | Accepted (devnet)                |
-| [0019](0019-phase-10-production.md)                | Production hardening and launch readiness (Phase 10)    | Accepted                         |
+| ADR                                                | Title                                                       | Status                           |
+| -------------------------------------------------- | ----------------------------------------------------------- | -------------------------------- |
+| [0001](0001-control-plane-customer-owned-rails.md) | Control plane on customer-owned rails                       | Accepted                         |
+| [0002](0002-micro-usd-ledger-with-holds.md)        | Integer micro-USD ledger with holds                         | Accepted                         |
+| [0003](0003-typescript-monorepo-stack.md)          | TypeScript monorepo and stack                               | Accepted                         |
+| [0004](0004-own-passthrough-gateway.md)            | Own passthrough gateway                                     | Accepted                         |
+| [0005](0005-policy-engine-typed-json-rules.md)     | Policy engine as typed JSON rules                           | Accepted                         |
+| [0006](0006-mandates-as-ed25519-jws.md)            | Mandates as Ed25519 JWS with attenuation                    | Accepted                         |
+| [0007](0007-bring-your-own-card-issuer.md)         | Bring-your-own card issuer; never handle card numbers       | Accepted                         |
+| [0008](0008-x402-delegate-allowances.md)           | x402 via SPL delegate allowances and an isolated signer     | Accepted, gated on legal opinion |
+| [0009](0009-archive-anchor-programs.md)            | Archive the Anchor programs                                 | Accepted                         |
+| [0010](0010-fail-closed.md)                        | Fail closed by default                                      | Accepted                         |
+| [0011](0011-phase-1-tooling.md)                    | Phase 1 tooling choices                                     | Accepted                         |
+| [0012](0012-phase-2-ledger-details.md)             | Phase 2 ledger and time decisions                           | Accepted                         |
+| [0013](0013-phase-3-identity-and-tenancy.md)       | Phase 3 identity, tenancy and delivery                      | Accepted                         |
+| [0014](0014-phases-4-5-connectors-and-gateway.md)  | Provider connectors and the gateway (Phases 4–5)            | Accepted                         |
+| [0015](0015-phase-6-media.md)                      | Media generation (Phase 6)                                  | Accepted                         |
+| [0016](0016-phase-7-approvals-and-mandates.md)     | Approvals, mandates and delegation (Phase 7)                | Accepted                         |
+| [0017](0017-phase-8-cards-rail.md)                 | The fiat cards rail on Stripe Issuing (Phase 8)             | Accepted                         |
+| [0018](0018-phase-9-x402-solana.md)                | x402 on Solana with delegate allowances (Phase 9)           | Accepted (devnet)                |
+| [0019](0019-phase-10-production.md)                | Production hardening and launch readiness (Phase 10)        | Accepted                         |
+| [0020](0020-phase-11-posture-and-attestations.md)  | Posture, inventory, attestations and agent cards (Phase 11) | Accepted                         |
+| [0021](0021-phase-12-seats-and-telemetry.md)       | Seats, receipts and terminal telemetry (Phase 12)           | Accepted                         |

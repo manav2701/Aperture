@@ -106,6 +106,32 @@ Generate every secret with `openssl rand -base64 32` (or `node -e "console.log(r
 23. **Legal opinion C1** (custody and delegate control) before `MAINNET_X402_ENABLED=true`.
 24. **Pilot:** for the design partner's org, run `pnpm --filter @aperture/cli admin pilot <orgId> 90`. Onboard them, agree success criteria, and hold weekly check-ins.
 
+## G. Phases 11–12: posture, attestations, seats (nothing blocks the build; these unlock live tests)
+
+25. **Run the new migrations on staging** (`pnpm db:migrate` with the owner URL), then redeploy the API, gateway and worker. The worker starts `posture.run`, `seats.sync`, `seats.idle` and `seats.overage` on its own.
+26. **Attestation issuer:** on staging leave `ATTESTATION_ISSUER=self_hosted`. Only Aperture Cloud production sets `aperture_cloud`. Set `APERTURE_INSTANCE` to a short name (for example `staging`).
+27. **Receipts inbox** (needs the domain from step 16):
+    - an MX record for `in.<domain>` at an inbound provider that forwards **raw** mail with a webhook (Cloudflare Email Workers, Postmark inbound, or Resend inbound);
+    - a forwarder that POSTs the raw message to `https://api.<domain>/webhooks/inbound-email` with `x-aperture-signature: sha256=<HMAC-SHA-256 of the body>` and `x-aperture-recipient: <envelope recipient>`;
+    - set `INBOUND_EMAIL_DOMAIN=in.<domain>`, `INBOUND_EMAIL_SECRET` (`openssl rand -hex 32`), and `INBOUND_AUTHSERV_ID` (the receiving server's name in its `Authentication-Results` header).
+
+    Until then, members can upload `.eml` files on **My AI tools**.
+28. **Seat connectors, for a live test** (read-only; each needs admin access to a real workspace):
+    - Cursor Teams admin API key;
+    - Claude Enterprise Analytics key, and an Anthropic Admin API key for Claude Code usage;
+    - a GitHub token with Copilot billing read, and the org name;
+    - an Entra app registration with `Reports.Read.All` for Microsoft 365 Copilot.
+
+    Connect them on **Seats** in staging.
+29. **Claude Code:**
+    - Run `npx tsx packages/connect/src/cli.ts claude-code --token … --gateway <staging gateway URL>` on your own machine, use Claude Code for a few minutes, and check **Seats → Terminal tools**.
+    - Install the plugin with `claude plugin marketplace add ./integrations` and `claude plugin install aperture-governance@aperture`.
+    - Before telling a customer about governed mode, try it on one machine (see `docs/guides/claude-code.md`).
+30. **Legal:**
+    - add the attestation disclaimer to counsel's review (step 22);
+    - send counsel the new data in `docs/legal/privacy.md` (seats, receipts, telemetry, statements) and the inbound email sub-processor.
+31. **Design partner:** show them their posture score and one attestation, and their seat list with at least one saving. Ask which checks, thresholds (30, 90 and 365 days; 2–3 owners) and frameworks matter to them.
+
 ## F. Later, when revenue allows
 
 - An external penetration test; start SOC 2 evidence collection.

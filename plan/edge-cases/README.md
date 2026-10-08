@@ -156,3 +156,17 @@ This is the architecture "tested in ideation": each scenario was walked through 
 | V14 | An auditor or team lead opens posture | They waive checks or see other teams' subjects | `posture.waive` is owner/admin only; team leads only see their team's subjects; RLS on every new table | I (Phase 11) |
 | V15 | Verifying the full audit chain on every daily run | Runs get slower without limit | Store a checkpoint (last verified seq and hash); verify incrementally; full verification weekly | P (Phase 11) |
 | V16 | Period boundaries for attestations and posture history | Off-by-one day across time zones | Periods use the org timezone through `period.ts`, as budgets do | P (Phase 11) |
+
+## Seats, receipts, and terminal telemetry
+
+| ID | Scenario | What could go wrong | Handling | Test |
+|---|---|---|---|---|
+| S1 | A member leaves | Their telemetry token keeps reporting; their paid seat is forgotten | Removing the member revokes their telemetry tokens; their seats stay listed with the holder marked "left" so they can be reclaimed | I: `revokes a departing member's telemetry tokens` (Phase 12) |
+| S2 | The same seat comes from a connector and a receipt | The seat is counted twice | A team-plan receipt for a seat a connector reports attaches to that seat as evidence and fills only a missing cost; a personal plan stays separate so "paid twice" shows | I: `attaches a team-plan receipt to the seat a connector reports…` (Phase 12) |
+| S3 | A receipt arrives in another currency | Wrong USD figures | Converted at that day's `fx_rates` rate (or the latest earlier one); the original amount and currency are kept; no rate → review queue says so | I: `converts currencies at the day's rate` (Phase 12) |
+| S4 | A forged receipt email | Fake seats or spend imported | Only a verified-member sender or a DKIM pass from our own receiving server for the vendor's domain is trusted; anything else goes to the review queue | U: receipt templates and DKIM tests (Phase 12) |
+| S5 | A telemetry token leaks | Someone sends fake usage, or uses it for something else | Tokens can only send metrics (never call models or the API), are hashed at rest, rate-limited per token, and revocable in one click. An alert on abnormal volume is not built yet | I: `a telemetry token, which can do nothing else` (Phase 12) |
+| S6 | A vendor API changes, or the plan loses its admin API | Seats vanish or a silent gap appears | The connection goes `broken` with the error and an alert; `conn.healthy` fails in posture; seats are kept with their last sync time | I: `marks the connection broken and alerts…` (Phase 12) |
+| S7 | A tool's metric names change in a new version | Usage silently drops, or wrong numbers are stored | Only pinned metric names are mapped; unknown names are ignored (never stored) and returned by the mapper. A diagnostics view listing them is not built yet | U: `mapOtlpMetrics` tests (Phase 12) |
+| S8 | A receipt comes from a personal email address | Personal data stored; wrong person matched | A forwarded receipt is matched to the member who sent it from their verified address; the email address itself is never stored (only the sender domain and a message hash) | Schema: `receipts` has no address column (Phase 12) |
+| S9 | A seat goes unused | Money spent on nothing, without anyone noticing | `seats.idle` marks connector and imported seats idle after the org's `idle_seat_days`, and active again on use; posture `seats.idle` and the idle-seat insight point at it | I: `marks seats idle past the org threshold…` (Phase 12) |
