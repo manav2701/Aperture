@@ -12,8 +12,8 @@ export default function VerifyPage() {
       <header className="space-y-2">
         <h1 className="text-2xl font-bold">Verify an attestation</h1>
         <p className="text-muted-foreground">
-          Drop in an attestation JSON file. Its signature is checked here, in your browser, against Aperture’s published keys.
-          Add the period’s audit export to check the event range and Merkle root too.
+          Drop in an attestation JSON file. Its signature is checked here, in your browser, against Aperture’s published
+          keys. Add the period’s audit export to check the event range and Merkle root too.
         </p>
       </header>
       <AttestationVerifier />

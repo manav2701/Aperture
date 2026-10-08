@@ -55,7 +55,9 @@ export default async function InventoryPage({
   ]);
   const status = query.status !== undefined && query.status in STATUS_LABEL ? (query.status as Status) : undefined;
   const kind = query.kind !== undefined && query.kind in KIND_LABEL ? query.kind : undefined;
-  const rows = inventory.rows.filter((r) => (status === undefined || r.status === status) && (kind === undefined || r.kind === kind));
+  const rows = inventory.rows.filter(
+    (r) => (status === undefined || r.status === status) && (kind === undefined || r.kind === kind),
+  );
   const base = `/orgs/${orgId}/inventory`;
   const href = (next: { status?: string | undefined; kind?: string | undefined }) => {
     const params = new URLSearchParams();
@@ -66,7 +68,10 @@ export default async function InventoryPage({
     return params.size === 0 ? base : `${base}?${params.toString()}`;
   };
   const chip = (active: boolean) =>
-    cn('border px-2 py-1 text-xs', active ? 'border-accent text-foreground' : 'border-border text-muted-foreground hover:text-foreground');
+    cn(
+      'border px-2 py-1 text-xs',
+      active ? 'border-accent text-foreground' : 'border-border text-muted-foreground hover:text-foreground',
+    );
   const kinds = [...new Set(inventory.rows.map((r) => r.kind))];
   const total = inventory.coverage.reduce((sum, share) => sum + share.basisPoints, 0);
 
@@ -76,7 +81,11 @@ export default async function InventoryPage({
         title="Inventory"
         description="Everything in this organization that can spend on AI, and how much of that spend Aperture governs."
         action={
-          <a href={`/api/v1/orgs/${orgId}/inventory.csv`} className="inline-flex h-9 items-center border border-border px-4 text-sm hover:border-accent" download>
+          <a
+            href={`/api/v1/orgs/${orgId}/inventory.csv`}
+            className="inline-flex h-9 items-center border border-border px-4 text-sm hover:border-accent"
+            download
+          >
             Export CSV
           </a>
         }
@@ -88,10 +97,25 @@ export default async function InventoryPage({
         ) : (
           <>
             {/* SVG attributes, not inline styles: the CSP allows no style attributes. */}
-            <svg viewBox="0 0 10000 10" preserveAspectRatio="none" className="h-4 w-full" role="img" aria-label="Coverage shares">
+            <svg
+              viewBox="0 0 10000 10"
+              preserveAspectRatio="none"
+              className="h-4 w-full"
+              role="img"
+              aria-label="Coverage shares"
+            >
               {inventory.coverage.map((share, index) => {
                 const x = inventory.coverage.slice(0, index).reduce((sum, s) => sum + s.basisPoints, 0);
-                return <rect key={share.status} x={x} y={0} width={share.basisPoints} height={10} className={STATUS_FILL[share.status]} />;
+                return (
+                  <rect
+                    key={share.status}
+                    x={x}
+                    y={0}
+                    width={share.basisPoints}
+                    height={10}
+                    className={STATUS_FILL[share.status]}
+                  />
+                );
               })}
             </svg>
             <ul className="mt-4 grid gap-3 text-sm sm:grid-cols-4">
@@ -100,7 +124,9 @@ export default async function InventoryPage({
                   <span className={cn('mr-2 inline-block h-2 w-2', STATUS_COLOR[share.status])} />
                   <span className="font-medium">{STATUS_LABEL[share.status]}</span>{' '}
                   <span className="font-mono">{formatShare(share.basisPoints)}</span>
-                  <span className="block font-mono text-xs text-muted-foreground">{formatAmount(share.amount, 'micros')}</span>
+                  <span className="block font-mono text-xs text-muted-foreground">
+                    {formatAmount(share.amount, 'micros')}
+                  </span>
                 </li>
               ))}
             </ul>
@@ -154,12 +180,16 @@ export default async function InventoryPage({
                     ) : (
                       row.name
                     )}
-                    {row.detail === null ? null : <span className="block text-xs text-muted-foreground">{row.detail}</span>}
+                    {row.detail === null ? null : (
+                      <span className="block text-xs text-muted-foreground">{row.detail}</span>
+                    )}
                   </td>
                   <td className="p-2">{KIND_LABEL[row.kind] ?? row.kind}</td>
                   <td className="p-2">{row.owner ?? '—'}</td>
                   <td className="p-2">
-                    <Badge tone={row.status === 'enforced' ? 'accent' : row.status === 'unassigned' ? 'danger' : 'muted'}>
+                    <Badge
+                      tone={row.status === 'enforced' ? 'accent' : row.status === 'unassigned' ? 'danger' : 'muted'}
+                    >
                       {STATUS_LABEL[row.status]}
                     </Badge>
                   </td>

@@ -63,10 +63,24 @@ export function NewAttestation({ orgId }: { orgId: string }) {
       {preset === 'custom' ? (
         <div className="grid grid-cols-2 gap-2">
           <Field label="From" htmlFor="att-from">
-            <Input id="att-from" type="date" value={range.from} onChange={(e) => { setRange({ ...range, from: e.target.value }); }} />
+            <Input
+              id="att-from"
+              type="date"
+              value={range.from}
+              onChange={(e) => {
+                setRange({ ...range, from: e.target.value });
+              }}
+            />
           </Field>
           <Field label="To" htmlFor="att-to">
-            <Input id="att-to" type="date" value={range.to} onChange={(e) => { setRange({ ...range, to: e.target.value }); }} />
+            <Input
+              id="att-to"
+              type="date"
+              value={range.to}
+              onChange={(e) => {
+                setRange({ ...range, to: e.target.value });
+              }}
+            />
           </Field>
         </div>
       ) : null}
@@ -109,7 +123,17 @@ export function ShareLinks({ orgId, attestationId }: { orgId: string; attestatio
       <div className="mt-3 space-y-3">
         <div className="flex items-end gap-2">
           <Field label="Expires after (days, max 90)" htmlFor={`share-days-${attestationId}`}>
-            <Input id={`share-days-${attestationId}`} type="number" min={1} max={90} className="w-28" value={days} onChange={(e) => { setDays(e.target.value); }} />
+            <Input
+              id={`share-days-${attestationId}`}
+              type="number"
+              min={1}
+              max={90}
+              className="w-28"
+              value={days}
+              onChange={(e) => {
+                setDays(e.target.value);
+              }}
+            />
           </Field>
           <Button
             variant="secondary"
@@ -138,7 +162,8 @@ export function ShareLinks({ orgId, attestationId }: { orgId: string; attestatio
           {shares.map((share) => (
             <li key={share.id} className="flex items-center justify-between gap-2 py-1">
               <span className="text-xs">
-                {share.revokedAt === null ? `expires ${share.expiresAt.slice(0, 10)}` : 'revoked'} · {share.views} view(s)
+                {share.revokedAt === null ? `expires ${share.expiresAt.slice(0, 10)}` : 'revoked'} · {share.views}{' '}
+                view(s)
               </span>
               {share.revokedAt === null ? (
                 <Button
@@ -147,9 +172,12 @@ export function ShareLinks({ orgId, attestationId }: { orgId: string; attestatio
                   disabled={pending}
                   onClick={() => {
                     submit(async () => {
-                      const result = await api.DELETE('/api/v1/orgs/{orgId}/attestations/{attestationId}/shares/{shareId}', {
-                        params: { path: { orgId, attestationId, shareId: share.id } },
-                      });
+                      const result = await api.DELETE(
+                        '/api/v1/orgs/{orgId}/attestations/{attestationId}/shares/{shareId}',
+                        {
+                          params: { path: { orgId, attestationId, shareId: share.id } },
+                        },
+                      );
                       load();
                       return result;
                     });

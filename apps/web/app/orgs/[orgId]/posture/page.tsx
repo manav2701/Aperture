@@ -6,7 +6,8 @@ import { formatDateTime } from '@/lib/format';
 import { RevokeWaiver, RunNow, WaiveCheck } from './posture-actions';
 
 const SEVERITIES = ['critical', 'high', 'medium', 'low'] as const;
-const statusTone = (status: string) => (status === 'pass' ? 'accent' : status === 'fail' || status === 'unknown' ? 'danger' : 'muted');
+const statusTone = (status: string) =>
+  status === 'pass' ? 'accent' : status === 'fail' || status === 'unknown' ? 'danger' : 'muted';
 
 export default async function PosturePage({ params }: { params: Promise<{ orgId: string }> }) {
   const { orgId } = await params;
@@ -57,11 +58,24 @@ export default async function PosturePage({ params }: { params: Promise<{ orgId:
             </Card>
             <Card>
               <p className="text-sm text-muted-foreground">History</p>
-              <svg viewBox="0 0 300 100" preserveAspectRatio="none" className="mt-2 h-16 w-full" role="img" aria-label="Score history, oldest first">
+              <svg
+                viewBox="0 0 300 100"
+                preserveAspectRatio="none"
+                className="mt-2 h-16 w-full"
+                role="img"
+                aria-label="Score history, oldest first"
+              >
                 {[...history.runs].reverse().map((run, index) => {
                   const height = Math.max(4, run.score);
                   return (
-                    <rect key={run.id} x={index * 10} y={100 - height} width={7} height={height} className="fill-accent">
+                    <rect
+                      key={run.id}
+                      x={index * 10}
+                      y={100 - height}
+                      width={7}
+                      height={height}
+                      className="fill-accent"
+                    >
                       <title>{`${String(run.score)} · ${formatDateTime(run.ranAt, org.timezone)}`}</title>
                     </rect>
                   );
@@ -105,7 +119,9 @@ export default async function PosturePage({ params }: { params: Promise<{ orgId:
                               )}
                             </li>
                           ))}
-                          {result.subjects.length > 20 ? <li className="text-xs">+{result.subjects.length - 20} more</li> : null}
+                          {result.subjects.length > 20 ? (
+                            <li className="text-xs">+{result.subjects.length - 20} more</li>
+                          ) : null}
                         </ul>
                       )}
                       {canWaive ? <WaiveCheck orgId={orgId} checkId={result.id} subjects={result.subjects} /> : null}
@@ -131,7 +147,9 @@ export default async function PosturePage({ params }: { params: Promise<{ orgId:
                           {waiver.subjectId === null ? '' : ` · ${waiver.subjectId}`}
                         </span>
                         <span className="block">{waiver.reason}</span>
-                        <span className="text-xs text-muted-foreground">until {formatDateTime(waiver.expiresAt, org.timezone)}</span>
+                        <span className="text-xs text-muted-foreground">
+                          until {formatDateTime(waiver.expiresAt, org.timezone)}
+                        </span>
                       </span>
                       {canWaive ? <RevokeWaiver orgId={orgId} waiverId={waiver.id} /> : null}
                     </li>

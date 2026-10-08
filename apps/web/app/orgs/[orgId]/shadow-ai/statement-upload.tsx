@@ -98,8 +98,8 @@ export function StatementUpload({ orgId }: { orgId: string }) {
   return (
     <div className="space-y-4 text-sm">
       <FormNotice>
-        The CSV is read in your browser. Only charges that match a known AI vendor are sent to Aperture; groceries, salaries,
-        and everything else never leave this machine.
+        The CSV is read in your browser. Only charges that match a known AI vendor are sent to Aperture; groceries,
+        salaries, and everything else never leave this machine.
       </FormNotice>
       <Input
         type="file"
@@ -119,16 +119,35 @@ export function StatementUpload({ orgId }: { orgId: string }) {
             {column('debit', 'Debit column (if separate)', true)}
             {column('currency', 'Currency column', true)}
             <Field label="Account currency" htmlFor="stmt-currency">
-              <Input id="stmt-currency" value={currency} maxLength={3} onChange={(e) => { setCurrency(e.target.value.toUpperCase()); }} />
+              <Input
+                id="stmt-currency"
+                value={currency}
+                maxLength={3}
+                onChange={(e) => {
+                  setCurrency(e.target.value.toUpperCase());
+                }}
+              />
             </Field>
             <Field label="Dates are" htmlFor="stmt-order">
-              <Select id="stmt-order" value={dateOrder} onChange={(e) => { setDateOrder(e.target.value as DateOrder); }}>
+              <Select
+                id="stmt-order"
+                value={dateOrder}
+                onChange={(e) => {
+                  setDateOrder(e.target.value as DateOrder);
+                }}
+              >
                 <option value="dmy">day / month / year</option>
                 <option value="mdy">month / day / year</option>
               </Select>
             </Field>
             <Field label="Spend appears as" htmlFor="stmt-sign" hint="Only for a single amount column">
-              <Select id="stmt-sign" value={spendIsNegative ? 'neg' : 'pos'} onChange={(e) => { setSpendIsNegative(e.target.value === 'neg'); }}>
+              <Select
+                id="stmt-sign"
+                value={spendIsNegative ? 'neg' : 'pos'}
+                onChange={(e) => {
+                  setSpendIsNegative(e.target.value === 'neg');
+                }}
+              >
                 <option value="neg">negative amounts (most bank accounts)</option>
                 <option value="pos">positive amounts (most card exports)</option>
               </Select>
@@ -139,13 +158,17 @@ export function StatementUpload({ orgId }: { orgId: string }) {
           ) : (
             <div className="space-y-2">
               <p>
-                {result.rows.length} charges read · <span className="font-semibold">{result.matched.length} match an AI vendor</span>
+                {result.rows.length} charges read ·{' '}
+                <span className="font-semibold">{result.matched.length} match an AI vendor</span>
                 {result.skipped.length > 0 ? ` · ${String(result.skipped.length)} rows couldn’t be read` : ''}
               </p>
               {result.matched.length === 0 ? null : (
                 <ul className="max-h-60 divide-y divide-border overflow-y-auto border border-border">
                   {result.matched.map((row, index) => (
-                    <li key={`${row.date}-${row.descriptor}-${String(index)}`} className="flex justify-between gap-2 p-2">
+                    <li
+                      key={`${row.date}-${row.descriptor}-${String(index)}`}
+                      className="flex justify-between gap-2 p-2"
+                    >
                       <span>
                         <span className="font-medium">{row.tool.product}</span>{' '}
                         <span className="font-mono text-xs text-muted-foreground">
@@ -169,7 +192,12 @@ export function StatementUpload({ orgId }: { orgId: string }) {
                         params: { path: { orgId } },
                         body: {
                           fileName,
-                          rows: result.matched.map(({ date, amount, currency: c, descriptor }) => ({ date, amount, currency: c, descriptor })),
+                          rows: result.matched.map(({ date, amount, currency: c, descriptor }) => ({
+                            date,
+                            amount,
+                            currency: c,
+                            descriptor,
+                          })),
                         },
                       }),
                     () => {

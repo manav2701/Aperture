@@ -17,7 +17,9 @@ export default async function ShadowAiPage({ params }: { params: Promise<{ orgId
     can(role, 'agents.read') ? api.GET('/api/v1/orgs/{orgId}/agents', path).then(unwrap) : null,
     api.GET('/api/v1/orgs/{orgId}/teams', path).then(unwrap),
     can(role, 'receipts.review')
-      ? api.GET('/api/v1/orgs/{orgId}/receipts', { params: { path: { orgId }, query: { status: 'review' } } }).then(unwrap)
+      ? api
+          .GET('/api/v1/orgs/{orgId}/receipts', { params: { path: { orgId }, query: { status: 'review' } } })
+          .then(unwrap)
       : null,
   ]);
   const unassigned = credentials?.credentials.filter((c) => c.principal === null && c.status !== 'revoked') ?? [];
@@ -66,7 +68,9 @@ export default async function ShadowAiPage({ params }: { params: Promise<{ orgId
         ) : null}
 
         <Card>
-          <CardTitle action={<span className="font-mono text-sm">{formatAmount(external.openTotal, 'micros')} open</span>}>
+          <CardTitle
+            action={<span className="font-mono text-sm">{formatAmount(external.openTotal, 'micros')} open</span>}
+          >
             Charges found outside Aperture
           </CardTitle>
           {open.length === 0 ? (
@@ -90,14 +94,18 @@ export default async function ShadowAiPage({ params }: { params: Promise<{ orgId
                     </span>
                   </div>
                   {row.assignedPrincipal === null ? null : <Badge>assigned to {row.assignedPrincipal.name}</Badge>}
-                  {canImport ? <ResolveCharge orgId={orgId} rowId={row.id} assignees={assignees} teams={teams.teams} /> : null}
+                  {canImport ? (
+                    <ResolveCharge orgId={orgId} rowId={row.id} assignees={assignees} teams={teams.teams} />
+                  ) : null}
                 </li>
               ))}
             </ul>
           )}
           {resolved.length === 0 ? null : (
             <details className="mt-4 text-sm">
-              <summary className="cursor-pointer text-muted-foreground">{resolved.length} resolved or provider invoices</summary>
+              <summary className="cursor-pointer text-muted-foreground">
+                {resolved.length} resolved or provider invoices
+              </summary>
               <ul className="mt-2 space-y-1">
                 {resolved.map((row) => (
                   <li key={row.id} className="flex justify-between gap-2">
@@ -105,7 +113,8 @@ export default async function ShadowAiPage({ params }: { params: Promise<{ orgId
                       {row.vendor} · {row.occurredOn}
                     </span>
                     <span>
-                      <Badge>{row.status.replace('_', ' ')}</Badge> <span className="font-mono">{formatAmount(row.amount, 'micros')}</span>
+                      <Badge>{row.status.replace('_', ' ')}</Badge>{' '}
+                      <span className="font-mono">{formatAmount(row.amount, 'micros')}</span>
                     </span>
                   </li>
                 ))}
@@ -118,7 +127,10 @@ export default async function ShadowAiPage({ params }: { params: Promise<{ orgId
           <Card>
             <CardTitle>Receipts to review ({receipts.receipts.length})</CardTitle>
             {receipts.receipts.length === 0 ? (
-              <EmptyState>No receipts waiting. Receipts that don’t parse cleanly, or come from senders Aperture can’t verify, appear here.</EmptyState>
+              <EmptyState>
+                No receipts waiting. Receipts that don’t parse cleanly, or come from senders Aperture can’t verify,
+                appear here.
+              </EmptyState>
             ) : (
               <ul className="divide-y divide-border text-sm">
                 {receipts.receipts.map((receipt) => (

@@ -308,3 +308,33 @@ describe('task cards (Phase 8)', () => {
     expect(await polled.json()).toMatchObject({ status: 'pending', card: null });
   });
 });
+
+describe('agent card (Phase 11)', () => {
+  it('shows the agent its declared purpose, rules and budget, and never a key or secret', async () => {
+    const org = await seedGatewayOrg(h);
+    await h.system.db
+      .update(schema.principals)
+      .set({ purpose: 'Summarise support tickets', dataClasses: ['internal'], riskTier: 'medium' })
+      .where(eq(schema.principals.id, org.agent.id));
+    await policy(org.org.id, { rules: [{ id: 'cap', type: 'max_amount_per_action', max: '1.00' }] });
+    const { app } = gateway(h, {});
+
+    const response = await get(app, '/v1/card', org.key);
+    expect(response.status).toBe(200);
+    const card = (await response.json()) as Record<string, unknown>;
+    expect(card).toMatchObject({
+      id: org.agent.id,
+      name: 'research-bot',
+      status: 'active',
+      purpose: 'Summarise support tickets',
+      data_classes: ['internal'],
+      risk_tier: 'medium',
+      live_keys: 1,
+    });
+    expect(card.rules).toContainEqual({ level: 'org', type: 'max_amount_per_action' });
+    expect(JSON.stringify(card)).not.toContain(org.key);
+    expect(Object.keys(card)).not.toEqual(expect.arrayContaining(['secret', 'hash', 'key']));
+
+    expect((await get(app, '/v1/card', 'apk_not_a_key')).status).toBe(401);
+  });
+});

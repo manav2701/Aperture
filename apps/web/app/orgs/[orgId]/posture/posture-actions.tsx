@@ -59,7 +59,13 @@ export function WaiveCheck({
         }}
       >
         <Field label="Applies to" htmlFor={`w-subject-${checkId}`}>
-          <Select id={`w-subject-${checkId}`} value={subjectId} onChange={(e) => { setSubjectId(e.target.value); }}>
+          <Select
+            id={`w-subject-${checkId}`}
+            value={subjectId}
+            onChange={(e) => {
+              setSubjectId(e.target.value);
+            }}
+          >
             <option value="">The whole check</option>
             {subjects.map((s) => (
               <option key={s.id} value={s.id}>
@@ -69,10 +75,28 @@ export function WaiveCheck({
           </Select>
         </Field>
         <Field label="Reason (recorded in the audit log)" htmlFor={`w-reason-${checkId}`}>
-          <Input id={`w-reason-${checkId}`} value={reason} required minLength={3} maxLength={1000} onChange={(e) => { setReason(e.target.value); }} />
+          <Input
+            id={`w-reason-${checkId}`}
+            value={reason}
+            required
+            minLength={3}
+            maxLength={1000}
+            onChange={(e) => {
+              setReason(e.target.value);
+            }}
+          />
         </Field>
         <Field label="Until (max 180 days)" htmlFor={`w-until-${checkId}`}>
-          <Input id={`w-until-${checkId}`} type="date" value={until} min={inDays(1)} max={inDays(179)} onChange={(e) => { setUntil(e.target.value); }} />
+          <Input
+            id={`w-until-${checkId}`}
+            type="date"
+            value={until}
+            min={inDays(1)}
+            max={inDays(179)}
+            onChange={(e) => {
+              setUntil(e.target.value);
+            }}
+          />
         </Field>
         <Button type="submit" variant="secondary" disabled={pending}>
           Waive
@@ -93,7 +117,9 @@ export function RevokeWaiver({ orgId, waiverId }: { orgId: string; waiverId: str
       variant="ghost"
       disabled={pending}
       onClick={() => {
-        submit(() => api.DELETE('/api/v1/orgs/{orgId}/posture/waivers/{waiverId}', { params: { path: { orgId, waiverId } } }));
+        submit(() =>
+          api.DELETE('/api/v1/orgs/{orgId}/posture/waivers/{waiverId}', { params: { path: { orgId, waiverId } } }),
+        );
       }}
     >
       Revoke

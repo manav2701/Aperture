@@ -14,7 +14,7 @@ import {
  * the admin key as the username. Daily usage is aggregated hourly (poll at most hourly, 20
  * requests/minute per team) and one request covers at most 30 days.
  */
-export const CURSOR_ADMIN_URL = 'https://api.cursor.com';
+const CURSOR_ADMIN_URL = 'https://api.cursor.com';
 const MAX_WINDOW_MS = 30 * 86_400_000;
 const PAGE_SIZE = 500;
 

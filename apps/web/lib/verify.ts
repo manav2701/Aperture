@@ -21,7 +21,10 @@ export interface SignatureCheck {
 }
 
 const fromBase64Url = (value: string): Uint8Array<ArrayBuffer> => {
-  const base64 = value.replace(/-/g, '+').replace(/_/g, '/').padEnd(Math.ceil(value.length / 4) * 4, '=');
+  const base64 = value
+    .replace(/-/g, '+')
+    .replace(/_/g, '/')
+    .padEnd(Math.ceil(value.length / 4) * 4, '=');
   const binary = atob(base64);
   const bytes = new Uint8Array(new ArrayBuffer(binary.length));
   for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
@@ -42,9 +45,16 @@ export async function verifyAttestationJws(jws: string, jwks: { keys: Jwk[] }): 
   }
   if (header.alg !== 'EdDSA') return { ok: false, kid: header.kid ?? null, reason: 'unsupported algorithm', payload };
   const jwk = jwks.keys.find((key) => key.kid === header.kid);
-  if (jwk?.x === undefined) return { ok: false, kid: header.kid ?? null, reason: 'the signing key is not published', payload };
+  if (jwk?.x === undefined)
+    return { ok: false, kid: header.kid ?? null, reason: 'the signing key is not published', payload };
   try {
-    const key = await crypto.subtle.importKey('jwk', { kty: 'OKP', crv: 'Ed25519', x: jwk.x }, { name: 'Ed25519' }, false, ['verify']);
+    const key = await crypto.subtle.importKey(
+      'jwk',
+      { kty: 'OKP', crv: 'Ed25519', x: jwk.x },
+      { name: 'Ed25519' },
+      false,
+      ['verify'],
+    );
     const ok = await crypto.subtle.verify(
       { name: 'Ed25519' },
       key,
@@ -53,7 +63,12 @@ export async function verifyAttestationJws(jws: string, jwks: { keys: Jwk[] }): 
     );
     return { ok, kid: header.kid ?? null, reason: ok ? null : 'the signature does not match', payload };
   } catch {
-    return { ok: false, kid: header.kid ?? null, reason: 'this browser cannot verify Ed25519 signatures; use the CLI', payload };
+    return {
+      ok: false,
+      kid: header.kid ?? null,
+      reason: 'this browser cannot verify Ed25519 signatures; use the CLI',
+      payload,
+    };
   }
 }
 
@@ -101,23 +116,46 @@ export interface AuditRangeCheck {
 /** Checks a JSONL audit export against the attestation's range, links, and Merkle root. */
 export async function checkAuditExport(
   jsonl: string,
-  claimed: { firstSeq: number | null; lastSeq: number | null; prevHash: string | null; lastHash: string | null; merkleRoot: string | null },
+  claimed: {
+    firstSeq: number | null;
+    lastSeq: number | null;
+    prevHash: string | null;
+    lastHash: string | null;
+    merkleRoot: string | null;
+  },
 ): Promise<AuditRangeCheck> {
   const all = jsonl
     .split('\n')
     .filter((line) => line.trim() !== '')
     .map((line) => JSON.parse(line) as { seq: number; prevHash: string; hash: string });
-  const records = all.filter((r) => claimed.firstSeq !== null && claimed.lastSeq !== null && r.seq >= claimed.firstSeq && r.seq <= claimed.lastSeq);
+  const records = all.filter(
+    (r) =>
+      claimed.firstSeq !== null && claimed.lastSeq !== null && r.seq >= claimed.firstSeq && r.seq <= claimed.lastSeq,
+  );
   const root = await merkleRoot(records.map((r) => r.hash));
   if (claimed.firstSeq === null) return { ok: records.length === 0, reason: null, events: 0, merkleRoot: root };
   for (let i = 0; i < records.length; i += 1) {
     const record = records[i];
     if (record === undefined) continue;
-    if (record.seq !== claimed.firstSeq + i) return { ok: false, reason: `missing event before seq ${String(record.seq)}`, events: records.length, merkleRoot: root };
+    if (record.seq !== claimed.firstSeq + i)
+      return {
+        ok: false,
+        reason: `missing event before seq ${String(record.seq)}`,
+        events: records.length,
+        merkleRoot: root,
+      };
     const previous = i === 0 ? claimed.prevHash : records[i - 1]?.hash;
-    if (record.prevHash !== previous) return { ok: false, reason: `broken link at seq ${String(record.seq)}`, events: records.length, merkleRoot: root };
+    if (record.prevHash !== previous)
+      return {
+        ok: false,
+        reason: `broken link at seq ${String(record.seq)}`,
+        events: records.length,
+        merkleRoot: root,
+      };
   }
-  if (records.at(-1)?.hash !== claimed.lastHash) return { ok: false, reason: 'the last hash differs', events: records.length, merkleRoot: root };
-  if (root !== claimed.merkleRoot) return { ok: false, reason: 'the Merkle root differs', events: records.length, merkleRoot: root };
+  if (records.at(-1)?.hash !== claimed.lastHash)
+    return { ok: false, reason: 'the last hash differs', events: records.length, merkleRoot: root };
+  if (root !== claimed.merkleRoot)
+    return { ok: false, reason: 'the Merkle root differs', events: records.length, merkleRoot: root };
   return { ok: true, reason: null, events: records.length, merkleRoot: root };
 }

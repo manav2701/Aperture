@@ -30,7 +30,9 @@ import { OrgParams, Timestamp, errorResponses, json, jsonBody } from '../http/sc
 
 const usd = (value: bigint) => formatUsd(micros(value));
 const AGENT_CARD_TYP = 'aperture-agent-card+jws';
-const PrincipalParams = OrgParams.extend({ principalId: z.uuid().openapi({ param: { name: 'principalId', in: 'path' } }) });
+const PrincipalParams = OrgParams.extend({
+  principalId: z.uuid().openapi({ param: { name: 'principalId', in: 'path' } }),
+});
 const SPEND_KINDS = sql`('capture', 'unheld_capture', 'observed', 'adjustment', 'refund')`;
 const signed = sql`case when e.kind = 'refund' then -e.amount else e.amount end`;
 
@@ -51,14 +53,42 @@ const AgentCardSchema = z
     }),
     governance: z.enum(['enforced', 'visible', 'unassigned']),
     budgets: z.array(
-      z.object({ id: z.uuid(), name: z.string(), scope: z.string(), mode: z.string(), period: z.string(), limit: z.string(), spent: z.string(), held: z.string() }),
+      z.object({
+        id: z.uuid(),
+        name: z.string(),
+        scope: z.string(),
+        mode: z.string(),
+        period: z.string(),
+        limit: z.string(),
+        spent: z.string(),
+        held: z.string(),
+      }),
     ),
     rules: z.array(z.object({ level: z.string(), type: z.string(), id: z.string() })),
-    mandates: z.array(z.object({ id: z.uuid(), purpose: z.string(), expiresAt: Timestamp, parentId: z.uuid().nullable(), uses: z.number().int(), maxUses: z.number().int().nullable() })),
+    mandates: z.array(
+      z.object({
+        id: z.uuid(),
+        purpose: z.string(),
+        expiresAt: Timestamp,
+        parentId: z.uuid().nullable(),
+        uses: z.number().int(),
+        maxUses: z.number().int().nullable(),
+      }),
+    ),
     subAgents: z.array(z.object({ id: z.uuid(), name: z.string(), status: z.string() })),
     means: z.object({
-      keys: z.array(z.object({ id: z.uuid(), name: z.string(), prefix: z.string(), lastUsedAt: Timestamp.nullable(), expiresAt: Timestamp.nullable() })),
-      providerKeys: z.array(z.object({ id: z.uuid(), name: z.string(), provider: z.string(), hint: z.string().nullable() })),
+      keys: z.array(
+        z.object({
+          id: z.uuid(),
+          name: z.string(),
+          prefix: z.string(),
+          lastUsedAt: Timestamp.nullable(),
+          expiresAt: Timestamp.nullable(),
+        }),
+      ),
+      providerKeys: z.array(
+        z.object({ id: z.uuid(), name: z.string(), provider: z.string(), hint: z.string().nullable() }),
+      ),
       cards: z.array(z.object({ id: z.uuid(), kind: z.string(), last4: z.string().nullable(), status: z.string() })),
       x402Accounts: z.array(z.object({ id: z.uuid(), network: z.string(), status: z.string() })),
     }),
@@ -70,7 +100,9 @@ const AgentCardSchema = z
       killSwitchEvents: z.number().int(),
       lastActivityAt: Timestamp.nullable(),
     }),
-    recentAudit: z.array(z.object({ seq: z.number().int(), occurredAt: Timestamp, actor: z.string(), action: z.string() })),
+    recentAudit: z.array(
+      z.object({ seq: z.number().int(), occurredAt: Timestamp, actor: z.string(), action: z.string() }),
+    ),
     posture: z.array(z.object({ id: z.string(), title: z.string(), severity: z.string(), status: z.string() })),
     generatedAt: Timestamp,
   })
@@ -81,11 +113,24 @@ async function buildCard(tx: Transaction, orgId: string, principalId: string): P
   const [agent] = await tx
     .select()
     .from(schema.principals)
-    .where(and(eq(schema.principals.id, principalId), eq(schema.principals.orgId, orgId), eq(schema.principals.kind, 'agent'), isNull(schema.principals.systemRole)));
+    .where(
+      and(
+        eq(schema.principals.id, principalId),
+        eq(schema.principals.orgId, orgId),
+        eq(schema.principals.kind, 'agent'),
+        isNull(schema.principals.systemRole),
+      ),
+    );
   if (!agent) throw notFound('agent');
   const since = new Date(Date.now() - 30 * 86_400_000);
 
-  const [team] = agent.teamId === null ? [] : await tx.select({ id: schema.teams.id, name: schema.teams.name }).from(schema.teams).where(eq(schema.teams.id, agent.teamId));
+  const [team] =
+    agent.teamId === null
+      ? []
+      : await tx
+          .select({ id: schema.teams.id, name: schema.teams.name })
+          .from(schema.teams)
+          .where(eq(schema.teams.id, agent.teamId));
   const [owner] =
     agent.ownerUserId === null
       ? []
@@ -97,9 +142,21 @@ async function buildCard(tx: Transaction, orgId: string, principalId: string): P
   const [parent] =
     agent.parentPrincipalId === null
       ? []
-      : await tx.select({ id: schema.principals.id, name: schema.principals.name }).from(schema.principals).where(eq(schema.principals.id, agent.parentPrincipalId));
+      : await tx
+          .select({ id: schema.principals.id, name: schema.principals.name })
+          .from(schema.principals)
+          .where(eq(schema.principals.id, agent.parentPrincipalId));
 
-  const budgets = await tx.execute<{ id: string; name: string; scope: string; mode: string; period: string; limit_amount: string; spent: string; held: string }>(sql`
+  const budgets = await tx.execute<{
+    id: string;
+    name: string;
+    scope: string;
+    mode: string;
+    period: string;
+    limit_amount: string;
+    spent: string;
+    held: string;
+  }>(sql`
     select b.id, b.name, b.scope, b.mode, b.period, b.limit_amount::text,
            coalesce(sum(u.spent), 0)::text as spent, coalesce(sum(u.held), 0)::text as held
     from budgets b left join budget_usage u on u.budget_id = b.id
@@ -113,23 +170,42 @@ async function buildCard(tx: Transaction, orgId: string, principalId: string): P
   const context = await principalPolicyContext(tx, orgId, principalId);
   const rules = context.layers.flatMap((layer) => {
     const parsed = policyDocumentSchema.safeParse(layer.document);
-    return parsed.success ? parsed.data.rules.map((rule) => ({ level: layer.level, type: rule.type, id: rule.id })) : [];
+    return parsed.success
+      ? parsed.data.rules.map((rule) => ({ level: layer.level, type: rule.type, id: rule.id }))
+      : [];
   });
 
   const mandates = await tx
     .select()
     .from(schema.mandates)
-    .where(and(eq(schema.mandates.subjectPrincipalId, principalId), eq(schema.mandates.status, 'active'), gt(schema.mandates.expiresAt, new Date())));
+    .where(
+      and(
+        eq(schema.mandates.subjectPrincipalId, principalId),
+        eq(schema.mandates.status, 'active'),
+        gt(schema.mandates.expiresAt, new Date()),
+      ),
+    );
   const subAgents = await tx
     .select({ id: schema.principals.id, name: schema.principals.name, status: schema.principals.status })
     .from(schema.principals)
     .where(eq(schema.principals.parentPrincipalId, principalId));
   const keys = await tx
-    .select({ id: schema.apiKeys.id, name: schema.apiKeys.name, prefix: schema.apiKeys.prefix, lastUsedAt: schema.apiKeys.lastUsedAt, expiresAt: schema.apiKeys.expiresAt })
+    .select({
+      id: schema.apiKeys.id,
+      name: schema.apiKeys.name,
+      prefix: schema.apiKeys.prefix,
+      lastUsedAt: schema.apiKeys.lastUsedAt,
+      expiresAt: schema.apiKeys.expiresAt,
+    })
     .from(schema.apiKeys)
     .where(and(eq(schema.apiKeys.principalId, principalId), isNull(schema.apiKeys.revokedAt)));
   const providerKeys = await tx
-    .select({ id: schema.credentials.id, name: schema.credentials.name, hint: schema.credentials.hint, provider: schema.connections.provider })
+    .select({
+      id: schema.credentials.id,
+      name: schema.credentials.name,
+      hint: schema.credentials.hint,
+      provider: schema.connections.provider,
+    })
     .from(schema.credentials)
     .innerJoin(schema.connections, eq(schema.connections.id, schema.credentials.connectionId))
     .where(and(eq(schema.credentials.principalId, principalId), sql`${schema.credentials.status} <> 'revoked'`));
@@ -156,9 +232,19 @@ async function buildCard(tx: Transaction, orgId: string, principalId: string): P
     select status, count(*)::text as n from approvals where requester_principal_id = ${principalId} and created_at >= ${since.toISOString()} group by 1`);
   const subject = `principal:${principalId}`;
   const audit = await tx
-    .select({ seq: schema.auditEvents.seq, occurredAt: schema.auditEvents.occurredAt, actor: schema.auditEvents.actor, action: schema.auditEvents.action })
+    .select({
+      seq: schema.auditEvents.seq,
+      occurredAt: schema.auditEvents.occurredAt,
+      actor: schema.auditEvents.actor,
+      action: schema.auditEvents.action,
+    })
     .from(schema.auditEvents)
-    .where(and(eq(schema.auditEvents.orgId, orgId), or(eq(schema.auditEvents.subject, subject), eq(schema.auditEvents.actor, `agent:${principalId}`))))
+    .where(
+      and(
+        eq(schema.auditEvents.orgId, orgId),
+        or(eq(schema.auditEvents.subject, subject), eq(schema.auditEvents.actor, `agent:${principalId}`)),
+      ),
+    )
     .orderBy(desc(schema.auditEvents.seq))
     .limit(20);
   const [killSwitch] = (
@@ -172,7 +258,12 @@ async function buildCard(tx: Transaction, orgId: string, principalId: string): P
         (select max(created_at) from gateway_requests where principal_id = ${principalId}),
         (select max(occurred_at) from ledger_entries where principal_id = ${principalId})) as at`)
   ).rows;
-  const [run] = await tx.select().from(schema.postureRuns).where(eq(schema.postureRuns.orgId, orgId)).orderBy(desc(schema.postureRuns.ranAt)).limit(1);
+  const [run] = await tx
+    .select()
+    .from(schema.postureRuns)
+    .where(eq(schema.postureRuns.orgId, orgId))
+    .orderBy(desc(schema.postureRuns.ranAt))
+    .limit(1);
   const posture = ((run?.results ?? []) as CheckResult[])
     .filter((result) => [...result.subjects, ...result.waivedSubjects].some((s) => s.id === principalId))
     .map((result) => ({ id: result.id, title: result.title, severity: result.severity, status: result.status }));
@@ -180,7 +271,9 @@ async function buildCard(tx: Transaction, orgId: string, principalId: string): P
   const railTotals = Object.fromEntries(byRail.rows.map((row) => [row.rail, BigInt(row.amount)]));
   const nonProvider = Object.entries(railTotals).some(([rail, amount]) => rail !== 'provider' && amount !== 0n);
   const count = (rows: { n: string }[], match: (row: { n: string } & Record<string, string>) => boolean) =>
-    rows.filter((row) => match(row as { n: string } & Record<string, string>)).reduce((sum, row) => sum + Number(row.n), 0);
+    rows
+      .filter((row) => match(row as { n: string } & Record<string, string>))
+      .reduce((sum, row) => sum + Number(row.n), 0);
   return {
     id: agent.id,
     name: agent.name,
@@ -191,7 +284,10 @@ async function buildCard(tx: Transaction, orgId: string, principalId: string): P
     parent: parent ?? null,
     createdAt: agent.createdAt.toISOString(),
     declared: { purpose: agent.purpose, dataClasses: agent.dataClasses, riskTier: agent.riskTier },
-    governance: keys.length > 0 || cards.length > 0 || x402.length > 0 || nonProvider || Object.keys(railTotals).length === 0 ? 'enforced' : 'visible',
+    governance:
+      keys.length > 0 || cards.length > 0 || x402.length > 0 || nonProvider || Object.keys(railTotals).length === 0
+        ? 'enforced'
+        : 'visible',
     budgets: budgets.rows.map((b) => ({
       id: b.id,
       name: b.name,
@@ -203,10 +299,21 @@ async function buildCard(tx: Transaction, orgId: string, principalId: string): P
       held: usd(BigInt(b.held)),
     })),
     rules,
-    mandates: mandates.map((m) => ({ id: m.id, purpose: m.purpose, expiresAt: m.expiresAt.toISOString(), parentId: m.parentId, uses: m.uses, maxUses: m.maxUses })),
+    mandates: mandates.map((m) => ({
+      id: m.id,
+      purpose: m.purpose,
+      expiresAt: m.expiresAt.toISOString(),
+      parentId: m.parentId,
+      uses: m.uses,
+      maxUses: m.maxUses,
+    })),
     subAgents,
     means: {
-      keys: keys.map((k) => ({ ...k, lastUsedAt: k.lastUsedAt?.toISOString() ?? null, expiresAt: k.expiresAt?.toISOString() ?? null })),
+      keys: keys.map((k) => ({
+        ...k,
+        lastUsedAt: k.lastUsedAt?.toISOString() ?? null,
+        expiresAt: k.expiresAt?.toISOString() ?? null,
+      })),
       providerKeys,
       cards,
       x402Accounts: x402,
@@ -223,13 +330,23 @@ async function buildCard(tx: Transaction, orgId: string, principalId: string): P
       killSwitchEvents: Number(killSwitch?.n ?? 0),
       lastActivityAt: last?.at == null ? null : new Date(last.at).toISOString(),
     },
-    recentAudit: audit.map((event) => ({ seq: event.seq, occurredAt: event.occurredAt.toISOString(), actor: event.actor, action: event.action })),
+    recentAudit: audit.map((event) => ({
+      seq: event.seq,
+      occurredAt: event.occurredAt.toISOString(),
+      actor: event.actor,
+      action: event.action,
+    })),
     posture,
     generatedAt: new Date().toISOString(),
   };
 }
 
-async function readableCard(deps: AppDeps, membership: Parameters<typeof reachOf>[0], orgId: string, principalId: string) {
+async function readableCard(
+  deps: AppDeps,
+  membership: Parameters<typeof reachOf>[0],
+  orgId: string,
+  principalId: string,
+) {
   const card = await withOrg(deps.db, orgId, (tx) => buildCard(tx, orgId, principalId));
   const reach = reachOf(membership, 'agents.read');
   if (reach.kind === 'team' && card.team?.id !== reach.teamId) throw notFound('agent');
@@ -268,7 +385,9 @@ export function registerAgentCardRoutes(router: Router, deps: AppDeps): void {
       const card = await readableCard(deps, c.var.membership, orgId, principalId);
       const key = await withOrg(deps.db, orgId, (tx) => platformSigningKey(tx, deps.ring));
       const jws = signJws({ type: 'aperture.agent-card', version: 1, org: orgId, card }, key, AGENT_CARD_TYP);
-      return c.json({ jws, kid: key.kid }, 200, { 'content-disposition': `attachment; filename="agent-card-${principalId}.jws"` });
+      return c.json({ jws, kid: key.kid }, 200, {
+        'content-disposition': `attachment; filename="agent-card-${principalId}.jws"`,
+      });
     },
   );
 
@@ -302,17 +421,30 @@ export function registerAgentCardRoutes(router: Router, deps: AppDeps): void {
         const [agent] = await tx
           .select()
           .from(schema.principals)
-          .where(and(eq(schema.principals.id, principalId), eq(schema.principals.orgId, orgId), eq(schema.principals.kind, 'agent'), isNull(schema.principals.systemRole)));
+          .where(
+            and(
+              eq(schema.principals.id, principalId),
+              eq(schema.principals.orgId, orgId),
+              eq(schema.principals.kind, 'agent'),
+              isNull(schema.principals.systemRole),
+            ),
+          );
         if (!agent) throw notFound('agent');
         const reach = reachOf(membership, 'agents.manage');
-        if (reach.kind === 'team' && agent.teamId !== reach.teamId) throw forbidden('you can only manage agents in your team');
+        if (reach.kind === 'team' && agent.teamId !== reach.teamId)
+          throw forbidden('you can only manage agents in your team');
         const changes = {
           ...(body.purpose === undefined ? {} : { purpose: body.purpose === '' ? null : body.purpose }),
           ...(body.dataClasses === undefined ? {} : { dataClasses: [...new Set(body.dataClasses)] }),
           ...(body.riskTier === undefined ? {} : { riskTier: body.riskTier }),
         };
-        if (Object.keys(changes).length === 0) throw new AppError(400, 'nothing_to_change', 'send purpose, dataClasses, or riskTier');
-        const [row] = await tx.update(schema.principals).set(changes).where(eq(schema.principals.id, principalId)).returning();
+        if (Object.keys(changes).length === 0)
+          throw new AppError(400, 'nothing_to_change', 'send purpose, dataClasses, or riskTier');
+        const [row] = await tx
+          .update(schema.principals)
+          .set(changes)
+          .where(eq(schema.principals.id, principalId))
+          .returning();
         if (!row) throw notFound('agent');
         await auditByUser(tx, {
           orgId,
@@ -332,4 +464,3 @@ export function registerAgentCardRoutes(router: Router, deps: AppDeps): void {
     },
   );
 }
-

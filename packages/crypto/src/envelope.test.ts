@@ -68,5 +68,6 @@ describe('envelope encryption', () => {
         expect(decryptSecret(encryptSecret(secret, ctx, ringV1V2), ctx, ringV1V2)).toBe(secret);
       }),
     );
-  });
+    // A hundred runs take about a second alone, but several seconds when the whole monorepo tests at once.
+  }, 30_000);
 });

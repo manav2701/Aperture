@@ -98,7 +98,9 @@ export function registerShadowRoutes(router: Router, deps: AppDeps): void {
           ).map((row) => [row.provider, row.id]),
         );
         const uploadId = uuidv7();
-        await tx.insert(schema.statementUploads).values({ id: uploadId, orgId, uploadedBy: user.id, fileName, rowsReceived: rows.length, rowsNew: 0 });
+        await tx
+          .insert(schema.statementUploads)
+          .values({ id: uploadId, orgId, uploadedBy: user.id, fileName, rowsReceived: rows.length, rowsNew: 0 });
         const counts = { inserted: 0, duplicates: 0, providerBilling: 0, unmatched: 0, noRate: 0 };
         for (const row of rows) {
           const tool = matchDescriptor(row.descriptor);
@@ -140,7 +142,10 @@ export function registerShadowRoutes(router: Router, deps: AppDeps): void {
             if (connectionId !== undefined) counts.providerBilling += 1;
           }
         }
-        await tx.update(schema.statementUploads).set({ rowsNew: counts.inserted }).where(eq(schema.statementUploads.id, uploadId));
+        await tx
+          .update(schema.statementUploads)
+          .set({ rowsNew: counts.inserted })
+          .where(eq(schema.statementUploads.id, uploadId));
         await auditByUser(tx, {
           orgId,
           userId: user.id,
@@ -168,7 +173,10 @@ export function registerShadowRoutes(router: Router, deps: AppDeps): void {
           limit: z.coerce.number().int().min(1).max(500).default(200),
         }),
       },
-      responses: { 200: json(z.object({ rows: z.array(ExternalSpendSchema), openTotal: z.string() })), ...errorResponses },
+      responses: {
+        200: json(z.object({ rows: z.array(ExternalSpendSchema), openTotal: z.string() })),
+        ...errorResponses,
+      },
     }),
     async (c) => {
       const { orgId } = c.req.valid('param');
@@ -178,7 +186,12 @@ export function registerShadowRoutes(router: Router, deps: AppDeps): void {
           .select({ row: schema.externalSpend, principalName: schema.principals.name })
           .from(schema.externalSpend)
           .leftJoin(schema.principals, eq(schema.principals.id, schema.externalSpend.assignedPrincipalId))
-          .where(and(eq(schema.externalSpend.orgId, orgId), status === 'all' ? undefined : eq(schema.externalSpend.status, status)))
+          .where(
+            and(
+              eq(schema.externalSpend.orgId, orgId),
+              status === 'all' ? undefined : eq(schema.externalSpend.status, status),
+            ),
+          )
           .orderBy(desc(schema.externalSpend.occurredOn))
           .limit(limit),
       );
@@ -197,7 +210,8 @@ export function registerShadowRoutes(router: Router, deps: AppDeps): void {
             category: row.category,
             source: row.source,
             status: row.status,
-            assignedPrincipal: row.assignedPrincipalId === null ? null : { id: row.assignedPrincipalId, name: principalName ?? '' },
+            assignedPrincipal:
+              row.assignedPrincipalId === null ? null : { id: row.assignedPrincipalId, name: principalName ?? '' },
             assignedTeamId: row.assignedTeamId,
             connectionId: row.connectionId,
             note: row.note,
@@ -258,7 +272,9 @@ export function registerShadowRoutes(router: Router, deps: AppDeps): void {
           .update(schema.externalSpend)
           .set({
             status: status[body.action],
-            ...(body.action === 'assign' ? { assignedPrincipalId: body.principalId ?? null, assignedTeamId: body.teamId ?? null } : {}),
+            ...(body.action === 'assign'
+              ? { assignedPrincipalId: body.principalId ?? null, assignedTeamId: body.teamId ?? null }
+              : {}),
             ...(body.note === undefined ? {} : { note: body.note }),
             updatedAt: new Date(),
           })
@@ -276,7 +292,12 @@ export function registerShadowRoutes(router: Router, deps: AppDeps): void {
           userId: user.id,
           action: 'external_spend.resolved',
           subject: `external_spend:${row.id}`,
-          data: { action: body.action, principalId: body.principalId ?? null, teamId: body.teamId ?? null, note: body.note ?? null },
+          data: {
+            action: body.action,
+            principalId: body.principalId ?? null,
+            teamId: body.teamId ?? null,
+            note: body.note ?? null,
+          },
         });
         return row;
       });

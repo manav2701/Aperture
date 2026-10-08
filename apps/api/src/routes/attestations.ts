@@ -1,6 +1,18 @@
 import { createHash, randomBytes } from 'node:crypto';
 import { formatShare, type AttestationDocument } from '@aperture/core';
-import { and, appendAuditEvent, createAttestation, desc, eq, isNull, platformJwks, schema, sql, withOrg, withSystem } from '@aperture/db';
+import {
+  and,
+  appendAuditEvent,
+  createAttestation,
+  desc,
+  eq,
+  isNull,
+  platformJwks,
+  schema,
+  sql,
+  withOrg,
+  withSystem,
+} from '@aperture/db';
 import { runPosture } from '@aperture/jobs';
 import { createRoute, z, type OpenAPIHono } from '@hono/zod-openapi';
 import { v7 as uuidv7 } from 'uuid';
@@ -38,9 +50,17 @@ const SignedAttestation = z
   .object({ document: z.record(z.string(), z.unknown()), jws: z.string() })
   .openapi('SignedAttestation');
 const ShareSchema = z
-  .object({ id: z.uuid(), expiresAt: Timestamp, revokedAt: Timestamp.nullable(), views: z.number().int(), createdAt: Timestamp })
+  .object({
+    id: z.uuid(),
+    expiresAt: Timestamp,
+    revokedAt: Timestamp.nullable(),
+    views: z.number().int(),
+    createdAt: Timestamp,
+  })
   .openapi('AttestationShare');
-const AttestationParams = OrgParams.extend({ attestationId: z.uuid().openapi({ param: { name: 'attestationId', in: 'path' } }) });
+const AttestationParams = OrgParams.extend({
+  attestationId: z.uuid().openapi({ param: { name: 'attestationId', in: 'path' } }),
+});
 
 type AttestationRow = typeof schema.attestations.$inferSelect;
 const summary = (row: AttestationRow) => {
@@ -58,38 +78,73 @@ const summary = (row: AttestationRow) => {
 };
 
 /** The PDF a person reads: every number comes from the signed document. */
-export function attestationPdf(document: AttestationDocument, verifyUrl: string): Uint8Array {
+function attestationPdf(document: AttestationDocument, verifyUrl: string): Uint8Array {
   const lines: PdfLine[] = [
     { text: 'Governance attestation', size: 20, bold: true },
     { text: document.org.name, size: 13, gap: 4 },
-    { text: `Period: ${document.period.from.slice(0, 10)} to ${document.period.to.slice(0, 10)} (${document.period.timezone})`, gap: 8 },
-    { text: `Issued ${document.generatedAt} by ${document.issuer.kind === 'aperture_cloud' ? 'Aperture Cloud' : `the operator of ${document.issuer.instance} (self-hosted)`}` },
+    {
+      text: `Period: ${document.period.from.slice(0, 10)} to ${document.period.to.slice(0, 10)} (${document.period.timezone})`,
+      gap: 8,
+    },
+    {
+      text: `Issued ${document.generatedAt} by ${document.issuer.kind === 'aperture_cloud' ? 'Aperture Cloud' : `the operator of ${document.issuer.instance} (self-hosted)`}`,
+    },
     { text: `Attestation ${document.id}` },
     { text: 'Posture', size: 13, bold: true, gap: 14 },
-    { text: `Score ${String(document.posture.score)} / 100 (grade ${document.posture.grade}), catalogue v${String(document.posture.catalogueVersion)}, ${String(document.posture.runs)} run(s) in the period` },
+    {
+      text: `Score ${String(document.posture.score)} / 100 (grade ${document.posture.grade}), catalogue v${String(document.posture.catalogueVersion)}, ${String(document.posture.runs)} run(s) in the period`,
+    },
     ...document.posture.results
       .filter((r) => r.status !== 'pass' && r.status !== 'not_applicable')
       .map((r) => ({ text: `${r.status.toUpperCase()}  ${r.severity}  ${r.id}`, indent: 12 })),
     { text: 'Spend by rail (USD)', size: 13, bold: true, gap: 14 },
-    ...Object.entries(document.activity.spendByRail).map(([rail, amount]) => ({ text: `${rail}: $${amount}`, indent: 12 })),
+    ...Object.entries(document.activity.spendByRail).map(([rail, amount]) => ({
+      text: `${rail}: $${amount}`,
+      indent: 12,
+    })),
     { text: 'Governance coverage', size: 13, bold: true, gap: 14 },
-    ...document.coverage.map((share) => ({ text: `${share.status}: ${formatShare(share.basisPoints)} ($${share.amount})`, indent: 12 })),
+    ...document.coverage.map((share) => ({
+      text: `${share.status}: ${formatShare(share.basisPoints)} ($${share.amount})`,
+      indent: 12,
+    })),
     { text: 'Decisions and controls', size: 13, bold: true, gap: 14 },
     { text: `Allowed requests: ${String(document.activity.decisions.allowed)}`, indent: 12 },
-    ...Object.entries(document.activity.decisions.denied).map(([reason, n]) => ({ text: `${reason}: ${String(n)}`, indent: 12 })),
+    ...Object.entries(document.activity.decisions.denied).map(([reason, n]) => ({
+      text: `${reason}: ${String(n)}`,
+      indent: 12,
+    })),
     ...(document.activity.decisions.requestLogComplete
       ? []
       : [{ text: 'Denials before the request-log retention window are not included.', indent: 12 }]),
-    { text: `Approvals: ${String(document.activity.approvals.granted)} granted, ${String(document.activity.approvals.denied)} denied, ${String(document.activity.approvals.expired)} expired`, indent: 12 },
-    { text: `Mandates: ${String(document.activity.mandates.issued)} issued, ${String(document.activity.mandates.revoked)} revoked; kill switch used ${String(document.activity.killSwitchUses)} time(s)`, indent: 12 },
-    ...document.activity.waivers.map((w) => ({ text: `Waiver: ${w.checkId}${w.subjectId === null ? '' : ` (${w.subjectId})`} until ${w.expiresAt.slice(0, 10)}: ${w.reason}`, indent: 12 })),
+    {
+      text: `Approvals: ${String(document.activity.approvals.granted)} granted, ${String(document.activity.approvals.denied)} denied, ${String(document.activity.approvals.expired)} expired`,
+      indent: 12,
+    },
+    {
+      text: `Mandates: ${String(document.activity.mandates.issued)} issued, ${String(document.activity.mandates.revoked)} revoked; kill switch used ${String(document.activity.killSwitchUses)} time(s)`,
+      indent: 12,
+    },
+    ...document.activity.waivers.map((w) => ({
+      text: `Waiver: ${w.checkId}${w.subjectId === null ? '' : ` (${w.subjectId})`} until ${w.expiresAt.slice(0, 10)}: ${w.reason}`,
+      indent: 12,
+    })),
     { text: 'Audit proof', size: 13, bold: true, gap: 14 },
-    { text: `${String(document.audit.events)} events, seq ${String(document.audit.firstSeq ?? '-')} to ${String(document.audit.lastSeq ?? '-')}; chain ${document.audit.chainIntact ? 'intact' : `BROKEN at seq ${String(document.audit.brokenAtSeq)}`}`, indent: 12 },
+    {
+      text: `${String(document.audit.events)} events, seq ${String(document.audit.firstSeq ?? '-')} to ${String(document.audit.lastSeq ?? '-')}; chain ${document.audit.chainIntact ? 'intact' : `BROKEN at seq ${String(document.audit.brokenAtSeq)}`}`,
+      indent: 12,
+    },
     { text: `Merkle root: ${document.audit.merkleRoot ?? '-'}`, indent: 12, size: 8 },
     { text: `Last hash: ${document.audit.lastHash ?? '-'}`, indent: 12, size: 8 },
-    ...document.audit.anchors.map((a) => ({ text: `Anchor ${a.day} on ${a.network}: ${a.signature}`, indent: 12, size: 8 })),
+    ...document.audit.anchors.map((a) => ({
+      text: `Anchor ${a.day} on ${a.network}: ${a.signature}`,
+      indent: 12,
+      size: 8,
+    })),
     { text: 'Verify', size: 13, bold: true, gap: 14 },
-    { text: `Drop the JSON file into ${verifyUrl}, or run: pnpm attestation-verify attestation.json --audit audit.jsonl`, indent: 12 },
+    {
+      text: `Drop the JSON file into ${verifyUrl}, or run: pnpm attestation-verify attestation.json --audit audit.jsonl`,
+      indent: 12,
+    },
     { text: `Signing keys: ${document.issuer.jwksUrl}`, indent: 12, size: 8 },
     { text: document.disclaimer, gap: 18, size: 9 },
   ];
@@ -126,7 +181,10 @@ export function registerAttestationRoutes(router: Router, deps: AppDeps): void {
       path: '/api/v1/orgs/{orgId}/attestations',
       tags: ['attestations'],
       summary: 'Build and sign an attestation for a period (runs the posture checks first when the period ends now)',
-      request: { params: OrgParams, ...jsonBody(z.object({ from: z.iso.datetime({ offset: true }), to: z.iso.datetime({ offset: true }) })) },
+      request: {
+        params: OrgParams,
+        ...jsonBody(z.object({ from: z.iso.datetime({ offset: true }), to: z.iso.datetime({ offset: true }) })),
+      },
       responses: { 201: json(AttestationSummary), ...errorResponses },
     }),
     async (c) => {
@@ -137,7 +195,8 @@ export function registerAttestationRoutes(router: Router, deps: AppDeps): void {
       const to = new Date(body.to);
       const now = Date.now();
       if (from >= to) throw new AppError(400, 'invalid_range', '"from" must be before "to"');
-      if (to.getTime() > now + 86_400_000) throw new AppError(400, 'invalid_range', 'the period can’t end in the future');
+      if (to.getTime() > now + 86_400_000)
+        throw new AppError(400, 'invalid_range', 'the period can’t end in the future');
       if (to.getTime() - from.getTime() > MAX_PERIOD_DAYS * 86_400_000)
         throw new AppError(400, 'invalid_range', `a period can be at most ${String(MAX_PERIOD_DAYS)} days`);
       if (to.getTime() >= now - 86_400_000) await runPosture(deps.jobs, orgId, 'attestation');
@@ -177,7 +236,12 @@ export function registerAttestationRoutes(router: Router, deps: AppDeps): void {
     async (c) => {
       const { orgId } = c.req.valid('param');
       const rows = await withOrg(deps.db, orgId, (tx) =>
-        tx.select().from(schema.attestations).where(eq(schema.attestations.orgId, orgId)).orderBy(desc(schema.attestations.createdAt)).limit(200),
+        tx
+          .select()
+          .from(schema.attestations)
+          .where(eq(schema.attestations.orgId, orgId))
+          .orderBy(desc(schema.attestations.createdAt))
+          .limit(200),
       );
       return c.json({ attestations: rows.map(summary) }, 200);
     },
@@ -221,7 +285,10 @@ export function registerAttestationRoutes(router: Router, deps: AppDeps): void {
       tags: ['attestations'],
       summary: 'The attestation rendered as PDF',
       request: { params: AttestationParams },
-      responses: { 200: { description: 'PDF', content: { 'application/pdf': { schema: z.string() } } }, ...errorResponses },
+      responses: {
+        200: { description: 'PDF', content: { 'application/pdf': { schema: z.string() } } },
+        ...errorResponses,
+      },
     }),
     async (c) => {
       const { orgId, attestationId } = c.req.valid('param');
@@ -241,7 +308,10 @@ export function registerAttestationRoutes(router: Router, deps: AppDeps): void {
       path: '/api/v1/orgs/{orgId}/attestations/{attestationId}/shares',
       tags: ['attestations'],
       summary: 'Create a share link (shown once; expires within 90 days; revocable)',
-      request: { params: AttestationParams, ...jsonBody(z.object({ expiresInDays: z.number().int().min(1).max(MAX_SHARE_DAYS) })) },
+      request: {
+        params: AttestationParams,
+        ...jsonBody(z.object({ expiresInDays: z.number().int().min(1).max(MAX_SHARE_DAYS) })),
+      },
       responses: { 201: json(ShareSchema.extend({ url: z.string() })), ...errorResponses },
     }),
     async (c) => {
@@ -302,7 +372,9 @@ export function registerAttestationRoutes(router: Router, deps: AppDeps): void {
         tx
           .select()
           .from(schema.attestationShares)
-          .where(and(eq(schema.attestationShares.orgId, orgId), eq(schema.attestationShares.attestationId, attestationId)))
+          .where(
+            and(eq(schema.attestationShares.orgId, orgId), eq(schema.attestationShares.attestationId, attestationId)),
+          )
           .orderBy(desc(schema.attestationShares.createdAt)),
       );
       return c.json(
@@ -326,7 +398,9 @@ export function registerAttestationRoutes(router: Router, deps: AppDeps): void {
       method: 'delete',
       path: '/api/v1/orgs/{orgId}/attestations/{attestationId}/shares/{shareId}',
       tags: ['attestations'],
-      request: { params: AttestationParams.extend({ shareId: z.uuid().openapi({ param: { name: 'shareId', in: 'path' } }) }) },
+      request: {
+        params: AttestationParams.extend({ shareId: z.uuid().openapi({ param: { name: 'shareId', in: 'path' } }) }),
+      },
       responses: { 204: { description: 'Revoked' }, ...errorResponses },
     }),
     async (c) => {
@@ -345,7 +419,13 @@ export function registerAttestationRoutes(router: Router, deps: AppDeps): void {
           )
           .returning();
         if (!row) throw notFound('share link');
-        await auditByUser(tx, { orgId, userId: user.id, action: 'attestation.share.revoked', subject: `attestation:${attestationId}`, data: { shareId } });
+        await auditByUser(tx, {
+          orgId,
+          userId: user.id,
+          action: 'attestation.share.revoked',
+          subject: `attestation:${attestationId}`,
+          data: { shareId },
+        });
       });
       return c.body(null, 204);
     },
@@ -359,8 +439,19 @@ export function registerAttestationRoutes(router: Router, deps: AppDeps): void {
       path: '/api/v1/public/attestations/{token}',
       tags: ['attestations'],
       summary: 'A shared attestation (token from a share link; rate-limited and audited)',
-      request: { params: z.object({ token: z.string().regex(/^[A-Za-z0-9_-]{43}$/).openapi({ param: { name: 'token', in: 'path' } }) }) },
-      responses: { 200: json(SignedAttestation), 429: json(z.object({ error: z.object({ code: z.string(), message: z.string() }) }), 'Too many requests'), ...errorResponses },
+      request: {
+        params: z.object({
+          token: z
+            .string()
+            .regex(/^[A-Za-z0-9_-]{43}$/)
+            .openapi({ param: { name: 'token', in: 'path' } }),
+        }),
+      },
+      responses: {
+        200: json(SignedAttestation),
+        429: json(z.object({ error: z.object({ code: z.string(), message: z.string() }) }), 'Too many requests'),
+        ...errorResponses,
+      },
     }),
     async (c) => {
       const client = c.req.header('x-forwarded-for')?.split(',')[0]?.trim() ?? 'unknown';
@@ -370,7 +461,9 @@ export function registerAttestationRoutes(router: Router, deps: AppDeps): void {
         const [row] = await tx
           .select()
           .from(schema.attestationShares)
-          .where(and(eq(schema.attestationShares.tokenHash, tokenHash(token)), isNull(schema.attestationShares.revokedAt)));
+          .where(
+            and(eq(schema.attestationShares.tokenHash, tokenHash(token)), isNull(schema.attestationShares.revokedAt)),
+          );
         if (!row || row.expiresAt.getTime() <= Date.now()) return undefined;
         await tx
           .update(schema.attestationShares)
@@ -403,7 +496,7 @@ export function registerAttestationRoutes(router: Router, deps: AppDeps): void {
     }),
     async (c) => {
       const jwks = await platformJwks(deps.db);
-      return c.json({ keys: jwks.keys as unknown as Record<string, unknown>[] }, 200, { 'cache-control': 'public, max-age=300' });
+      return c.json({ keys: jwks.keys }, 200, { 'cache-control': 'public, max-age=300' });
     },
   );
 }

@@ -9,7 +9,7 @@ import { utcDay, type SeatConnector, type SeatConnectorOptions, type SeatDay, ty
  * /copilot; VERIFY before relying on it. Tenants that conceal user names in reports return hashes
  * instead of user principal names, so seats then can't be matched to members.
  */
-export const GRAPH_URL = 'https://graph.microsoft.com';
+const GRAPH_URL = 'https://graph.microsoft.com';
 const LOGIN_URL = 'https://login.microsoftonline.com';
 const TENANT = /^([0-9a-f-]{36}|[a-z0-9-]+(\.[a-z0-9-]+)+)$/i;
 

@@ -31,7 +31,14 @@ export interface ReceiptOutcome {
 /** A receipt that parsed cleanly: a seat for subscriptions, external spend for one-off charges. */
 export async function importParsedReceipt(
   tx: Transaction,
-  input: { orgId: string; receiptId: string; userId: string | null; parsed: ParsedReceipt; amountMicros: bigint; messageHash: string },
+  input: {
+    orgId: string;
+    receiptId: string;
+    userId: string | null;
+    parsed: ParsedReceipt;
+    amountMicros: bigint;
+    messageHash: string;
+  },
 ): Promise<{ seatId: string | null; externalSpendId: string | null }> {
   const { parsed } = input;
   const tool = parsed.toolId === null ? undefined : toolById(parsed.toolId);
@@ -80,7 +87,13 @@ export async function importParsedReceipt(
 /** Parses, deduplicates, and stores one receipt email for an org. */
 export async function processReceipt(
   deps: AppDeps,
-  input: { orgId: string; raw: Uint8Array; via: 'inbound_email' | 'upload'; submittedBy: string | null; fromMember: boolean },
+  input: {
+    orgId: string;
+    raw: Uint8Array;
+    via: 'inbound_email' | 'upload';
+    submittedBy: string | null;
+    fromMember: boolean;
+  },
 ): Promise<ReceiptOutcome> {
   let email;
   try {
@@ -123,7 +136,14 @@ export async function processReceipt(
     const id = uuidv7();
     let links: { seatId: string | null; externalSpendId: string | null } = { seatId: null, externalSpendId: null };
     if (status === 'imported' && amountMicros !== null)
-      links = await importParsedReceipt(tx, { orgId: input.orgId, receiptId: id, userId: input.submittedBy, parsed, amountMicros, messageHash });
+      links = await importParsedReceipt(tx, {
+        orgId: input.orgId,
+        receiptId: id,
+        userId: input.submittedBy,
+        parsed,
+        amountMicros,
+        messageHash,
+      });
     await tx.insert(schema.receipts).values({
       id,
       orgId: input.orgId,
@@ -161,14 +181,26 @@ export async function processReceipt(
 /** The org's receipts token, created on first use (an unguessable part of the address). */
 export async function receiptsToken(deps: AppDeps, orgId: string): Promise<string> {
   return withOrg(deps.db, orgId, async (tx) => {
-    const [settings] = await tx.select({ token: schema.orgSettings.receiptsToken }).from(schema.orgSettings).where(eq(schema.orgSettings.orgId, orgId));
+    const [settings] = await tx
+      .select({ token: schema.orgSettings.receiptsToken })
+      .from(schema.orgSettings)
+      .where(eq(schema.orgSettings.orgId, orgId));
     if (settings?.token != null) return settings.token;
-    const token = randomBytes(9).toString('base64url').toLowerCase().replace(/[^a-z0-9]/g, 'x');
+    const token = randomBytes(9)
+      .toString('base64url')
+      .toLowerCase()
+      .replace(/[^a-z0-9]/g, 'x');
     await tx
       .insert(schema.orgSettings)
       .values({ orgId, receiptsToken: token })
-      .onConflictDoUpdate({ target: schema.orgSettings.orgId, set: { receiptsToken: sql`coalesce(${schema.orgSettings.receiptsToken}, excluded.receipts_token)` } });
-    const [after] = await tx.select({ token: schema.orgSettings.receiptsToken }).from(schema.orgSettings).where(eq(schema.orgSettings.orgId, orgId));
+      .onConflictDoUpdate({
+        target: schema.orgSettings.orgId,
+        set: { receiptsToken: sql`coalesce(${schema.orgSettings.receiptsToken}, excluded.receipts_token)` },
+      });
+    const [after] = await tx
+      .select({ token: schema.orgSettings.receiptsToken })
+      .from(schema.orgSettings)
+      .where(eq(schema.orgSettings.orgId, orgId));
     return after?.token ?? token;
   });
 }
@@ -183,7 +215,10 @@ const RECIPIENT = /receipts-([a-z0-9]{6,40})@/i;
 export function registerInboundEmailWebhook(app: OpenAPIHono<AppEnv>, deps: AppDeps): void {
   app.post(
     '/webhooks/inbound-email',
-    bodyLimit({ maxSize: MAX_INBOUND_BYTES, onError: (c) => c.json(errorBody('payload_too_large', 'the email is larger than 6 MB'), 413) }),
+    bodyLimit({
+      maxSize: MAX_INBOUND_BYTES,
+      onError: (c) => c.json(errorBody('payload_too_large', 'the email is larger than 6 MB'), 413),
+    }),
     async (c) => {
       const config = deps.inboundEmail;
       if (config === undefined) return c.json(errorBody('not_configured', 'the receipts inbox is not set up'), 404);
@@ -202,9 +237,13 @@ export function registerInboundEmailWebhook(app: OpenAPIHono<AppEnv>, deps: AppD
         }
       }
       const token = RECIPIENT.exec(to)?.[1]?.toLowerCase();
-      if (token === undefined) return c.json(errorBody('unknown_recipient', 'no receipts address in the recipients'), 404);
+      if (token === undefined)
+        return c.json(errorBody('unknown_recipient', 'no receipts address in the recipients'), 404);
       const org = await withSystem(deps.db, (tx) =>
-        tx.select({ orgId: schema.orgSettings.orgId }).from(schema.orgSettings).where(eq(schema.orgSettings.receiptsToken, token)),
+        tx
+          .select({ orgId: schema.orgSettings.orgId })
+          .from(schema.orgSettings)
+          .where(eq(schema.orgSettings.receiptsToken, token)),
       );
       const orgId = org[0]?.orgId;
       // Unknown addresses look the same as known ones that dropped the mail: nothing to probe.
@@ -225,7 +264,13 @@ export function registerInboundEmailWebhook(app: OpenAPIHono<AppEnv>, deps: AppD
                   .select({ userId: schema.users.id })
                   .from(schema.members)
                   .innerJoin(schema.users, eq(schema.users.id, schema.members.userId))
-                  .where(and(eq(schema.members.orgId, orgId), eq(schema.users.email, from ?? ''), eq(schema.users.emailVerified, true))),
+                  .where(
+                    and(
+                      eq(schema.members.orgId, orgId),
+                      eq(schema.users.email, from),
+                      eq(schema.users.emailVerified, true),
+                    ),
+                  ),
               )
             )[0];
       try {

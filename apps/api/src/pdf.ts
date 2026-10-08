@@ -26,7 +26,7 @@ function winAnsi(text: string): string {
     .replace(/[–—]/g, '-')
     .replace(/…/g, '...')
     .replace(/·/g, '-')
-    .replace(/[^ -~ -ÿ]/g, '?');
+    .replace(/[^ -~\u00a0-\u00ff]/g, '?');
 }
 
 const escape = (text: string) => text.replace(/\\/g, '\\\\').replace(/\(/g, '\\(').replace(/\)/g, '\\)');
@@ -57,7 +57,9 @@ export function renderPdf(input: { title: string; lines: PdfLine[]; footer?: str
   let y = PAGE_HEIGHT - MARGIN;
   const flush = () => {
     if (input.footer !== undefined)
-      ops.push(`BT /F1 8 Tf ${String(MARGIN)} 30 Td (${escape(winAnsi(`${input.footer} - page ${String(pages.length + 1)}`))}) Tj ET`);
+      ops.push(
+        `BT /F1 8 Tf ${String(MARGIN)} 30 Td (${escape(winAnsi(`${input.footer} - page ${String(pages.length + 1)}`))}) Tj ET`,
+      );
     pages.push(ops.join('\n'));
     ops = [];
     y = PAGE_HEIGHT - MARGIN;
@@ -86,7 +88,8 @@ export function renderPdf(input: { title: string; lines: PdfLine[]; footer?: str
     objects[pageId] =
       `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${String(PAGE_WIDTH)} ${String(PAGE_HEIGHT)}] ` +
       `/Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents ${String(pageId + 1)} 0 R >>`;
-    objects[pageId + 1] = `<< /Length ${String(Buffer.byteLength(content, 'latin1'))} >>\nstream\n${content}\nendstream`;
+    objects[pageId + 1] =
+      `<< /Length ${String(Buffer.byteLength(content, 'latin1'))} >>\nstream\n${content}\nendstream`;
   });
 
   let body = '%PDF-1.4\n%âãÏÓ\n';

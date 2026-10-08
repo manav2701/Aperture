@@ -18,7 +18,9 @@ export default async function AgentCardPage({ params }: { params: Promise<{ orgI
   const api = await serverApi();
   const [org, card] = await Promise.all([
     api.GET('/api/v1/orgs/{orgId}', { params: { path: { orgId } } }).then(unwrap),
-    api.GET('/api/v1/orgs/{orgId}/agents/{principalId}/card', { params: { path: { orgId, principalId: agentId } } }).then(unwrap),
+    api
+      .GET('/api/v1/orgs/{orgId}/agents/{principalId}/card', { params: { path: { orgId, principalId: agentId } } })
+      .then(unwrap),
   ]);
   const base = `/orgs/${orgId}`;
   const manage = can(org.role, 'agents.manage');
@@ -31,7 +33,11 @@ export default async function AgentCardPage({ params }: { params: Promise<{ orgI
         title={card.name}
         description={card.description ?? 'Agent card: everything about this agent on one page.'}
         action={
-          <a href={`/api/v1/orgs/${orgId}/agents/${agentId}/card.jws`} className="inline-flex h-9 items-center border border-border px-4 text-sm hover:border-accent" download>
+          <a
+            href={`/api/v1/orgs/${orgId}/agents/${agentId}/card.jws`}
+            className="inline-flex h-9 items-center border border-border px-4 text-sm hover:border-accent"
+            download
+          >
             Download signed card
           </a>
         }
@@ -39,7 +45,11 @@ export default async function AgentCardPage({ params }: { params: Promise<{ orgI
       <div className="mb-6 flex flex-wrap gap-2">
         <Badge tone={card.status === 'active' ? 'accent' : 'danger'}>{card.status}</Badge>
         <Badge tone={card.governance === 'enforced' ? 'accent' : 'muted'}>{card.governance}</Badge>
-        {card.declared.riskTier === null ? <Badge>risk not set</Badge> : <Badge tone={card.declared.riskTier === 'high' ? 'danger' : 'muted'}>{card.declared.riskTier} risk</Badge>}
+        {card.declared.riskTier === null ? (
+          <Badge>risk not set</Badge>
+        ) : (
+          <Badge tone={card.declared.riskTier === 'high' ? 'danger' : 'muted'}>{card.declared.riskTier} risk</Badge>
+        )}
         {card.team === null ? null : <Badge>{card.team.name}</Badge>}
       </div>
       <div className="grid gap-6 xl:grid-cols-2">
@@ -52,15 +62,29 @@ export default async function AgentCardPage({ params }: { params: Promise<{ orgI
               {card.owner !== null && !card.owner.isMember ? <Badge tone="danger">left the org</Badge> : null}
             </dd>
             <dt className="text-muted-foreground">Delegated by</dt>
-            <dd>{card.parent === null ? '—' : <Link href={`${base}/agents/${card.parent.id}`} className="underline">{card.parent.name}</Link>}</dd>
+            <dd>
+              {card.parent === null ? (
+                '—'
+              ) : (
+                <Link href={`${base}/agents/${card.parent.id}`} className="underline">
+                  {card.parent.name}
+                </Link>
+              )}
+            </dd>
             <dt className="text-muted-foreground">Created</dt>
             <dd>{at(card.createdAt)}</dd>
             <dt className="text-muted-foreground">Purpose</dt>
             <dd>{card.declared.purpose ?? 'not declared'}</dd>
             <dt className="text-muted-foreground">Data it handles</dt>
-            <dd>{card.declared.dataClasses.length === 0 ? 'not declared' : card.declared.dataClasses.map((d) => DATA_CLASS_LABEL[d] ?? d).join(', ')}</dd>
+            <dd>
+              {card.declared.dataClasses.length === 0
+                ? 'not declared'
+                : card.declared.dataClasses.map((d) => DATA_CLASS_LABEL[d] ?? d).join(', ')}
+            </dd>
           </dl>
-          {manage ? <AgentGovernanceForm orgId={orgId} agentId={agentId} declared={card.declared} canSetRisk={canSetRisk} /> : null}
+          {manage ? (
+            <AgentGovernanceForm orgId={orgId} agentId={agentId} declared={card.declared} canSetRisk={canSetRisk} />
+          ) : null}
         </Card>
 
         <Card>
@@ -72,10 +96,14 @@ export default async function AgentCardPage({ params }: { params: Promise<{ orgI
               {card.budgets.map((b) => (
                 <li key={b.id} className="flex justify-between gap-2 py-2">
                   <span>
-                    {b.name} <span className="text-xs text-muted-foreground">({b.scope}, {b.mode}, per {b.period})</span>
+                    {b.name}{' '}
+                    <span className="text-xs text-muted-foreground">
+                      ({b.scope}, {b.mode}, per {b.period})
+                    </span>
                   </span>
                   <span className="font-mono text-xs">
-                    {formatAmount(b.spent, 'micros')} + {formatAmount(b.held, 'micros')} held of {formatAmount(b.limit, 'micros')}
+                    {formatAmount(b.spent, 'micros')} + {formatAmount(b.held, 'micros')} held of{' '}
+                    {formatAmount(b.limit, 'micros')}
                   </span>
                 </li>
               ))}
@@ -132,7 +160,9 @@ export default async function AgentCardPage({ params }: { params: Promise<{ orgI
             {card.means.keys.map((k) => (
               <li key={k.id}>
                 Gateway key <span className="font-mono">{k.prefix}…</span> {k.name}{' '}
-                <span className="text-xs text-muted-foreground">last used {at(k.lastUsedAt)} · expires {at(k.expiresAt)}</span>
+                <span className="text-xs text-muted-foreground">
+                  last used {at(k.lastUsedAt)} · expires {at(k.expiresAt)}
+                </span>
               </li>
             ))}
             {card.means.providerKeys.map((k) => (
@@ -151,12 +181,27 @@ export default async function AgentCardPage({ params }: { params: Promise<{ orgI
               </li>
             ))}
           </ul>
-          {card.means.keys.length + card.means.providerKeys.length + card.means.cards.length + card.means.x402Accounts.length === 0 ? (
+          {card.means.keys.length +
+            card.means.providerKeys.length +
+            card.means.cards.length +
+            card.means.x402Accounts.length ===
+          0 ? (
             <EmptyState>It holds nothing it can spend with.</EmptyState>
           ) : (
             <p className="mt-3 text-xs text-muted-foreground">
-              Revoke keys on <Link href={`${base}/agents`} className="underline">Agents &amp; keys</Link>, cards on{' '}
-              <Link href={`${base}/cards`} className="underline">Cards</Link>, allowances on <Link href={`${base}/crypto`} className="underline">Crypto</Link>.
+              Revoke keys on{' '}
+              <Link href={`${base}/agents`} className="underline">
+                Agents &amp; keys
+              </Link>
+              , cards on{' '}
+              <Link href={`${base}/cards`} className="underline">
+                Cards
+              </Link>
+              , allowances on{' '}
+              <Link href={`${base}/crypto`} className="underline">
+                Crypto
+              </Link>
+              .
             </p>
           )}
         </Card>
@@ -166,15 +211,25 @@ export default async function AgentCardPage({ params }: { params: Promise<{ orgI
           <dl className="grid grid-cols-[9rem_1fr] gap-y-2 text-sm">
             <dt className="text-muted-foreground">Spend</dt>
             <dd className="font-mono text-xs">
-              {Object.entries(card.activity.spendByRail).map(([rail, amount]) => `${rail} ${formatAmount(amount, 'micros')}`).join(' · ') || '—'}
+              {Object.entries(card.activity.spendByRail)
+                .map(([rail, amount]) => `${rail} ${formatAmount(amount, 'micros')}`)
+                .join(' · ') || '—'}
             </dd>
             <dt className="text-muted-foreground">Top models</dt>
-            <dd className="text-xs">{card.activity.spendByModel.map((m) => `${m.model} ${formatAmount(m.amount, 'micros')}`).join(' · ') || '—'}</dd>
+            <dd className="text-xs">
+              {card.activity.spendByModel.map((m) => `${m.model} ${formatAmount(m.amount, 'micros')}`).join(' · ') ||
+                '—'}
+            </dd>
             <dt className="text-muted-foreground">Requests</dt>
-            <dd className="text-xs">{Object.entries(card.activity.outcomes).map(([o, n]) => `${o.replaceAll('_', ' ')} ${String(n)}`).join(' · ') || '—'}</dd>
+            <dd className="text-xs">
+              {Object.entries(card.activity.outcomes)
+                .map(([o, n]) => `${o.replaceAll('_', ' ')} ${String(n)}`)
+                .join(' · ') || '—'}
+            </dd>
             <dt className="text-muted-foreground">Approvals</dt>
             <dd className="text-xs">
-              {card.activity.approvals.asked} asked · {card.activity.approvals.granted} granted · {card.activity.approvals.denied} denied
+              {card.activity.approvals.asked} asked · {card.activity.approvals.granted} granted ·{' '}
+              {card.activity.approvals.denied} denied
             </dd>
             <dt className="text-muted-foreground">Kill switch</dt>
             <dd className="text-xs">{card.activity.killSwitchEvents} use(s)</dd>

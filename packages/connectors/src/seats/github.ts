@@ -8,7 +8,7 @@ import { utcDay, type SeatConnector, type SeatConnectorOptions, type SeatDay, ty
  * or `read:org`. GitHub reports logins, not emails: seats are matched to members by the email an
  * admin links, or stay unmatched until someone assigns them.
  */
-export const GITHUB_API_URL = 'https://api.github.com';
+const GITHUB_API_URL = 'https://api.github.com';
 const ORG = /^[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})$/;
 
 const seatsSchema = z.object({

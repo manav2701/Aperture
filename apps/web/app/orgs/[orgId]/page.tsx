@@ -65,14 +65,20 @@ export default async function OverviewPage({ params }: { params: Promise<{ orgId
               <p className="text-sm text-muted-foreground">Governance posture</p>
               <p className="font-mono text-3xl">{posture.run === null ? '—' : `${String(posture.run.score)}/100`}</p>
               <p className="text-xs text-muted-foreground">
-                {posture.run === null ? 'Run the checks' : `grade ${posture.run.grade} · ${String(posture.results.filter((r) => r.status === 'fail').length)} failing`}
+                {posture.run === null
+                  ? 'Run the checks'
+                  : `grade ${posture.run.grade} · ${String(posture.results.filter((r) => r.status === 'fail').length)} failing`}
               </p>
             </Link>
           )}
           {inventory === null ? null : (
             <Link href={`${base}/inventory`} className="border border-border p-5 hover:border-accent">
               <p className="text-sm text-muted-foreground">AI spend Aperture enforces (30 days)</p>
-              <p className="font-mono text-3xl">{enforced === null || inventory.coverage.every((c) => c.basisPoints === 0) ? '—' : formatShare(enforced)}</p>
+              <p className="font-mono text-3xl">
+                {enforced === null || inventory.coverage.every((c) => c.basisPoints === 0)
+                  ? '—'
+                  : formatShare(enforced)}
+              </p>
               <p className="text-xs text-muted-foreground">{inventory.rows.length} things can spend</p>
             </Link>
           )}

@@ -205,8 +205,15 @@ export function registerAgentRoutes(app: Hono, deps: GatewayDeps): void {
     '/v1/card',
     route(async (caller) => {
       const view = await withOrg(deps.db, caller.orgId, async (tx) => {
-        const [principal] = await tx.select().from(schema.principals).where(eq(schema.principals.id, caller.principalId));
-        const headroom = await budgetHeadroom(tx, { orgId: caller.orgId, principalId: caller.principalId, rail: 'gateway' });
+        const [principal] = await tx
+          .select()
+          .from(schema.principals)
+          .where(eq(schema.principals.id, caller.principalId));
+        const headroom = await budgetHeadroom(tx, {
+          orgId: caller.orgId,
+          principalId: caller.principalId,
+          rail: 'gateway',
+        });
         const context = await principalPolicyContext(tx, caller.orgId, caller.principalId);
         const mandates = await tx
           .select()

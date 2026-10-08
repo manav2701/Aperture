@@ -50,7 +50,15 @@ export function AgentGovernanceForm({
         }}
       >
         <Field label="Purpose" htmlFor="agent-purpose" hint="What it does and for whom (500 characters).">
-          <Textarea id="agent-purpose" rows={3} maxLength={500} value={purpose} onChange={(e) => { setPurpose(e.target.value); }} />
+          <Textarea
+            id="agent-purpose"
+            rows={3}
+            maxLength={500}
+            value={purpose}
+            onChange={(e) => {
+              setPurpose(e.target.value);
+            }}
+          />
         </Field>
         <fieldset className="space-y-1">
           <legend className="text-sm font-medium">Data it handles</legend>
@@ -68,8 +76,18 @@ export function AgentGovernanceForm({
           ))}
         </fieldset>
         {canSetRisk ? (
-          <Field label="Risk tier" htmlFor="agent-risk" hint="High-risk agents need a hard budget and an approval threshold (posture check).">
-            <Select id="agent-risk" value={risk} onChange={(e) => { setRisk(e.target.value); }}>
+          <Field
+            label="Risk tier"
+            htmlFor="agent-risk"
+            hint="High-risk agents need a hard budget and an approval threshold (posture check)."
+          >
+            <Select
+              id="agent-risk"
+              value={risk}
+              onChange={(e) => {
+                setRisk(e.target.value);
+              }}
+            >
               <option value="">Not set</option>
               <option value="low">Low</option>
               <option value="medium">Medium</option>

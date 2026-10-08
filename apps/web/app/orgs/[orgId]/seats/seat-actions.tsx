@@ -7,7 +7,7 @@ import { Field, FormError, FormNotice, Input, Select, Textarea } from '@/compone
 import { api } from '@/lib/api/browser';
 import { useSubmit } from '@/lib/use-submit';
 
-type Provider = {
+interface Provider {
   provider: 'seat:cursor' | 'seat:claude_enterprise' | 'seat:claude_code' | 'seat:github_copilot' | 'seat:m365_copilot';
   name: string;
   secretLabel: string;
@@ -15,7 +15,7 @@ type Provider = {
   requires: string;
   steps: string[];
   configFields: { key: string; label: string; required: boolean }[];
-};
+}
 
 export function ConnectSeats({ orgId, providers }: { orgId: string; providers: Provider[] }) {
   const { submit, pending, error } = useSubmit();
@@ -31,7 +31,11 @@ export function ConnectSeats({ orgId, providers }: { orgId: string; providers: P
         onSubmit={(event) => {
           event.preventDefault();
           submit(
-            () => api.POST('/api/v1/orgs/{orgId}/seat-connections', { params: { path: { orgId } }, body: { provider, secret, config } }),
+            () =>
+              api.POST('/api/v1/orgs/{orgId}/seat-connections', {
+                params: { path: { orgId } },
+                body: { provider, secret, config },
+              }),
             () => {
               setSecret('');
             },
@@ -39,7 +43,14 @@ export function ConnectSeats({ orgId, providers }: { orgId: string; providers: P
         }}
       >
         <Field label="Product" htmlFor="seat-provider">
-          <Select id="seat-provider" value={provider} onChange={(e) => { setProvider(e.target.value as Provider['provider']); setConfig({}); }}>
+          <Select
+            id="seat-provider"
+            value={provider}
+            onChange={(e) => {
+              setProvider(e.target.value as Provider['provider']);
+              setConfig({});
+            }}
+          >
             {providers.map((p) => (
               <option key={p.provider} value={p.provider}>
                 {p.name}
@@ -64,15 +75,38 @@ export function ConnectSeats({ orgId, providers }: { orgId: string; providers: P
                   id={`seat-config-${field.key}`}
                   required={field.required}
                   value={config[field.key] ?? ''}
-                  onChange={(e) => { setConfig({ ...config, [field.key]: e.target.value }); }}
+                  onChange={(e) => {
+                    setConfig({ ...config, [field.key]: e.target.value });
+                  }}
                 />
               </Field>
             ))}
-            <Field label={info.secretLabel} htmlFor="seat-secret" hint="Tested, then stored encrypted; never shown again. Aperture only reads.">
+            <Field
+              label={info.secretLabel}
+              htmlFor="seat-secret"
+              hint="Tested, then stored encrypted; never shown again. Aperture only reads."
+            >
               {provider === 'seat:m365_copilot' ? (
-                <Textarea id="seat-secret" rows={3} value={secret} required onChange={(e) => { setSecret(e.target.value); }} />
+                <Textarea
+                  id="seat-secret"
+                  rows={3}
+                  value={secret}
+                  required
+                  onChange={(e) => {
+                    setSecret(e.target.value);
+                  }}
+                />
               ) : (
-                <Input id="seat-secret" type="password" autoComplete="off" value={secret} required onChange={(e) => { setSecret(e.target.value); }} />
+                <Input
+                  id="seat-secret"
+                  type="password"
+                  autoComplete="off"
+                  value={secret}
+                  required
+                  onChange={(e) => {
+                    setSecret(e.target.value);
+                  }}
+                />
               )}
             </Field>
           </>
@@ -95,7 +129,11 @@ export function SeatConnectionActions({ orgId, connectionId }: { orgId: string; 
         variant="secondary"
         disabled={pending}
         onClick={() => {
-          submit(() => api.POST('/api/v1/orgs/{orgId}/seat-connections/{connectionId}/sync', { params: { path: { orgId, connectionId } } }));
+          submit(() =>
+            api.POST('/api/v1/orgs/{orgId}/seat-connections/{connectionId}/sync', {
+              params: { path: { orgId, connectionId } },
+            }),
+          );
         }}
       >
         Sync now
@@ -105,7 +143,11 @@ export function SeatConnectionActions({ orgId, connectionId }: { orgId: string; 
         variant="ghost"
         disabled={pending}
         onClick={() => {
-          submit(() => api.DELETE('/api/v1/orgs/{orgId}/seat-connections/{connectionId}', { params: { path: { orgId, connectionId } } }));
+          submit(() =>
+            api.DELETE('/api/v1/orgs/{orgId}/seat-connections/{connectionId}', {
+              params: { path: { orgId, connectionId } },
+            }),
+          );
         }}
       >
         Disconnect
@@ -115,14 +157,22 @@ export function SeatConnectionActions({ orgId, connectionId }: { orgId: string; 
   );
 }
 
-type Seat = {
+interface Seat {
   id: string;
   holder: { userId: string } | null;
   payer: 'company' | 'personal_expensed' | 'personal_unexpensed' | 'unknown';
   monthlyCost: string | null;
-};
+}
 
-export function EditSeat({ orgId, seat, people }: { orgId: string; seat: Seat; people: { userId: string; name: string; email: string }[] }) {
+export function EditSeat({
+  orgId,
+  seat,
+  people,
+}: {
+  orgId: string;
+  seat: Seat;
+  people: { userId: string; name: string; email: string }[];
+}) {
   const { submit, pending, error } = useSubmit();
   const [userId, setUserId] = useState(seat.holder?.userId ?? '');
   const [payer, setPayer] = useState(seat.payer);
@@ -137,13 +187,24 @@ export function EditSeat({ orgId, seat, people }: { orgId: string; seat: Seat; p
           submit(() =>
             api.PATCH('/api/v1/orgs/{orgId}/seats/{seatId}', {
               params: { path: { orgId, seatId: seat.id } },
-              body: { ...(people.length > 0 ? { userId: userId === '' ? null : userId } : {}), payer, monthlyCostUsd: cost === '' ? null : cost },
+              body: {
+                ...(people.length > 0 ? { userId: userId === '' ? null : userId } : {}),
+                payer,
+                monthlyCostUsd: cost === '' ? null : cost,
+              },
             }),
           );
         }}
       >
         {people.length === 0 ? null : (
-          <Select aria-label="Holder" className="h-8 text-xs" value={userId} onChange={(e) => { setUserId(e.target.value); }}>
+          <Select
+            aria-label="Holder"
+            className="h-8 text-xs"
+            value={userId}
+            onChange={(e) => {
+              setUserId(e.target.value);
+            }}
+          >
             <option value="">Unlinked</option>
             {people.map((p) => (
               <option key={p.userId} value={p.userId}>
@@ -152,13 +213,29 @@ export function EditSeat({ orgId, seat, people }: { orgId: string; seat: Seat; p
             ))}
           </Select>
         )}
-        <Select aria-label="Payer" className="h-8 text-xs" value={payer} onChange={(e) => { setPayer(e.target.value as Seat['payer']); }}>
+        <Select
+          aria-label="Payer"
+          className="h-8 text-xs"
+          value={payer}
+          onChange={(e) => {
+            setPayer(e.target.value as Seat['payer']);
+          }}
+        >
           <option value="company">Company</option>
           <option value="personal_expensed">Personal, expensed</option>
           <option value="personal_unexpensed">Personal</option>
           <option value="unknown">Unknown</option>
         </Select>
-        <Input aria-label="Monthly cost (USD)" placeholder="Monthly cost USD" className="h-8 text-xs" value={cost} pattern="\d+(\.\d{1,6})?" onChange={(e) => { setCost(e.target.value); }} />
+        <Input
+          aria-label="Monthly cost (USD)"
+          placeholder="Monthly cost USD"
+          className="h-8 text-xs"
+          value={cost}
+          pattern="\d+(\.\d{1,6})?"
+          onChange={(e) => {
+            setCost(e.target.value);
+          }}
+        />
         <div className="flex gap-2">
           <Button type="submit" size="sm" variant="secondary" disabled={pending}>
             Save
@@ -168,7 +245,12 @@ export function EditSeat({ orgId, seat, people }: { orgId: string; seat: Seat; p
             variant="ghost"
             disabled={pending}
             onClick={() => {
-              submit(() => api.PATCH('/api/v1/orgs/{orgId}/seats/{seatId}', { params: { path: { orgId, seatId: seat.id } }, body: { status: 'cancelled' } }));
+              submit(() =>
+                api.PATCH('/api/v1/orgs/{orgId}/seats/{seatId}', {
+                  params: { path: { orgId, seatId: seat.id } },
+                  body: { status: 'cancelled' },
+                }),
+              );
             }}
           >
             Cancel seat
@@ -180,7 +262,11 @@ export function EditSeat({ orgId, seat, people }: { orgId: string; seat: Seat; p
   );
 }
 
-type Tool = { id: string; product: string; plans: { id: string; name: string }[] };
+interface Tool {
+  id: string;
+  product: string;
+  plans: { id: string; name: string }[];
+}
 
 /** Admin-console exports (ChatGPT, Gemini, …) are parsed here; only email, plan, and last activity are sent. */
 export function ImportSeats({ orgId, tools }: { orgId: string; tools: Tool[] }) {
@@ -214,9 +300,19 @@ export function ImportSeats({ orgId, tools }: { orgId: string; tools: Tool[] }) 
 
   return (
     <div className="space-y-3 text-sm">
-      <FormNotice>For ChatGPT Business/Enterprise, Gemini, and other tools without a connector: export the member list from the admin console as CSV.</FormNotice>
+      <FormNotice>
+        For ChatGPT Business/Enterprise, Gemini, and other tools without a connector: export the member list from the
+        admin console as CSV.
+      </FormNotice>
       <Field label="Tool" htmlFor="import-tool">
-        <Select id="import-tool" value={toolId} onChange={(e) => { setToolId(e.target.value); setPlan(''); }}>
+        <Select
+          id="import-tool"
+          value={toolId}
+          onChange={(e) => {
+            setToolId(e.target.value);
+            setPlan('');
+          }}
+        >
           {tools.map((t) => (
             <option key={t.id} value={t.id}>
               {t.product}
@@ -225,7 +321,13 @@ export function ImportSeats({ orgId, tools }: { orgId: string; tools: Tool[] }) 
         </Select>
       </Field>
       <Field label="Plan" htmlFor="import-plan">
-        <Select id="import-plan" value={plan} onChange={(e) => { setPlan(e.target.value); }}>
+        <Select
+          id="import-plan"
+          value={plan}
+          onChange={(e) => {
+            setPlan(e.target.value);
+          }}
+        >
           <option value="">Unknown</option>
           {tool?.plans.map((p) => (
             <option key={p.id} value={p.id}>
@@ -234,7 +336,15 @@ export function ImportSeats({ orgId, tools }: { orgId: string; tools: Tool[] }) 
           ))}
         </Select>
       </Field>
-      <Input type="file" accept=".csv,text/csv" className="py-2" onChange={(e) => { const f = e.target.files?.[0]; if (f !== undefined) void onFile(f); }} />
+      <Input
+        type="file"
+        accept=".csv,text/csv"
+        className="py-2"
+        onChange={(e) => {
+          const f = e.target.files?.[0];
+          if (f !== undefined) void onFile(f);
+        }}
+      />
       {rows.length === 0 ? null : (
         <Button
           disabled={pending}

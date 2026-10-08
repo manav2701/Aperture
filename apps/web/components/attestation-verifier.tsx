@@ -4,7 +4,13 @@ import { formatShare } from '@aperture/core';
 import { useState } from 'react';
 import { Badge, Card, CardTitle } from '@/components/ui/card';
 import { FormError, FormNotice, Input } from '@/components/ui/form';
-import { checkAuditExport, verifyAttestationJws, type AuditRangeCheck, type Jwk, type SignatureCheck } from '@/lib/verify';
+import {
+  checkAuditExport,
+  verifyAttestationJws,
+  type AuditRangeCheck,
+  type Jwk,
+  type SignatureCheck,
+} from '@/lib/verify';
 
 interface Document {
   id?: string;
@@ -13,7 +19,14 @@ interface Document {
   issuer?: { kind?: string; instance?: string };
   posture?: { score?: number; grade?: string };
   coverage?: { status: string; basisPoints: number }[];
-  audit?: { firstSeq: number | null; lastSeq: number | null; prevHash: string | null; lastHash: string | null; merkleRoot: string | null; chainIntact?: boolean };
+  audit?: {
+    firstSeq: number | null;
+    lastSeq: number | null;
+    prevHash: string | null;
+    lastHash: string | null;
+    merkleRoot: string | null;
+    chainIntact?: boolean;
+  };
   disclaimer?: string;
 }
 
@@ -43,7 +56,8 @@ export function AttestationVerifier({ initial }: { initial?: { jws: string } }) 
   const onAttestation = async (file: File) => {
     try {
       const parsed = JSON.parse(await file.text()) as { jws?: string };
-      if (typeof parsed.jws !== 'string') throw new Error('this file has no "jws" field; download the JSON from Aperture');
+      if (typeof parsed.jws !== 'string')
+        throw new Error('this file has no "jws" field; download the JSON from Aperture');
       await verify(parsed.jws);
     } catch (e) {
       setError((e as Error).message);
@@ -73,17 +87,27 @@ export function AttestationVerifier({ initial }: { initial?: { jws: string } }) 
               if (file !== undefined) void onAttestation(file);
             }}
           />
-          <p className="mt-2 text-xs text-muted-foreground">The file stays in your browser; only the public keys are fetched.</p>
+          <p className="mt-2 text-xs text-muted-foreground">
+            The file stays in your browser; only the public keys are fetched.
+          </p>
         </Card>
       ) : (
-        <button type="button" className="border border-border px-4 py-2 text-sm hover:border-accent" onClick={() => void verify(initial.jws)}>
+        <button
+          type="button"
+          className="border border-border px-4 py-2 text-sm hover:border-accent"
+          onClick={() => void verify(initial.jws)}
+        >
           Verify the signature
         </button>
       )}
       <FormError message={error} />
       {signature === null ? null : (
         <Card>
-          <CardTitle action={<Badge tone={signature.ok ? 'accent' : 'danger'}>{signature.ok ? 'valid signature' : 'invalid'}</Badge>}>
+          <CardTitle
+            action={
+              <Badge tone={signature.ok ? 'accent' : 'danger'}>{signature.ok ? 'valid signature' : 'invalid'}</Badge>
+            }
+          >
             Result
           </CardTitle>
           {signature.ok ? null : <p className="mb-3 text-sm text-danger">{signature.reason}</p>}
@@ -96,7 +120,11 @@ export function AttestationVerifier({ initial }: { initial?: { jws: string } }) 
                 {document.period?.from?.slice(0, 10)} → {document.period?.to?.slice(0, 10)}
               </dd>
               <dt className="text-muted-foreground">Issued by</dt>
-              <dd>{document.issuer?.kind === 'aperture_cloud' ? 'Aperture Cloud' : `operator of ${document.issuer?.instance ?? '?'} (self-hosted)`}</dd>
+              <dd>
+                {document.issuer?.kind === 'aperture_cloud'
+                  ? 'Aperture Cloud'
+                  : `operator of ${document.issuer?.instance ?? '?'} (self-hosted)`}
+              </dd>
               <dt className="text-muted-foreground">Signing key</dt>
               <dd className="font-mono text-xs">{signature.kid}</dd>
               <dt className="text-muted-foreground">Posture</dt>

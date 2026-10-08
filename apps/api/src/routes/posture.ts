@@ -47,12 +47,12 @@ const CheckResultSchema = z
   })
   .openapi('PostureCheckResult');
 const RunFields = z.object({
-    id: z.uuid(),
-    ranAt: Timestamp,
-    score: z.number().int(),
-    grade: z.string(),
-    trigger: z.enum(['scheduled', 'manual', 'attestation']),
-    catalogueVersion: z.number().int(),
+  id: z.uuid(),
+  ranAt: Timestamp,
+  score: z.number().int(),
+  grade: z.string(),
+  trigger: z.enum(['scheduled', 'manual', 'attestation']),
+  catalogueVersion: z.number().int(),
 });
 const RunSchema = RunFields.openapi('PostureRun');
 const WaiverSchema = z
@@ -67,7 +67,13 @@ const WaiverSchema = z
   })
   .openapi('PostureWaiver');
 const CoverageSchema = z
-  .array(z.object({ status: z.enum(['enforced', 'visible', 'unassigned', 'external']), amount: z.string(), basisPoints: z.number().int() }))
+  .array(
+    z.object({
+      status: z.enum(['enforced', 'visible', 'unassigned', 'external']),
+      amount: z.string(),
+      basisPoints: z.number().int(),
+    }),
+  )
   .openapi('Coverage');
 const InventoryRowSchema = z
   .object({
@@ -97,7 +103,11 @@ async function coverageFor(deps: AppDeps, orgId: string) {
   const to = new Date();
   const from = new Date(to.getTime() - 30 * 86_400_000);
   const amounts = await withOrg(deps.db, orgId, (tx) => coverageAmounts(tx, orgId, { from, to }));
-  return coverageShares(amounts).map((share) => ({ status: share.status, amount: usd(share.amount), basisPoints: share.basisPoints }));
+  return coverageShares(amounts).map((share) => ({
+    status: share.status,
+    amount: usd(share.amount),
+    basisPoints: share.basisPoints,
+  }));
 }
 
 export function registerPostureRoutes(router: Router, deps: AppDeps): void {
@@ -115,7 +125,14 @@ export function registerPostureRoutes(router: Router, deps: AppDeps): void {
             run: RunFields.nullable(),
             results: z.array(CheckResultSchema),
             catalogue: z.array(
-              z.object({ id: z.string(), title: z.string(), severity: z.string(), area: z.string(), rationale: z.string(), fixHref: z.string() }),
+              z.object({
+                id: z.string(),
+                title: z.string(),
+                severity: z.string(),
+                area: z.string(),
+                rationale: z.string(),
+                fixHref: z.string(),
+              }),
             ),
             waivers: z.array(WaiverSchema),
           }),
@@ -128,12 +145,23 @@ export function registerPostureRoutes(router: Router, deps: AppDeps): void {
       const reach = reachOf(c.var.membership, 'posture.read');
       const { run, waivers } = await withOrg(deps.db, orgId, async (tx) => ({
         run: (
-          await tx.select().from(schema.postureRuns).where(eq(schema.postureRuns.orgId, orgId)).orderBy(desc(schema.postureRuns.ranAt)).limit(1)
+          await tx
+            .select()
+            .from(schema.postureRuns)
+            .where(eq(schema.postureRuns.orgId, orgId))
+            .orderBy(desc(schema.postureRuns.ranAt))
+            .limit(1)
         )[0],
         waivers: await tx
           .select()
           .from(schema.postureWaivers)
-          .where(and(eq(schema.postureWaivers.orgId, orgId), isNull(schema.postureWaivers.revokedAt), gt(schema.postureWaivers.expiresAt, new Date())))
+          .where(
+            and(
+              eq(schema.postureWaivers.orgId, orgId),
+              isNull(schema.postureWaivers.revokedAt),
+              gt(schema.postureWaivers.expiresAt, new Date()),
+            ),
+          )
           .orderBy(desc(schema.postureWaivers.createdAt)),
       }));
       const results = (run?.results ?? []) as CheckResult[];
@@ -141,7 +169,14 @@ export function registerPostureRoutes(router: Router, deps: AppDeps): void {
         {
           run: run === undefined ? null : runView(run),
           results: reach.kind === 'team' ? resultsForTeam(results, reach.teamId) : results,
-          catalogue: POSTURE_CATALOGUE.map(({ id, title, severity, area, rationale, fixHref }) => ({ id, title, severity, area, rationale, fixHref })),
+          catalogue: POSTURE_CATALOGUE.map(({ id, title, severity, area, rationale, fixHref }) => ({
+            id,
+            title,
+            severity,
+            area,
+            rationale,
+            fixHref,
+          })),
           waivers: waivers.map((w) => ({
             id: w.id,
             checkId: w.checkId,
@@ -165,7 +200,11 @@ export function registerPostureRoutes(router: Router, deps: AppDeps): void {
       tags: ['posture'],
       summary: 'Run the posture checks now (at most once a minute per org)',
       request: { params: OrgParams },
-      responses: { 201: json(RunSchema), 429: json(z.object({ error: z.object({ code: z.string(), message: z.string() }) }), 'Too soon'), ...errorResponses },
+      responses: {
+        201: json(RunSchema),
+        429: json(z.object({ error: z.object({ code: z.string(), message: z.string() }) }), 'Too soon'),
+        ...errorResponses,
+      },
     }),
     async (c) => {
       const { orgId } = c.req.valid('param');
@@ -183,7 +222,14 @@ export function registerPostureRoutes(router: Router, deps: AppDeps): void {
         throw new AppError(429, 'too_many_runs', 'the posture checks ran less than a minute ago');
       const run = await runPosture(deps.jobs, orgId, 'manual');
       return c.json(
-        { id: run.id, ranAt: run.ranAt.toISOString(), score: run.result.score, grade: run.result.grade, trigger: 'manual' as const, catalogueVersion: run.result.catalogueVersion },
+        {
+          id: run.id,
+          ranAt: run.ranAt.toISOString(),
+          score: run.result.score,
+          grade: run.result.grade,
+          trigger: 'manual' as const,
+          catalogueVersion: run.result.catalogueVersion,
+        },
         201,
       );
     },
@@ -203,7 +249,12 @@ export function registerPostureRoutes(router: Router, deps: AppDeps): void {
       const { orgId } = c.req.valid('param');
       const { limit } = c.req.valid('query');
       const runs = await withOrg(deps.db, orgId, (tx) =>
-        tx.select().from(schema.postureRuns).where(eq(schema.postureRuns.orgId, orgId)).orderBy(desc(schema.postureRuns.ranAt)).limit(limit),
+        tx
+          .select()
+          .from(schema.postureRuns)
+          .where(eq(schema.postureRuns.orgId, orgId))
+          .orderBy(desc(schema.postureRuns.ranAt))
+          .limit(limit),
       );
       return c.json({ runs: runs.map(runView) }, 200);
     },
@@ -233,7 +284,8 @@ export function registerPostureRoutes(router: Router, deps: AppDeps): void {
       const user = requireUser(c);
       const { orgId } = c.req.valid('param');
       const body = c.req.valid('json');
-      if (postureCheck(body.checkId) === undefined) throw new AppError(400, 'unknown_check', `no posture check ${body.checkId}`);
+      if (postureCheck(body.checkId) === undefined)
+        throw new AppError(400, 'unknown_check', `no posture check ${body.checkId}`);
       const expiresAt = new Date(body.expiresAt);
       const now = Date.now();
       if (expiresAt.getTime() <= now) throw new AppError(400, 'invalid_expiry', 'the waiver must expire in the future');
@@ -242,7 +294,15 @@ export function registerPostureRoutes(router: Router, deps: AppDeps): void {
       const waiver = await withOrg(deps.db, orgId, async (tx) => {
         const [row] = await tx
           .insert(schema.postureWaivers)
-          .values({ id: uuidv7(), orgId, checkId: body.checkId, subjectId: body.subjectId, reason: body.reason, createdBy: user.id, expiresAt })
+          .values({
+            id: uuidv7(),
+            orgId,
+            checkId: body.checkId,
+            subjectId: body.subjectId,
+            reason: body.reason,
+            createdBy: user.id,
+            expiresAt,
+          })
           .returning();
         if (!row) throw new Error('insert returned no row');
         await auditByUser(tx, {
@@ -250,7 +310,12 @@ export function registerPostureRoutes(router: Router, deps: AppDeps): void {
           userId: user.id,
           action: 'posture.waiver.created',
           subject: `posture_waiver:${row.id}`,
-          data: { checkId: row.checkId, subjectId: row.subjectId, reason: row.reason, expiresAt: row.expiresAt.toISOString() },
+          data: {
+            checkId: row.checkId,
+            subjectId: row.subjectId,
+            reason: row.reason,
+            expiresAt: row.expiresAt.toISOString(),
+          },
         });
         return row;
       });
@@ -276,7 +341,9 @@ export function registerPostureRoutes(router: Router, deps: AppDeps): void {
       path: '/api/v1/orgs/{orgId}/posture/waivers/{waiverId}',
       tags: ['posture'],
       summary: 'Revoke a waiver; the check counts as failing again if it still fails',
-      request: { params: OrgParams.extend({ waiverId: z.uuid().openapi({ param: { name: 'waiverId', in: 'path' } }) }) },
+      request: {
+        params: OrgParams.extend({ waiverId: z.uuid().openapi({ param: { name: 'waiverId', in: 'path' } }) }),
+      },
       responses: { 204: { description: 'Revoked' }, ...errorResponses },
     }),
     async (c) => {
@@ -286,10 +353,22 @@ export function registerPostureRoutes(router: Router, deps: AppDeps): void {
         const [row] = await tx
           .update(schema.postureWaivers)
           .set({ revokedAt: new Date() })
-          .where(and(eq(schema.postureWaivers.id, waiverId), eq(schema.postureWaivers.orgId, orgId), isNull(schema.postureWaivers.revokedAt)))
+          .where(
+            and(
+              eq(schema.postureWaivers.id, waiverId),
+              eq(schema.postureWaivers.orgId, orgId),
+              isNull(schema.postureWaivers.revokedAt),
+            ),
+          )
           .returning();
         if (!row) throw notFound('waiver');
-        await auditByUser(tx, { orgId, userId: user.id, action: 'posture.waiver.revoked', subject: `posture_waiver:${row.id}`, data: { checkId: row.checkId } });
+        await auditByUser(tx, {
+          orgId,
+          userId: user.id,
+          action: 'posture.waiver.revoked',
+          subject: `posture_waiver:${row.id}`,
+          data: { checkId: row.checkId },
+        });
       });
       return c.body(null, 204);
     },
@@ -303,7 +382,10 @@ export function registerPostureRoutes(router: Router, deps: AppDeps): void {
       tags: ['inventory'],
       summary: 'Everything that can spend, with its governance status, and the 30-day coverage figure',
       request: { params: OrgParams },
-      responses: { 200: json(z.object({ rows: z.array(InventoryRowSchema), coverage: CoverageSchema })), ...errorResponses },
+      responses: {
+        200: json(z.object({ rows: z.array(InventoryRowSchema), coverage: CoverageSchema })),
+        ...errorResponses,
+      },
     }),
     async (c) => {
       const { orgId } = c.req.valid('param');
@@ -338,7 +420,16 @@ export function registerPostureRoutes(router: Router, deps: AppDeps): void {
       const visible = reach.kind === 'team' ? rows.filter((row) => row.teamId === reach.teamId) : rows;
       const csv = toCsv(
         ['kind', 'name', 'owner', 'governance', 'spend_30d_usd', 'last_activity', 'detail', 'id'],
-        visible.map((r) => [r.kind, r.name, r.owner, r.status, usd(BigInt(r.spend30d)), r.lastActivityAt, r.detail, r.id]),
+        visible.map((r) => [
+          r.kind,
+          r.name,
+          r.owner,
+          r.status,
+          usd(BigInt(r.spend30d)),
+          r.lastActivityAt,
+          r.detail,
+          r.id,
+        ]),
       );
       return c.body(csv, 200, {
         'content-type': 'text/csv; charset=utf-8',

@@ -125,7 +125,8 @@ const tokenView = (t: TokenRow) => ({
   createdAt: t.createdAt.toISOString(),
 });
 
-const optionalUsd = (value: string | null | undefined) => (value === null || value === undefined ? null : parseUsd(value));
+const optionalUsd = (value: string | null | undefined) =>
+  value === null || value === undefined ? null : parseUsd(value);
 
 export function registerSeatRoutes(router: Router, deps: AppDeps): void {
   async function seatRows(orgId: string, teamId: string | null) {
@@ -183,7 +184,11 @@ export function registerSeatRoutes(router: Router, deps: AppDeps): void {
         200: json(
           z.object({
             seats: z.array(SeatSchema),
-            totals: z.object({ seats: z.number().int(), monthlyCost: z.string(), byPayer: z.record(z.string(), z.number().int()) }),
+            totals: z.object({
+              seats: z.number().int(),
+              monthlyCost: z.string(),
+              byPayer: z.record(z.string(), z.number().int()),
+            }),
           }),
         ),
         ...errorResponses,
@@ -206,7 +211,12 @@ export function registerSeatRoutes(router: Router, deps: AppDeps): void {
           holder:
             row.user_id === null
               ? null
-              : { userId: row.user_id, name: row.user_name ?? '', email: row.user_email ?? '', isMember: row.is_member },
+              : {
+                  userId: row.user_id,
+                  name: row.user_name ?? '',
+                  email: row.user_email ?? '',
+                  isMember: row.is_member,
+                },
           externalUserRef: row.external_user_ref,
           source: row.source,
           payer: row.payer,
@@ -249,7 +259,11 @@ export function registerSeatRoutes(router: Router, deps: AppDeps): void {
             userId: z.string().max(100).nullable().default(null),
             payer: z.enum(PAYERS).default('company'),
             monthlyCostUsd: UsdAmount.nullable().default(null),
-            renewsOn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().default(null),
+            renewsOn: z
+              .string()
+              .regex(/^\d{4}-\d{2}-\d{2}$/)
+              .nullable()
+              .default(null),
             note: z.string().trim().max(500).nullable().default(null),
           }),
         ),
@@ -262,7 +276,8 @@ export function registerSeatRoutes(router: Router, deps: AppDeps): void {
       const body = c.req.valid('json');
       const tool = toolById(body.toolId);
       if (tool === undefined) throw new AppError(400, 'unknown_tool', `no tool ${body.toolId} in the catalogue`);
-      if (body.plan !== null && !tool.plans.some((p) => p.id === body.plan)) throw new AppError(400, 'unknown_plan', 'no such plan');
+      if (body.plan !== null && !tool.plans.some((p) => p.id === body.plan))
+        throw new AppError(400, 'unknown_plan', 'no such plan');
       const id = await withOrg(deps.db, orgId, async (tx) => {
         if (body.userId !== null) await assertMember(tx, orgId, body.userId);
         const seat = await upsertSeat(tx, {
@@ -277,8 +292,15 @@ export function registerSeatRoutes(router: Router, deps: AppDeps): void {
           monthlyCost: optionalUsd(body.monthlyCostUsd),
           renewsOn: body.renewsOn,
         });
-        if (body.note !== null) await tx.update(schema.seats).set({ note: body.note }).where(eq(schema.seats.id, seat.id));
-        await auditByUser(tx, { orgId, userId: user.id, action: 'seat.created', subject: `seat:${seat.id}`, data: { toolId: tool.id, plan: body.plan, payer: body.payer } });
+        if (body.note !== null)
+          await tx.update(schema.seats).set({ note: body.note }).where(eq(schema.seats.id, seat.id));
+        await auditByUser(tx, {
+          orgId,
+          userId: user.id,
+          action: 'seat.created',
+          subject: `seat:${seat.id}`,
+          data: { toolId: tool.id, plan: body.plan, payer: body.payer },
+        });
         return seat.id;
       });
       return c.json({ id }, 201);
@@ -312,7 +334,10 @@ export function registerSeatRoutes(router: Router, deps: AppDeps): void {
       const { orgId, seatId } = c.req.valid('param');
       const body = c.req.valid('json');
       await withOrg(deps.db, orgId, async (tx) => {
-        const [seat] = await tx.select().from(schema.seats).where(and(eq(schema.seats.id, seatId), eq(schema.seats.orgId, orgId)));
+        const [seat] = await tx
+          .select()
+          .from(schema.seats)
+          .where(and(eq(schema.seats.id, seatId), eq(schema.seats.orgId, orgId)));
         if (!seat) throw notFound('seat');
         if (body.userId != null) await assertMember(tx, orgId, body.userId);
         if (body.plan != null && !(toolById(seat.toolId)?.plans.some((p) => p.id === body.plan) ?? false))
@@ -368,7 +393,10 @@ export function registerSeatRoutes(router: Router, deps: AppDeps): void {
           }),
         ),
       },
-      responses: { 201: json(z.object({ seats: z.number().int(), matched: z.number().int(), created: z.number().int() })), ...errorResponses },
+      responses: {
+        201: json(z.object({ seats: z.number().int(), matched: z.number().int(), created: z.number().int() })),
+        ...errorResponses,
+      },
     }),
     async (c) => {
       const user = requireUser(c);
@@ -425,20 +453,29 @@ export function registerSeatRoutes(router: Router, deps: AppDeps): void {
       tags: ['seats'],
       summary: 'Idle seats, duplicates, consolidation, seat-versus-API, and unapproved tools, with estimated savings',
       request: { params: OrgParams },
-      responses: { 200: json(z.object({ insights: z.array(InsightSchema), monthlySaving: z.string() })), ...errorResponses },
+      responses: {
+        200: json(z.object({ insights: z.array(InsightSchema), monthlySaving: z.string() })),
+        ...errorResponses,
+      },
     }),
     async (c) => {
       const { orgId } = c.req.valid('param');
       const reach = reachOf(c.var.membership, 'seats.read');
       const rows = await seatRows(orgId, reach.kind === 'team' ? reach.teamId : null);
       const { approved, usage, idleDays } = await withOrg(deps.db, orgId, async (tx) => {
-        const approvedRows = await tx.select({ toolId: schema.approvedTools.toolId }).from(schema.approvedTools).where(eq(schema.approvedTools.orgId, orgId));
+        const approvedRows = await tx
+          .select({ toolId: schema.approvedTools.toolId })
+          .from(schema.approvedTools)
+          .where(eq(schema.approvedTools.orgId, orgId));
         // Terminal telemetry: Claude Code usage counts against Claude seats (Pro/Max/Team include it).
         const telemetry = await tx.execute<{ user_id: string; cost: string }>(sql`
           select user_id, sum(cost)::text as cost from tool_usage_daily
           where org_id = ${orgId} and tool = 'claude_code' and day >= to_char(now() - interval '30 days', 'YYYY-MM-DD')
           group by user_id`);
-        const [settings] = await tx.select({ idle: schema.orgSettings.idleSeatDays }).from(schema.orgSettings).where(eq(schema.orgSettings.orgId, orgId));
+        const [settings] = await tx
+          .select({ idle: schema.orgSettings.idleSeatDays })
+          .from(schema.orgSettings)
+          .where(eq(schema.orgSettings.orgId, orgId));
         return {
           approved: approvedRows.map((r) => r.toolId),
           usage: telemetry.rows.flatMap((row): InsightUsage[] => [
@@ -539,7 +576,15 @@ export function registerSeatRoutes(router: Router, deps: AppDeps): void {
     async (c) => {
       const { orgId } = c.req.valid('param');
       const rows = await withOrg(deps.db, orgId, (tx) =>
-        tx.execute<{ id: string; provider: string; name: string; status: string; last_synced_at: Date | null; last_error: string | null; seats: string }>(sql`
+        tx.execute<{
+          id: string;
+          provider: string;
+          name: string;
+          status: string;
+          last_synced_at: Date | null;
+          last_error: string | null;
+          seats: string;
+        }>(sql`
           select c.id, c.provider, c.name, c.status, c.last_synced_at, c.last_error,
                  (select count(*) from seats s where s.connection_id = c.id and s.status <> 'cancelled')::text as seats
           from connections c where c.org_id = ${orgId} and c.provider like 'seat:%' and c.status <> 'disabled'
@@ -580,7 +625,10 @@ export function registerSeatRoutes(router: Router, deps: AppDeps): void {
           }),
         ),
       },
-      responses: { 201: json(z.object({ id: z.uuid(), seats: z.number().int(), matched: z.number().int() })), ...errorResponses },
+      responses: {
+        201: json(z.object({ id: z.uuid(), seats: z.number().int(), matched: z.number().int() })),
+        ...errorResponses,
+      },
     }),
     async (c) => {
       const user = requireUser(c);
@@ -588,10 +636,15 @@ export function registerSeatRoutes(router: Router, deps: AppDeps): void {
       const body = c.req.valid('json');
       const info = SEAT_PROVIDER_INFO[body.provider];
       for (const field of info.configFields)
-        if (field.required && (body.config[field.key] ?? '') === '') throw new AppError(400, 'missing_config', `${field.label} is required`);
+        if (field.required && (body.config[field.key] ?? '') === '')
+          throw new AppError(400, 'missing_config', `${field.label} is required`);
       let fingerprint: string;
       try {
-        const connector = seatConnectorFor(body.provider, { secret: body.secret, config: body.config, fetch: deps.jobs.fetch });
+        const connector = seatConnectorFor(body.provider, {
+          secret: body.secret,
+          config: body.config,
+          fetch: deps.jobs.fetch,
+        });
         fingerprint = (await connector.test()).fingerprint;
       } catch (error) {
         if (error instanceof ConnectorError) throw new AppError(400, `provider_${error.code}`, error.message);
@@ -601,7 +654,14 @@ export function registerSeatRoutes(router: Router, deps: AppDeps): void {
         const [duplicate] = await tx
           .select({ id: schema.connections.id })
           .from(schema.connections)
-          .where(and(eq(schema.connections.orgId, orgId), eq(schema.connections.provider, body.provider), eq(schema.connections.fingerprint, fingerprint), sql`${schema.connections.status} <> 'disabled'`));
+          .where(
+            and(
+              eq(schema.connections.orgId, orgId),
+              eq(schema.connections.provider, body.provider),
+              eq(schema.connections.fingerprint, fingerprint),
+              sql`${schema.connections.status} <> 'disabled'`,
+            ),
+          );
         if (duplicate) throw new AppError(409, 'already_connected', `this ${info.name} account is already connected`);
         const connection = await createConnection(tx, deps.ring, {
           orgId,
@@ -611,10 +671,18 @@ export function registerSeatRoutes(router: Router, deps: AppDeps): void {
           fingerprint,
           config: body.config,
         });
-        await auditByUser(tx, { orgId, userId: user.id, action: 'seat_connection.created', subject: `connection:${connection.id}`, data: { provider: body.provider } });
+        await auditByUser(tx, {
+          orgId,
+          userId: user.id,
+          action: 'seat_connection.created',
+          subject: `connection:${connection.id}`,
+          data: { provider: body.provider },
+        });
         return connection;
       });
-      const [row] = await withOrg(deps.db, orgId, (tx) => tx.select().from(schema.connections).where(eq(schema.connections.id, created.id)));
+      const [row] = await withOrg(deps.db, orgId, (tx) =>
+        tx.select().from(schema.connections).where(eq(schema.connections.id, created.id)),
+      );
       if (!row) throw new Error('connection missing after insert');
       const synced = await syncSeatConnection(deps.jobs, row).catch((error: unknown) => {
         deps.logger.warn({ err: error, connection: row.id }, 'first seat sync failed');
@@ -624,13 +692,21 @@ export function registerSeatRoutes(router: Router, deps: AppDeps): void {
     },
   );
 
-  const ConnectionParams = OrgParams.extend({ connectionId: z.uuid().openapi({ param: { name: 'connectionId', in: 'path' } }) });
+  const ConnectionParams = OrgParams.extend({
+    connectionId: z.uuid().openapi({ param: { name: 'connectionId', in: 'path' } }),
+  });
   const loadSeatConnection = async (orgId: string, connectionId: string) => {
     const [row] = await withOrg(deps.db, orgId, (tx) =>
       tx
         .select()
         .from(schema.connections)
-        .where(and(eq(schema.connections.id, connectionId), eq(schema.connections.orgId, orgId), sql`${schema.connections.provider} like 'seat:%'`)),
+        .where(
+          and(
+            eq(schema.connections.id, connectionId),
+            eq(schema.connections.orgId, orgId),
+            sql`${schema.connections.provider} like 'seat:%'`,
+          ),
+        ),
     );
     if (!row || row.status === 'disabled') throw notFound('seat connection');
     return row;
@@ -643,7 +719,10 @@ export function registerSeatRoutes(router: Router, deps: AppDeps): void {
       path: '/api/v1/orgs/{orgId}/seat-connections/{connectionId}/sync',
       tags: ['seats'],
       request: { params: ConnectionParams },
-      responses: { 200: json(z.object({ seats: z.number().int(), matched: z.number().int(), days: z.number().int() })), ...errorResponses },
+      responses: {
+        200: json(z.object({ seats: z.number().int(), matched: z.number().int(), days: z.number().int() })),
+        ...errorResponses,
+      },
     }),
     async (c) => {
       const { orgId, connectionId } = c.req.valid('param');
@@ -672,8 +751,16 @@ export function registerSeatRoutes(router: Router, deps: AppDeps): void {
       const { orgId, connectionId } = c.req.valid('param');
       await loadSeatConnection(orgId, connectionId);
       await withOrg(deps.db, orgId, async (tx) => {
-        await tx.update(schema.connections).set({ status: 'disabled', updatedAt: new Date() }).where(eq(schema.connections.id, connectionId));
-        await auditByUser(tx, { orgId, userId: user.id, action: 'seat_connection.disabled', subject: `connection:${connectionId}` });
+        await tx
+          .update(schema.connections)
+          .set({ status: 'disabled', updatedAt: new Date() })
+          .where(eq(schema.connections.id, connectionId));
+        await auditByUser(tx, {
+          orgId,
+          userId: user.id,
+          action: 'seat_connection.disabled',
+          subject: `connection:${connectionId}`,
+        });
       });
       return c.body(null, 204);
     },
@@ -702,7 +789,9 @@ export function registerSeatRoutes(router: Router, deps: AppDeps): void {
                 pricing: z.string(),
                 approved: z.boolean(),
                 users: z.number().int(),
-                plans: z.array(z.object({ id: z.string(), name: z.string(), monthlyUsd: z.string().nullable(), team: z.boolean() })),
+                plans: z.array(
+                  z.object({ id: z.string(), name: z.string(), monthlyUsd: z.string().nullable(), team: z.boolean() }),
+                ),
               }),
             ),
             approvedCount: z.number().int(),
@@ -715,7 +804,12 @@ export function registerSeatRoutes(router: Router, deps: AppDeps): void {
       const { orgId } = c.req.valid('param');
       const { approved, users } = await withOrg(deps.db, orgId, async (tx) => ({
         approved: new Set(
-          (await tx.select({ toolId: schema.approvedTools.toolId }).from(schema.approvedTools).where(eq(schema.approvedTools.orgId, orgId))).map((r) => r.toolId),
+          (
+            await tx
+              .select({ toolId: schema.approvedTools.toolId })
+              .from(schema.approvedTools)
+              .where(eq(schema.approvedTools.orgId, orgId))
+          ).map((r) => r.toolId),
         ),
         users: new Map(
           (
@@ -762,8 +856,15 @@ export function registerSeatRoutes(router: Router, deps: AppDeps): void {
       if (unknown.length > 0) throw new AppError(400, 'unknown_tool', `not in the catalogue: ${unknown.join(', ')}`);
       await withOrg(deps.db, orgId, async (tx) => {
         await tx.delete(schema.approvedTools).where(eq(schema.approvedTools.orgId, orgId));
-        if (toolIds.length > 0) await tx.insert(schema.approvedTools).values(toolIds.map((toolId) => ({ orgId, toolId, addedBy: user.id })));
-        await auditByUser(tx, { orgId, userId: user.id, action: 'tools.approved_changed', subject: `org:${orgId}`, data: { toolIds } });
+        if (toolIds.length > 0)
+          await tx.insert(schema.approvedTools).values(toolIds.map((toolId) => ({ orgId, toolId, addedBy: user.id })));
+        await auditByUser(tx, {
+          orgId,
+          userId: user.id,
+          action: 'tools.approved_changed',
+          subject: `org:${orgId}`,
+          data: { toolIds },
+        });
       });
       return c.json({ toolIds }, 200);
     },
@@ -812,7 +913,13 @@ export function registerSeatRoutes(router: Router, deps: AppDeps): void {
         const seats = await tx
           .select()
           .from(schema.seats)
-          .where(and(eq(schema.seats.orgId, orgId), eq(schema.seats.userId, user.id), sql`${schema.seats.status} <> 'cancelled'`));
+          .where(
+            and(
+              eq(schema.seats.orgId, orgId),
+              eq(schema.seats.userId, user.id),
+              sql`${schema.seats.status} <> 'cancelled'`,
+            ),
+          );
         const [confirmation] = await tx
           .select()
           .from(schema.toolConfirmations)
@@ -843,10 +950,15 @@ export function registerSeatRoutes(router: Router, deps: AppDeps): void {
           })),
           confirmedAt: data.confirmation?.confirmedAt.toISOString() ?? null,
           receiptsAddress:
-            deps.inboundEmail === undefined ? null : `receipts-${await receiptsToken(deps, orgId)}@${deps.inboundEmail.domain}`,
+            deps.inboundEmail === undefined
+              ? null
+              : `receipts-${await receiptsToken(deps, orgId)}@${deps.inboundEmail.domain}`,
           telemetryTokens: data.tokens.map(tokenView),
           gatewayUrl: deps.gatewayPublicUrl ?? null,
-          telemetryUsage30d: { sessions: Number(data.usage?.sessions ?? 0), cost: usd(BigInt(data.usage?.cost ?? '0')) },
+          telemetryUsage30d: {
+            sessions: Number(data.usage?.sessions ?? 0),
+            cost: usd(BigInt(data.usage?.cost ?? '0')),
+          },
         },
         200,
       );
@@ -886,17 +998,23 @@ export function registerSeatRoutes(router: Router, deps: AppDeps): void {
       for (const entry of tools) {
         const tool = toolById(entry.toolId);
         if (tool === undefined) throw new AppError(400, 'unknown_tool', `no tool ${entry.toolId} in the catalogue`);
-        if (entry.plan !== null && !tool.plans.some((p) => p.id === entry.plan)) throw new AppError(400, 'unknown_plan', `no such ${tool.product} plan`);
+        if (entry.plan !== null && !tool.plans.some((p) => p.id === entry.plan))
+          throw new AppError(400, 'unknown_plan', `no such ${tool.product} plan`);
       }
       await withOrg(deps.db, orgId, async (tx) => {
         const keep = new Set(tools.map((t) => `declared:${user.id}:${t.toolId}`));
         const previous = await tx
           .select({ id: schema.seats.id, dedupeKey: schema.seats.dedupeKey })
           .from(schema.seats)
-          .where(and(eq(schema.seats.orgId, orgId), eq(schema.seats.userId, user.id), eq(schema.seats.source, 'declared')));
+          .where(
+            and(eq(schema.seats.orgId, orgId), eq(schema.seats.userId, user.id), eq(schema.seats.source, 'declared')),
+          );
         const dropped = previous.filter((p) => !keep.has(p.dedupeKey)).map((p) => p.id);
         if (dropped.length > 0)
-          await tx.update(schema.seats).set({ status: 'cancelled', updatedAt: new Date() }).where(inArray(schema.seats.id, dropped));
+          await tx
+            .update(schema.seats)
+            .set({ status: 'cancelled', updatedAt: new Date() })
+            .where(inArray(schema.seats.id, dropped));
         for (const entry of tools)
           await upsertSeat(tx, {
             orgId,
@@ -919,8 +1037,17 @@ export function registerSeatRoutes(router: Router, deps: AppDeps): void {
         await tx
           .insert(schema.toolConfirmations)
           .values({ orgId, userId: user.id })
-          .onConflictDoUpdate({ target: [schema.toolConfirmations.orgId, schema.toolConfirmations.userId], set: { confirmedAt: new Date() } });
-        await auditByUser(tx, { orgId, userId: user.id, action: 'tools.declared', subject: `user:${user.id}`, data: { tools: tools.map((t) => t.toolId) } });
+          .onConflictDoUpdate({
+            target: [schema.toolConfirmations.orgId, schema.toolConfirmations.userId],
+            set: { confirmedAt: new Date() },
+          });
+        await auditByUser(tx, {
+          orgId,
+          userId: user.id,
+          action: 'tools.declared',
+          subject: `user:${user.id}`,
+          data: { tools: tools.map((t) => t.toolId) },
+        });
       });
       return c.json({ declared: tools.length }, 200);
     },
@@ -944,7 +1071,10 @@ export function registerSeatRoutes(router: Router, deps: AppDeps): void {
         tx
           .insert(schema.toolConfirmations)
           .values({ orgId, userId: user.id, confirmedAt: at })
-          .onConflictDoUpdate({ target: [schema.toolConfirmations.orgId, schema.toolConfirmations.userId], set: { confirmedAt: at } }),
+          .onConflictDoUpdate({
+            target: [schema.toolConfirmations.orgId, schema.toolConfirmations.userId],
+            set: { confirmedAt: at },
+          }),
       );
       return c.json({ confirmedAt: at.toISOString() }, 200);
     },
@@ -959,9 +1089,14 @@ export function registerSeatRoutes(router: Router, deps: AppDeps): void {
       summary: 'Create a telemetry token for your terminal tool (shown once; it can only send usage metrics)',
       request: {
         params: OrgParams,
-        ...jsonBody(z.object({ tool: z.enum(['claude_code']), name: z.string().trim().min(1).max(80).default('laptop') })),
+        ...jsonBody(
+          z.object({ tool: z.enum(['claude_code']), name: z.string().trim().min(1).max(80).default('laptop') }),
+        ),
       },
-      responses: { 201: json(TelemetryTokenSchema.extend({ token: z.string(), endpoint: z.string().nullable() })), ...errorResponses },
+      responses: {
+        201: json(TelemetryTokenSchema.extend({ token: z.string(), endpoint: z.string().nullable() })),
+        ...errorResponses,
+      },
     }),
     async (c) => {
       const user = requireUser(c);
@@ -983,11 +1118,21 @@ export function registerSeatRoutes(router: Router, deps: AppDeps): void {
           })
           .returning();
         if (!created) throw new Error('insert returned no row');
-        await auditByUser(tx, { orgId, userId: user.id, action: 'telemetry_token.created', subject: `telemetry_token:${created.id}`, data: { tool: body.tool } });
+        await auditByUser(tx, {
+          orgId,
+          userId: user.id,
+          action: 'telemetry_token.created',
+          subject: `telemetry_token:${created.id}`,
+          data: { tool: body.tool },
+        });
         return created;
       });
       return c.json(
-        { ...tokenView(row), token, endpoint: deps.gatewayPublicUrl === undefined ? null : `${deps.gatewayPublicUrl.replace(/\/$/, '')}/otlp` },
+        {
+          ...tokenView(row),
+          token,
+          endpoint: deps.gatewayPublicUrl === undefined ? null : `${deps.gatewayPublicUrl.replace(/\/$/, '')}/otlp`,
+        },
         201,
       );
     },
@@ -1006,7 +1151,11 @@ export function registerSeatRoutes(router: Router, deps: AppDeps): void {
     async (c) => {
       const { orgId } = c.req.valid('param');
       const rows = await withOrg(deps.db, orgId, (tx) =>
-        tx.select().from(schema.telemetryTokens).where(eq(schema.telemetryTokens.orgId, orgId)).orderBy(desc(schema.telemetryTokens.createdAt)),
+        tx
+          .select()
+          .from(schema.telemetryTokens)
+          .where(eq(schema.telemetryTokens.orgId, orgId))
+          .orderBy(desc(schema.telemetryTokens.createdAt)),
       );
       return c.json({ tokens: rows.map(tokenView) }, 200);
     },
@@ -1030,11 +1179,25 @@ export function registerSeatRoutes(router: Router, deps: AppDeps): void {
         const [row] = await tx
           .select()
           .from(schema.telemetryTokens)
-          .where(and(eq(schema.telemetryTokens.id, tokenId), eq(schema.telemetryTokens.orgId, orgId), isNull(schema.telemetryTokens.revokedAt)));
+          .where(
+            and(
+              eq(schema.telemetryTokens.id, tokenId),
+              eq(schema.telemetryTokens.orgId, orgId),
+              isNull(schema.telemetryTokens.revokedAt),
+            ),
+          );
         if (!row) throw notFound('telemetry token');
         if (row.userId !== user.id && !canManage) throw forbidden('you can only revoke your own telemetry tokens');
-        await tx.update(schema.telemetryTokens).set({ revokedAt: new Date() }).where(eq(schema.telemetryTokens.id, tokenId));
-        await auditByUser(tx, { orgId, userId: user.id, action: 'telemetry_token.revoked', subject: `telemetry_token:${tokenId}` });
+        await tx
+          .update(schema.telemetryTokens)
+          .set({ revokedAt: new Date() })
+          .where(eq(schema.telemetryTokens.id, tokenId));
+        await auditByUser(tx, {
+          orgId,
+          userId: user.id,
+          action: 'telemetry_token.revoked',
+          subject: `telemetry_token:${tokenId}`,
+        });
       });
       return c.body(null, 204);
     },
@@ -1073,7 +1236,17 @@ export function registerSeatRoutes(router: Router, deps: AppDeps): void {
       const { orgId } = c.req.valid('param');
       const reach = reachOf(c.var.membership, 'seats.read');
       const rows = await withOrg(deps.db, orgId, (tx) =>
-        tx.execute<{ user_id: string; name: string; tool: string; sessions: string; tokens: string; cost: string; lines: string; commits: string; last_day: string }>(sql`
+        tx.execute<{
+          user_id: string;
+          name: string;
+          tool: string;
+          sessions: string;
+          tokens: string;
+          cost: string;
+          lines: string;
+          commits: string;
+          last_day: string;
+        }>(sql`
           select t.user_id, coalesce(u.name, u.email) as name, t.tool, sum(t.sessions)::text as sessions,
                  sum(t.input_tokens + t.output_tokens + t.cache_read_tokens + t.cache_write_tokens)::text as tokens,
                  sum(t.cost)::text as cost, sum(t.lines_added)::text as lines, sum(t.commits)::text as commits, max(t.day) as last_day
@@ -1160,7 +1333,9 @@ export function registerSeatRoutes(router: Router, deps: AppDeps): void {
           .select({ receipt: schema.receipts, name: schema.users.name })
           .from(schema.receipts)
           .leftJoin(schema.users, eq(schema.users.id, schema.receipts.submittedBy))
-          .where(and(eq(schema.receipts.orgId, orgId), status === 'all' ? undefined : eq(schema.receipts.status, status)))
+          .where(
+            and(eq(schema.receipts.orgId, orgId), status === 'all' ? undefined : eq(schema.receipts.status, status)),
+          )
           .orderBy(desc(schema.receipts.createdAt))
           .limit(300),
       );
@@ -1201,8 +1376,14 @@ export function registerSeatRoutes(router: Router, deps: AppDeps): void {
             action: z.enum(['import', 'dismiss']),
             toolId: z.string().max(60).optional(),
             plan: z.string().max(60).nullable().optional(),
-            amount: z.string().regex(/^\d{1,12}(\.\d{1,6})?$/).optional(),
-            currency: z.string().regex(/^[A-Za-z]{3}$/).optional(),
+            amount: z
+              .string()
+              .regex(/^\d{1,12}(\.\d{1,6})?$/)
+              .optional(),
+            currency: z
+              .string()
+              .regex(/^[A-Za-z]{3}$/)
+              .optional(),
             occurredOn: z.iso.date().optional(),
             userId: z.string().max(100).nullable().optional(),
             oneOff: z.boolean().default(false),
@@ -1219,11 +1400,25 @@ export function registerSeatRoutes(router: Router, deps: AppDeps): void {
         const [receipt] = await tx
           .select()
           .from(schema.receipts)
-          .where(and(eq(schema.receipts.id, receiptId), eq(schema.receipts.orgId, orgId), eq(schema.receipts.status, 'review')));
+          .where(
+            and(
+              eq(schema.receipts.id, receiptId),
+              eq(schema.receipts.orgId, orgId),
+              eq(schema.receipts.status, 'review'),
+            ),
+          );
         if (!receipt) throw notFound('receipt in review');
         if (body.action === 'dismiss') {
-          await tx.update(schema.receipts).set({ status: 'dismissed', resolvedBy: user.id, resolvedAt: new Date() }).where(eq(schema.receipts.id, receiptId));
-          await auditByUser(tx, { orgId, userId: user.id, action: 'receipt.dismissed', subject: `receipt:${receiptId}` });
+          await tx
+            .update(schema.receipts)
+            .set({ status: 'dismissed', resolvedBy: user.id, resolvedAt: new Date() })
+            .where(eq(schema.receipts.id, receiptId));
+          await auditByUser(tx, {
+            orgId,
+            userId: user.id,
+            action: 'receipt.dismissed',
+            subject: `receipt:${receiptId}`,
+          });
           return 'dismissed';
         }
         const toolId = body.toolId ?? receipt.toolId;
@@ -1274,7 +1469,13 @@ export function registerSeatRoutes(router: Router, deps: AppDeps): void {
             resolvedAt: new Date(),
           })
           .where(eq(schema.receipts.id, receiptId));
-        await auditByUser(tx, { orgId, userId: user.id, action: 'receipt.imported', subject: `receipt:${receiptId}`, data: { toolId: tool.id, amount, currency } });
+        await auditByUser(tx, {
+          orgId,
+          userId: user.id,
+          action: 'receipt.imported',
+          subject: `receipt:${receiptId}`,
+          data: { toolId: tool.id, amount, currency },
+        });
         return 'imported';
       });
       return c.json({ id: receiptId, status }, 200);

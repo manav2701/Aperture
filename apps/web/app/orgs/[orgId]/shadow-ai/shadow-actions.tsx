@@ -7,12 +7,24 @@ import { FormError, Input, Select } from '@/components/ui/form';
 import { api } from '@/lib/api/browser';
 import { useSubmit } from '@/lib/use-submit';
 
-type Assignee = { id: string; name: string };
+interface Assignee {
+  id: string;
+  name: string;
+}
 
-export function ClaimKey({ orgId, credentialId, assignees }: { orgId: string; credentialId: string; assignees: Assignee[] }) {
+export function ClaimKey({
+  orgId,
+  credentialId,
+  assignees,
+}: {
+  orgId: string;
+  credentialId: string;
+  assignees: Assignee[];
+}) {
   const { submit, pending, error } = useSubmit();
   const [principalId, setPrincipalId] = useState(assignees[0]?.id ?? '');
-  if (assignees.length === 0) return <span className="text-xs text-muted-foreground">Create an agent to claim it.</span>;
+  if (assignees.length === 0)
+    return <span className="text-xs text-muted-foreground">Create an agent to claim it.</span>;
   return (
     <form
       className="flex items-center gap-2"
@@ -26,7 +38,14 @@ export function ClaimKey({ orgId, credentialId, assignees }: { orgId: string; cr
         );
       }}
     >
-      <Select aria-label="Assign to" className="h-8 w-48 text-sm" value={principalId} onChange={(e) => { setPrincipalId(e.target.value); }}>
+      <Select
+        aria-label="Assign to"
+        className="h-8 w-48 text-sm"
+        value={principalId}
+        onChange={(e) => {
+          setPrincipalId(e.target.value);
+        }}
+      >
         {assignees.map((a) => (
           <option key={a.id} value={a.id}>
             {a.name}
@@ -70,7 +89,14 @@ export function ResolveCharge({
   };
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <Select aria-label="Assign to" className="h-8 w-48 text-sm" value={target} onChange={(e) => { setTarget(e.target.value); }}>
+      <Select
+        aria-label="Assign to"
+        className="h-8 w-48 text-sm"
+        value={target}
+        onChange={(e) => {
+          setTarget(e.target.value);
+        }}
+      >
         <option value="">Assign to…</option>
         {assignees.map((a) => (
           <option key={a.id} value={`principal:${a.id}`}>
@@ -83,14 +109,44 @@ export function ResolveCharge({
           </option>
         ))}
       </Select>
-      <Button size="sm" variant="secondary" disabled={pending || target === ''} onClick={() => { resolve('assign'); }}>
+      <Button
+        size="sm"
+        variant="secondary"
+        disabled={pending || target === ''}
+        onClick={() => {
+          resolve('assign');
+        }}
+      >
         Assign
       </Button>
-      <Button size="sm" variant="secondary" disabled={pending} onClick={() => { resolve('govern'); }} title="It now runs through Aperture (connected provider, agent card, or workspace)">
+      <Button
+        size="sm"
+        variant="secondary"
+        disabled={pending}
+        onClick={() => {
+          resolve('govern');
+        }}
+        title="It now runs through Aperture (connected provider, agent card, or workspace)"
+      >
         Brought under governance
       </Button>
-      <Input aria-label="Reason" placeholder="Reason to dismiss" className="h-8 w-48 text-sm" value={note} onChange={(e) => { setNote(e.target.value); }} />
-      <Button size="sm" variant="ghost" disabled={pending} onClick={() => { resolve('dismiss'); }}>
+      <Input
+        aria-label="Reason"
+        placeholder="Reason to dismiss"
+        className="h-8 w-48 text-sm"
+        value={note}
+        onChange={(e) => {
+          setNote(e.target.value);
+        }}
+      />
+      <Button
+        size="sm"
+        variant="ghost"
+        disabled={pending}
+        onClick={() => {
+          resolve('dismiss');
+        }}
+      >
         Dismiss
       </Button>
       <FormError message={error} />
@@ -126,7 +182,15 @@ export function ResolveReceipt({
         );
       }}
     >
-      <Select aria-label="Tool" className="h-8 w-44 text-sm" value={toolId} onChange={(e) => { setToolId(e.target.value); }} required>
+      <Select
+        aria-label="Tool"
+        className="h-8 w-44 text-sm"
+        value={toolId}
+        onChange={(e) => {
+          setToolId(e.target.value);
+        }}
+        required
+      >
         <option value="">Tool…</option>
         {AI_TOOLS.map((t) => (
           <option key={t.id} value={t.id}>
@@ -134,11 +198,43 @@ export function ResolveReceipt({
           </option>
         ))}
       </Select>
-      <Input aria-label="Amount" className="h-8 w-24 text-sm" value={amount} onChange={(e) => { setAmount(e.target.value); }} required pattern="\d+(\.\d{1,6})?" />
-      <Input aria-label="Currency" className="h-8 w-16 text-sm" value={currency} maxLength={3} onChange={(e) => { setCurrency(e.target.value.toUpperCase()); }} />
-      <Input aria-label="Date" type="date" className="h-8 w-40 text-sm" value={date} onChange={(e) => { setDate(e.target.value); }} />
+      <Input
+        aria-label="Amount"
+        className="h-8 w-24 text-sm"
+        value={amount}
+        onChange={(e) => {
+          setAmount(e.target.value);
+        }}
+        required
+        pattern="\d+(\.\d{1,6})?"
+      />
+      <Input
+        aria-label="Currency"
+        className="h-8 w-16 text-sm"
+        value={currency}
+        maxLength={3}
+        onChange={(e) => {
+          setCurrency(e.target.value.toUpperCase());
+        }}
+      />
+      <Input
+        aria-label="Date"
+        type="date"
+        className="h-8 w-40 text-sm"
+        value={date}
+        onChange={(e) => {
+          setDate(e.target.value);
+        }}
+      />
       <label className="flex items-center gap-1 text-xs">
-        <input type="checkbox" checked={oneOff} onChange={(e) => { setOneOff(e.target.checked); }} /> one-off purchase
+        <input
+          type="checkbox"
+          checked={oneOff}
+          onChange={(e) => {
+            setOneOff(e.target.checked);
+          }}
+        />{' '}
+        one-off purchase
       </label>
       <Button type="submit" size="sm" variant="secondary" disabled={pending}>
         Import

@@ -36,7 +36,8 @@ export default async function AttestationsPage({ params }: { params: Promise<{ o
                       {day(a.periodFrom)} → {day(a.periodTo)}
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      Signed {formatDateTime(a.createdAt, org.timezone)} · key <span className="font-mono">{a.kid}</span>
+                      Signed {formatDateTime(a.createdAt, org.timezone)} · key{' '}
+                      <span className="font-mono">{a.kid}</span>
                     </p>
                   </div>
                   <div className="flex items-center gap-2">
@@ -68,7 +69,11 @@ export default async function AttestationsPage({ params }: { params: Promise<{ o
           <Card>
             <CardTitle>Verify one</CardTitle>
             <p className="text-sm text-muted-foreground">
-              Open <Link href="/verify" className="underline">the verify page</Link> and drop in the JSON file, or run{' '}
+              Open{' '}
+              <Link href="/verify" className="underline">
+                the verify page
+              </Link>{' '}
+              and drop in the JSON file, or run{' '}
               <code className="font-mono text-xs">pnpm attestation-verify att.json</code>.
             </p>
           </Card>

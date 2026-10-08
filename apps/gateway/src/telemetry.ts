@@ -52,11 +52,19 @@ export function registerTelemetryRoutes(app: Hono, deps: GatewayDeps): void {
     const hash = hashApiKey(token, deps.pepper);
     const [owner] = await withSystem(deps.db, (tx) =>
       tx
-        .select({ id: schema.telemetryTokens.id, orgId: schema.telemetryTokens.orgId, userId: schema.telemetryTokens.userId, tool: schema.telemetryTokens.tool })
+        .select({
+          id: schema.telemetryTokens.id,
+          orgId: schema.telemetryTokens.orgId,
+          userId: schema.telemetryTokens.userId,
+          tool: schema.telemetryTokens.tool,
+        })
         .from(schema.telemetryTokens)
         .innerJoin(
           schema.members,
-          and(eq(schema.members.orgId, schema.telemetryTokens.orgId), eq(schema.members.userId, schema.telemetryTokens.userId)),
+          and(
+            eq(schema.members.orgId, schema.telemetryTokens.orgId),
+            eq(schema.members.userId, schema.telemetryTokens.userId),
+          ),
         )
         .where(and(eq(schema.telemetryTokens.hash, hash), isNull(schema.telemetryTokens.revokedAt))),
     );
@@ -97,12 +105,21 @@ export function registerTelemetryRoutes(app: Hono, deps: GatewayDeps): void {
     const rows = mapped.rows.filter((row) => row.tool === owner.tool);
     await withOrg(deps.db, owner.orgId, async (tx) => {
       if (rows.length > 0) await addToolUsage(tx, owner.orgId, owner.userId, rows);
-      await tx.update(schema.telemetryTokens).set({ lastUsedAt: new Date() }).where(eq(schema.telemetryTokens.id, owner.id));
+      await tx
+        .update(schema.telemetryTokens)
+        .set({ lastUsedAt: new Date() })
+        .where(eq(schema.telemetryTokens.id, owner.id));
     });
     const rejected = mapped.cumulativeIgnored;
     return Response.json(
       rejected > 0
-        ? { partialSuccess: { rejectedDataPoints: rejected, errorMessage: 'cumulative temporality is not accepted; set OTEL_EXPORTER_OTLP_METRICS_TEMPORALITY_PREFERENCE=delta' } }
+        ? {
+            partialSuccess: {
+              rejectedDataPoints: rejected,
+              errorMessage:
+                'cumulative temporality is not accepted; set OTEL_EXPORTER_OTLP_METRICS_TEMPORALITY_PREFERENCE=delta',
+            },
+          }
         : { partialSuccess: {} },
     );
   });

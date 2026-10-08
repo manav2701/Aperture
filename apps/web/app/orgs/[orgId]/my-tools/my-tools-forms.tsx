@@ -7,9 +7,19 @@ import { Field, FormError, FormNotice, Input, Select, Textarea } from '@/compone
 import { api } from '@/lib/api/browser';
 import { useSubmit } from '@/lib/use-submit';
 
-type CatalogueTool = { id: string; product: string; approved: boolean; plans: { id: string; name: string }[] };
+interface CatalogueTool {
+  id: string;
+  product: string;
+  approved: boolean;
+  plans: { id: string; name: string }[];
+}
 type Payer = 'company' | 'personal_expensed' | 'personal_unexpensed';
-type Entry = { toolId: string; plan: string | null; payer: Payer; monthlyCostUsd: string | null };
+interface Entry {
+  toolId: string;
+  plan: string | null;
+  payer: Payer;
+  monthlyCostUsd: string | null;
+}
 
 export function DeclareTools({
   orgId,
@@ -42,12 +52,15 @@ export function DeclareTools({
       className="space-y-3 text-sm"
       onSubmit={(event) => {
         event.preventDefault();
-        submit(() => api.PUT('/api/v1/orgs/{orgId}/me/tools', { params: { path: { orgId } }, body: { tools: entries } }));
+        submit(() =>
+          api.PUT('/api/v1/orgs/{orgId}/me/tools', { params: { path: { orgId } }, body: { tools: entries } }),
+        );
       }}
     >
       {others.length === 0 ? null : (
         <p className="text-xs text-muted-foreground">
-          Already known from {[...new Set(others.map((o) => o.source))].join(' and ')}: {others.map((o) => product(o.toolId)?.product ?? o.toolId).join(', ')}.
+          Already known from {[...new Set(others.map((o) => o.source))].join(' and ')}:{' '}
+          {others.map((o) => product(o.toolId)?.product ?? o.toolId).join(', ')}.
         </p>
       )}
       {entries.length === 0 ? <p className="text-muted-foreground">No tools declared.</p> : null}
@@ -55,11 +68,21 @@ export function DeclareTools({
         {entries.map((entry, index) => {
           const tool = product(entry.toolId);
           return (
-            <li key={entry.toolId} className="grid gap-2 border border-border p-2 md:grid-cols-[1fr_9rem_10rem_7rem_auto] md:items-center">
+            <li
+              key={entry.toolId}
+              className="grid gap-2 border border-border p-2 md:grid-cols-[1fr_9rem_10rem_7rem_auto] md:items-center"
+            >
               <span>
                 {tool?.product ?? entry.toolId} {tool?.approved === true ? <Badge tone="accent">approved</Badge> : null}
               </span>
-              <Select aria-label="Plan" className="h-8 text-xs" value={entry.plan ?? ''} onChange={(e) => { update(index, { plan: e.target.value === '' ? null : e.target.value }); }}>
+              <Select
+                aria-label="Plan"
+                className="h-8 text-xs"
+                value={entry.plan ?? ''}
+                onChange={(e) => {
+                  update(index, { plan: e.target.value === '' ? null : e.target.value });
+                }}
+              >
                 <option value="">Plan…</option>
                 {tool?.plans.map((p) => (
                   <option key={p.id} value={p.id}>
@@ -67,13 +90,35 @@ export function DeclareTools({
                   </option>
                 ))}
               </Select>
-              <Select aria-label="Who pays" className="h-8 text-xs" value={entry.payer} onChange={(e) => { update(index, { payer: e.target.value as Payer }); }}>
+              <Select
+                aria-label="Who pays"
+                className="h-8 text-xs"
+                value={entry.payer}
+                onChange={(e) => {
+                  update(index, { payer: e.target.value as Payer });
+                }}
+              >
                 <option value="company">Company pays</option>
                 <option value="personal_expensed">I pay, then expense it</option>
                 <option value="personal_unexpensed">I pay personally</option>
               </Select>
-              <Input aria-label="Monthly cost USD" placeholder="USD / month" className="h-8 text-xs" value={entry.monthlyCostUsd ?? ''} pattern="\d+(\.\d{1,6})?" onChange={(e) => { update(index, { monthlyCostUsd: e.target.value === '' ? null : e.target.value }); }} />
-              <Button size="sm" variant="ghost" onClick={() => { setEntries(entries.filter((_, i) => i !== index)); }}>
+              <Input
+                aria-label="Monthly cost USD"
+                placeholder="USD / month"
+                className="h-8 text-xs"
+                value={entry.monthlyCostUsd ?? ''}
+                pattern="\d+(\.\d{1,6})?"
+                onChange={(e) => {
+                  update(index, { monthlyCostUsd: e.target.value === '' ? null : e.target.value });
+                }}
+              />
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => {
+                  setEntries(entries.filter((_, i) => i !== index));
+                }}
+              >
                 Remove
               </Button>
             </li>
@@ -81,7 +126,14 @@ export function DeclareTools({
         })}
       </ul>
       <div className="flex gap-2">
-        <Select aria-label="Add a tool" className="h-9" value={adding} onChange={(e) => { setAdding(e.target.value); }}>
+        <Select
+          aria-label="Add a tool"
+          className="h-9"
+          value={adding}
+          onChange={(e) => {
+            setAdding(e.target.value);
+          }}
+        >
           <option value="">Add a tool…</option>
           {catalogue
             .filter((t) => !entries.some((e) => e.toolId === t.id))
@@ -114,7 +166,14 @@ export function ConfirmTools({ orgId, confirmed }: { orgId: string; confirmed: b
   const { submit, pending } = useSubmit();
   if (confirmed) return <Badge tone="accent">confirmed</Badge>;
   return (
-    <Button size="sm" variant="secondary" disabled={pending} onClick={() => { submit(() => api.POST('/api/v1/orgs/{orgId}/me/tools/confirm', { params: { path: { orgId } } })); }}>
+    <Button
+      size="sm"
+      variant="secondary"
+      disabled={pending}
+      onClick={() => {
+        submit(() => api.POST('/api/v1/orgs/{orgId}/me/tools/confirm', { params: { path: { orgId } } }));
+      }}
+    >
       Still accurate
     </Button>
   );
@@ -137,10 +196,12 @@ export function ReceiptUpload({ orgId }: { orgId: string }) {
             if (file === undefined) return;
             void file.arrayBuffer().then((buffer) => {
               let binary = '';
-              const bytes = new Uint8Array(buffer);
-              for (let i = 0; i < bytes.length; i += 1) binary += String.fromCharCode(bytes[i] ?? 0);
+              for (const byte of new Uint8Array(buffer)) binary += String.fromCharCode(byte);
               submit(async () => {
-                const response = await api.POST('/api/v1/orgs/{orgId}/me/receipts', { params: { path: { orgId } }, body: { eml: btoa(binary) } });
+                const response = await api.POST('/api/v1/orgs/{orgId}/me/receipts', {
+                  params: { path: { orgId } },
+                  body: { eml: btoa(binary) },
+                });
                 if (response.data !== undefined)
                   setResult(
                     response.data.duplicate
@@ -161,33 +222,52 @@ export function ReceiptUpload({ orgId }: { orgId: string }) {
   );
 }
 
-type Token = { id: string; name: string; prefix: string; lastUsedAt: string | null; revokedAt: string | null };
+interface Token {
+  id: string;
+  name: string;
+  prefix: string;
+  lastUsedAt: string | null;
+  revokedAt: string | null;
+}
 
 /** A telemetry token and the exact settings for Claude Code (metrics only; prompt logging stays off). */
-export function TelemetrySetup({ orgId, tokens, gatewayUrl }: { orgId: string; tokens: Token[]; gatewayUrl: string | null }) {
+export function TelemetrySetup({
+  orgId,
+  tokens,
+  gatewayUrl,
+}: {
+  orgId: string;
+  tokens: Token[];
+  gatewayUrl: string | null;
+}) {
   const { submit, pending, error } = useSubmit();
   const [created, setCreated] = useState<{ token: string; endpoint: string | null } | null>(null);
-  const endpoint = created?.endpoint ?? (gatewayUrl === null ? '<gateway URL>/otlp' : `${gatewayUrl.replace(/\/$/, '')}/otlp`);
-  const settings = created === null ? null : JSON.stringify(
-    {
-      env: {
-        CLAUDE_CODE_ENABLE_TELEMETRY: '1',
-        OTEL_METRICS_EXPORTER: 'otlp',
-        OTEL_LOGS_EXPORTER: 'none',
-        OTEL_EXPORTER_OTLP_PROTOCOL: 'http/json',
-        OTEL_EXPORTER_OTLP_ENDPOINT: endpoint,
-        OTEL_EXPORTER_OTLP_HEADERS: `Authorization=Bearer ${created.token}`,
-        OTEL_EXPORTER_OTLP_METRICS_TEMPORALITY_PREFERENCE: 'delta',
-      },
-    },
-    null,
-    2,
-  );
+  const endpoint =
+    created?.endpoint ?? (gatewayUrl === null ? '<gateway URL>/otlp' : `${gatewayUrl.replace(/\/$/, '')}/otlp`);
+  const settings =
+    created === null
+      ? null
+      : JSON.stringify(
+          {
+            env: {
+              CLAUDE_CODE_ENABLE_TELEMETRY: '1',
+              OTEL_METRICS_EXPORTER: 'otlp',
+              OTEL_LOGS_EXPORTER: 'none',
+              OTEL_EXPORTER_OTLP_PROTOCOL: 'http/json',
+              OTEL_EXPORTER_OTLP_ENDPOINT: endpoint,
+              OTEL_EXPORTER_OTLP_HEADERS: `Authorization=Bearer ${created.token}`,
+              OTEL_EXPORTER_OTLP_METRICS_TEMPORALITY_PREFERENCE: 'delta',
+            },
+          },
+          null,
+          2,
+        );
   const live = tokens.filter((t) => t.revokedAt === null);
   return (
     <div className="space-y-3 text-sm">
       <p className="text-muted-foreground">
-        Claude Code sends usage metrics (sessions, tokens, estimated cost) to Aperture, even on a Pro or Max subscription. Prompts and code are never sent.
+        Claude Code sends usage metrics (sessions, tokens, estimated cost) to Aperture, even on a Pro or Max
+        subscription. Prompts and code are never sent.
       </p>
       {created === null ? (
         <Button
@@ -199,7 +279,8 @@ export function TelemetrySetup({ orgId, tokens, gatewayUrl }: { orgId: string; t
                 params: { path: { orgId } },
                 body: { tool: 'claude_code', name: 'laptop' },
               });
-              if (response.data !== undefined) setCreated({ token: response.data.token, endpoint: response.data.endpoint });
+              if (response.data !== undefined)
+                setCreated({ token: response.data.token, endpoint: response.data.endpoint });
               return response;
             });
           }}
@@ -210,7 +291,12 @@ export function TelemetrySetup({ orgId, tokens, gatewayUrl }: { orgId: string; t
         <>
           <FormNotice>Copy this now; the token isn’t shown again.</FormNotice>
           <Field label="Run in a terminal" htmlFor="connect-cmd">
-            <Input id="connect-cmd" readOnly className="font-mono text-xs" value={`npx @aperture/connect claude-code --token ${created.token} --endpoint ${endpoint}`} />
+            <Input
+              id="connect-cmd"
+              readOnly
+              className="font-mono text-xs"
+              value={`npx @aperture/connect claude-code --token ${created.token} --endpoint ${endpoint}`}
+            />
           </Field>
           <Field label="Or add to ~/.claude/settings.json" htmlFor="connect-json">
             <Textarea id="connect-json" readOnly rows={11} value={settings ?? ''} />
@@ -222,14 +308,19 @@ export function TelemetrySetup({ orgId, tokens, gatewayUrl }: { orgId: string; t
           {live.map((t) => (
             <li key={t.id} className="flex items-center justify-between py-1 text-xs">
               <span>
-                <span className="font-mono">{t.prefix}…</span> {t.name} · {t.lastUsedAt === null ? 'never used' : `last data ${t.lastUsedAt.slice(0, 10)}`}
+                <span className="font-mono">{t.prefix}…</span> {t.name} ·{' '}
+                {t.lastUsedAt === null ? 'never used' : `last data ${t.lastUsedAt.slice(0, 10)}`}
               </span>
               <Button
                 size="sm"
                 variant="ghost"
                 disabled={pending}
                 onClick={() => {
-                  submit(() => api.DELETE('/api/v1/orgs/{orgId}/telemetry-tokens/{tokenId}', { params: { path: { orgId, tokenId: t.id } } }));
+                  submit(() =>
+                    api.DELETE('/api/v1/orgs/{orgId}/telemetry-tokens/{tokenId}', {
+                      params: { path: { orgId, tokenId: t.id } },
+                    }),
+                  );
                 }}
               >
                 Revoke

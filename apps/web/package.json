@@ -26,6 +26,7 @@
   },
   "devDependencies": {
     "@aperture/config": "workspace:*",
+    "@aperture/crypto": "workspace:*",
     "@tailwindcss/postcss": "^4.3.3",
     "@types/qrcode": "^1.5.6",
     "@types/react": "^19.3.0",

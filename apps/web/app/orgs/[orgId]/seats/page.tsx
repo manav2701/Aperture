@@ -78,12 +78,17 @@ export default async function SeatsPage({ params }: { params: Promise<{ orgId: s
             ) : (
               <ul className="divide-y divide-border text-sm">
                 {insights.insights.map((insight, index) => (
-                  <li key={`${insight.kind}-${insight.toolId}-${String(index)}`} className="flex flex-wrap items-center justify-between gap-2 py-2">
+                  <li
+                    key={`${insight.kind}-${insight.toolId}-${String(index)}`}
+                    className="flex flex-wrap items-center justify-between gap-2 py-2"
+                  >
                     <span>
                       <Badge>{INSIGHT_LABEL[insight.kind] ?? insight.kind}</Badge> {insight.detail}
                     </span>
                     {insight.monthlySaving === '0.00' ? null : (
-                      <span className="font-mono text-highlight">save {formatAmount(insight.monthlySaving, 'micros')}/mo</span>
+                      <span className="font-mono text-highlight">
+                        save {formatAmount(insight.monthlySaving, 'micros')}/mo
+                      </span>
                     )}
                   </li>
                 ))}
@@ -94,7 +99,9 @@ export default async function SeatsPage({ params }: { params: Promise<{ orgId: s
           <Card>
             <CardTitle>All seats ({live.length})</CardTitle>
             {live.length === 0 ? (
-              <EmptyState>No seats yet. Connect a product, import an admin-console export, or ask members to declare their tools.</EmptyState>
+              <EmptyState>
+                No seats yet. Connect a product, import an admin-console export, or ask members to declare their tools.
+              </EmptyState>
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
@@ -114,7 +121,9 @@ export default async function SeatsPage({ params }: { params: Promise<{ orgId: s
                       <tr key={seat.id} className="align-top">
                         <td className="py-2">
                           {seat.tool}
-                          {seat.planName === null ? null : <span className="block text-xs text-muted-foreground">{seat.planName}</span>}
+                          {seat.planName === null ? null : (
+                            <span className="block text-xs text-muted-foreground">{seat.planName}</span>
+                          )}
                         </td>
                         <td>
                           {seat.holder === null ? (
@@ -128,12 +137,18 @@ export default async function SeatsPage({ params }: { params: Promise<{ orgId: s
                         </td>
                         <td>{PAYER_LABEL[seat.payer]}</td>
                         <td className="text-right font-mono">
-                          {seat.monthlyCost === null ? (seat.listPrice === null ? '—' : `${formatAmount(seat.listPrice, 'micros')}*`) : formatAmount(seat.monthlyCost, 'micros')}
+                          {seat.monthlyCost === null
+                            ? seat.listPrice === null
+                              ? '—'
+                              : `${formatAmount(seat.listPrice, 'micros')}*`
+                            : formatAmount(seat.monthlyCost, 'micros')}
                         </td>
                         <td>
                           {seat.activeDays30}
                           {seat.lastActiveAt === null ? null : (
-                            <span className="block text-xs text-muted-foreground">last {formatDateTime(seat.lastActiveAt, org.timezone)}</span>
+                            <span className="block text-xs text-muted-foreground">
+                              last {formatDateTime(seat.lastActiveAt, org.timezone)}
+                            </span>
                           )}
                         </td>
                         <td>
@@ -144,10 +159,14 @@ export default async function SeatsPage({ params }: { params: Promise<{ orgId: s
                     ))}
                   </tbody>
                 </table>
-                <p className="mt-2 text-xs text-muted-foreground">* list price; set the real cost to improve estimates.</p>
+                <p className="mt-2 text-xs text-muted-foreground">
+                  * list price; set the real cost to improve estimates.
+                </p>
               </div>
             )}
-            {cancelled.length === 0 ? null : <p className="mt-3 text-xs text-muted-foreground">{cancelled.length} cancelled seat(s) hidden.</p>}
+            {cancelled.length === 0 ? null : (
+              <p className="mt-3 text-xs text-muted-foreground">{cancelled.length} cancelled seat(s) hidden.</p>
+            )}
           </Card>
 
           <Card>
@@ -185,7 +204,8 @@ export default async function SeatsPage({ params }: { params: Promise<{ orgId: s
                       <Badge tone={c.status === 'active' ? 'accent' : 'danger'}>{c.status}</Badge>
                     </div>
                     <p className="text-xs text-muted-foreground">
-                      {c.seats} seats · synced {c.lastSyncedAt === null ? 'never' : formatDateTime(c.lastSyncedAt, org.timezone)}
+                      {c.seats} seats · synced{' '}
+                      {c.lastSyncedAt === null ? 'never' : formatDateTime(c.lastSyncedAt, org.timezone)}
                     </p>
                     {c.lastError === null ? null : <p className="text-xs text-danger">{c.lastError}</p>}
                     {manage ? <SeatConnectionActions orgId={orgId} connectionId={c.id} /> : null}
@@ -198,7 +218,10 @@ export default async function SeatsPage({ params }: { params: Promise<{ orgId: s
           {manage ? (
             <Card>
               <CardTitle>Import from an admin console</CardTitle>
-              <ImportSeats orgId={orgId} tools={tools.tools.map((t) => ({ id: t.id, product: t.product, plans: t.plans }))} />
+              <ImportSeats
+                orgId={orgId}
+                tools={tools.tools.map((t) => ({ id: t.id, product: t.product, plans: t.plans }))}
+              />
             </Card>
           ) : null}
         </div>

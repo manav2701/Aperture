@@ -60,7 +60,10 @@ export async function createHarness(
   const system = await createTestDatabase();
   const appDb = connect(appRoleUrl(system.url));
   const outbox = new Outbox();
-  const logger = createLogger({ service: 'api-test', level: (process.env.TEST_LOG_LEVEL as 'silent' | undefined) ?? 'silent' });
+  const logger = createLogger({
+    service: 'api-test',
+    level: (process.env.TEST_LOG_LEVEL as 'silent' | undefined) ?? 'silent',
+  });
   const auth = createAuth({
     db: appDb.db,
     email: outbox,

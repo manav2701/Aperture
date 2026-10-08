@@ -8,7 +8,7 @@ import { api } from '@/lib/api/browser';
 import { formatAmount } from '@/lib/format';
 import { useSubmit } from '@/lib/use-submit';
 
-type Tool = {
+interface Tool {
   id: string;
   vendor: string;
   product: string;
@@ -16,7 +16,7 @@ type Tool = {
   approved: boolean;
   users: number;
   plans: { id: string; name: string; monthlyUsd: string | null; team: boolean }[];
-};
+}
 
 const CATEGORY_LABEL: Record<string, string> = {
   chat: 'Chat assistants',
@@ -39,12 +39,25 @@ export function ApprovedToolsForm({ orgId, tools, editable }: { orgId: string; t
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center gap-3">
-        <Input aria-label="Filter tools" placeholder="Filter" className="w-64" value={filter} onChange={(e) => { setFilter(e.target.value); }} />
+        <Input
+          aria-label="Filter tools"
+          placeholder="Filter"
+          className="w-64"
+          value={filter}
+          onChange={(e) => {
+            setFilter(e.target.value);
+          }}
+        />
         {editable ? (
           <Button
             disabled={pending}
             onClick={() => {
-              submit(() => api.PUT('/api/v1/orgs/{orgId}/tools/approved', { params: { path: { orgId } }, body: { toolIds: [...approved] } }));
+              submit(() =>
+                api.PUT('/api/v1/orgs/{orgId}/tools/approved', {
+                  params: { path: { orgId } },
+                  body: { toolIds: [...approved] },
+                }),
+              );
             }}
           >
             Save approved list ({approved.size})
@@ -84,13 +97,17 @@ export function ApprovedToolsForm({ orgId, tools, editable }: { orgId: string; t
                       </span>
                     </span>
                   </label>
-                  {tool.users > 0 ? <Badge tone={approved.has(tool.id) ? 'accent' : 'danger'}>{tool.users} using</Badge> : null}
+                  {tool.users > 0 ? (
+                    <Badge tone={approved.has(tool.id) ? 'accent' : 'danger'}>{tool.users} using</Badge>
+                  ) : null}
                 </li>
               ))}
           </ul>
         </section>
       ))}
-      <p className="text-xs text-muted-foreground">List prices as published by each vendor; used only for savings estimates.</p>
+      <p className="text-xs text-muted-foreground">
+        List prices as published by each vendor; used only for savings estimates.
+      </p>
     </div>
   );
 }

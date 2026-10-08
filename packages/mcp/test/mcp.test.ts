@@ -32,7 +32,7 @@ async function connected(fetch: FetchLike) {
 const text = (result: unknown) => (result as { content: { text: string }[] }).content[0]?.text ?? '';
 
 describe('Aperture MCP tools', () => {
-  it('lists the nine tools', async () => {
+  it('lists the ten tools', async () => {
     const client = await connected(fakeGateway({}).fetch);
     const { tools } = await client.listTools();
     expect(tools.map((tool) => tool.name).sort()).toEqual([
@@ -40,6 +40,7 @@ describe('Aperture MCP tools', () => {
       'create_subagent',
       'create_task_card',
       'estimate_cost',
+      'get_agent_card',
       'get_budget',
       'list_allowed_models',
       'pause_self',
@@ -67,6 +68,13 @@ describe('Aperture MCP tools', () => {
       arguments: { type: 'chat', model: 'openai/gpt-4o-mini', max_tokens: 100 },
     });
     expect(text(estimate)).toContain('"allowed": true');
+  });
+
+  it('reads the agent card from the gateway', async () => {
+    const client = await connected(
+      fakeGateway({ 'GET /v1/card': () => Response.json({ name: 'research-bot', risk_tier: 'high' }) }).fetch,
+    );
+    expect(text(await client.callTool({ name: 'get_agent_card', arguments: {} }))).toContain('"risk_tier": "high"');
   });
 
   it('turns refusals into tool errors the model can act on', async () => {

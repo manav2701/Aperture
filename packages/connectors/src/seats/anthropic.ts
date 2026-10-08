@@ -18,7 +18,7 @@ import {
  * - Claude Code Analytics API: an Admin API key; per-user daily Claude Code metrics at
  *   /v1/organizations/usage_report/claude_code, including estimated cost per model in cents.
  */
-export const ANTHROPIC_API_URL = 'https://api.anthropic.com';
+const ANTHROPIC_API_URL = 'https://api.anthropic.com';
 const VERSION = '2023-06-01';
 /** Enterprise analytics days are revised for a few days, so the last few are re-read each sync. */
 const MAX_DAYS_PER_SYNC = 7;
