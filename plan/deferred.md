@@ -1,5 +1,7 @@
 # Deferred work
 
+New features planned on 2026-10-07 (seats, guardrails, routing, finance, interop, browser extension) live in Phases 12–16; see [roadmap.md](roadmap.md). This file stays the list of postponed work inside Phases 1–11.
+
 Everything we've decided to do later, and what unblocks each item. For now, Phases 4–5 are built for all providers, but they're only exercised live with what is already in `.env`: the OpenRouter management key, the Gemini API key, Resend, Google OAuth and Neon.
 
 ## Live spend budget (testing)
@@ -42,8 +44,8 @@ Hard rule: **at most USD 1 in total per provider key**, including all testing. P
 - OpenAI and Anthropic daily cost-report reconciliation (adjustments per principal).
 - Gateway `open_capped` fail mode; `lastUsedAt` on gateway keys; prompt-body logging (`prompt_logging: full`, encrypted, with retention).
 - Hugging Face pricing (the HF router has no price catalog, so HF models are denied as unpriced until prices are added).
-- Publish `@aperture/sdk` and `@aperture/mcp` (GitHub Packages or npm) and run the MCP Inspector against staging (Phase 7 exit criterion).
-- Approvals: signed email deep links; "similar past approvals" and budget impact on the Approvals page; update the Slack message when a decision is made in the dashboard; a Microsoft Teams adapter if the design partner uses Teams.
+- Publish `@aperture/sdk` and `@aperture/mcp` (GitHub Packages or npm) and run the MCP Inspector against staging (Phase 7 exit criterion). Now scheduled in Phase 15.6.
+- Approvals: signed email deep links; "similar past approvals" and budget impact on the Approvals page; update the Slack message when a decision is made in the dashboard; a Microsoft Teams adapter if the design partner uses Teams (now Phase 15.5).
 
 - Phase 5.2b hot-budget throughput target (≥ 500 reserves/s on one budget) on production-like hardware, plus the k6 load test (200 rps, gateway overhead p99 < 30 ms).
 - Weekly live contract tests for connectors in GitHub Actions. Needs the provider keys as repository secrets, and each run spends a few cents.

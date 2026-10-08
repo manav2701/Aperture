@@ -6,7 +6,7 @@
 2. **Is our setup safe?** A posture check that lists what passes and what fails in the org's own Aperture configuration, with a fix link for every failure.
 3. **Can we prove it to someone else?** A signed attestation for a period: what was spent, what was blocked, what was approved, and proof that the audit log wasn't altered. Anyone can verify it without trusting us.
 
-**Duration:** ~3 weeks.
+**Duration:** ~3.5 weeks (3 weeks, plus about 3 days for agent cards in 11.8).
 **Depends on:** Phases 3–10. Each check uses whatever rails the org has set up. A rail that isn't set up gives "not applicable", not a failure.
 **Needs nothing from you:** no new accounts, keys, or services. All data is already in our database.
 
@@ -25,7 +25,7 @@ It also gives sales a lead-in for the design partner: connect one provider, get 
 **A correction to the first idea.** Shadow AI can't be found from our cards rail. Every Stripe Issuing card Aperture manages is already decided by the ledger in real time, so no ungoverned spend happens on it. Ungoverned AI spend lives in three other places, and 11.4 covers them:
 - Provider keys created outside Aperture. Connectors already import their usage into the `unassigned` principal, but nobody sees that as a warning yet.
 - Company cards and bank accounts that pay for ChatGPT, Cursor, Midjourney, and similar. We only see these if the customer uploads a statement.
-- Personal subscriptions people expense later. These are out of scope here. The browser extension on the roadmap is the long-term answer.
+- Seats and personal subscriptions (ChatGPT Plus, Claude Pro, Cursor…) that people pay for themselves or expense later. These are out of scope here. [Phase 12](../phase-12-seats-and-tools/README.md) covers them (seat connectors, receipts inbox, self-declaration, terminal-tool telemetry), and [Phase 16](../phase-16-browser-extension/README.md) adds the browser extension.
 
 ## Starting point
 
@@ -37,7 +37,7 @@ It also gives sales a lead-in for the design partner: connect one provider, get 
 
 ## Scope
 
-**In:** posture check engine with a versioned check catalogue; waivers for accepted risks; a daily posture run with regression alerts; AI inventory with a governance coverage figure; shadow-AI detection from unassigned provider usage and uploaded statements; signed attestations (JSON plus PDF) with a public verify page and a CLI verifier; RBAC permissions; dashboard pages.
+**In:** posture check engine with a versioned check catalogue; waivers for accepted risks; a daily posture run with regression alerts; AI inventory with a governance coverage figure; shadow-AI detection from unassigned provider usage and uploaded statements; signed attestations (JSON plus PDF) with a public verify page and a CLI verifier; agent cards (one page per agent); RBAC permissions; dashboard pages.
 
 **Out:** testing the models themselves (prompt injection, jailbreaks, red-teaming). That's a different and crowded market (Lakera, Protect AI, Promptfoo). Also out: live bank and card feeds (Lean, Pemo, Ramp, Brex APIs), Google Workspace or Microsoft 365 OAuth-grant discovery, the browser extension, and anonymous "scan without signing up". All are listed under [After Phase 11](#after-phase-11).
 
@@ -73,6 +73,7 @@ Every check is a typed record: `id`, `title`, `severity` (`critical`, `high`, `m
 | `keys.idle_live` | No live key has gone unused for 30 days or more | high | `api_keys.last_used_at` |
 | `keys.age` | No live key is older than 90 days | medium | `api_keys.created_at` |
 | `agents.idle_with_credentials` | No agent idle for 30+ days still holds live keys, cards, or x402 delegates | high | `principals` × last activity |
+| `agents.high_risk_hard_capped` | Every agent with `risk_tier = high` (11.7) sits under a hard budget and an `approval_threshold` rule | high | `principals.risk_tier` × `budgets`, `policies` |
 | `conn.healthy` | Every connection is `active`, has no `last_error`, and synced within 24 h | high | `connections` |
 | `conn.unassigned_usage` | No provider usage in the period went to the `unassigned` principal | high | `credentials.principal_id` null × usage |
 | `conn.enforceable` | Credentials with usage can be limited or revoked (`created_by_aperture` or a supported T2 path) | medium | `credentials` |
@@ -150,7 +151,23 @@ Contents:
 
 Tag checks with related controls so compliance buyers can file the attestation as evidence: ISO/IEC 42001:2023 Annex A, the NIST AI RMF 1.0 functions (Govern, Map, Measure, Manage), EU AI Act deployer duties (for example record-keeping and human oversight), and the UAE AI Charter and DIFC Regulation 10 for GCC buyers. Always say **"related to"**, never "compliant with". **VERIFY** every mapping and the current EU AI Act application dates with counsel before shipping. Dates for high-risk systems were under revision in 2025–26.
 
-### 11.7 Permissions, dashboard, onboarding
+### 11.7 Agent cards
+
+Credo AI ("Agent Registry & Agent Cards") and JFrog (MCP registry) both sell agents as first-class governed things. We already hold everything about an agent; it's spread across six pages. An agent card puts it on one.
+
+- **Page** `/agents/{id}`, with the same data at `GET /orgs/{id}/principals/{pid}/card` (JSON) for the SDK, the MCP server, and the attestation:
+  - Identity: name, description, owner (and whether they are still a member), team, created by, created at, status (active, paused, revoked).
+  - **Authority:** budgets on its path (with remaining amounts), the policy rules that resolve for it (`evaluate` already resolves them; show them read-only with their source), active mandates and their parent chain, sub-agents.
+  - **Means to spend:** gateway keys (prefix, last used, expiry), provider credentials mapped to it, cards, x402 accounts with on-chain allowance. Each one has its revoke button.
+  - **Activity:** 30-day spend by rail and model, request outcomes (allowed, each deny reason), approvals asked and granted, kill-switch events, and the last 20 audit events.
+  - **Posture:** the 11.1 checks whose subjects include this agent, with their state.
+  - **Governance status** from 11.3 (`enforced`, `visible`, `unassigned`).
+- **Declared purpose** (new optional fields on `principals`): `purpose` (free text, ≤ 500 chars), `data_classes` (multi-select: none, internal, customer personal data, financial, health), `risk_tier` (low, medium, high, set by an admin). These are self-declared, not inferred. They feed posture (new check `agents.high_risk_hard_capped`: every `high` agent sits under a hard budget and an approval threshold) and appear in the attestation and the Phase 15 evidence pack.
+- **Card export:** "Download agent card" as signed JSON (same JWS path as 11.5) for a customer's own registry or a vendor questionnaire.
+- **MCP tool** `get_agent_card` in `@aperture/mcp`, so an agent can read its own limits before it plans work.
+- No new rail logic. Every field comes from existing tables plus the three new columns.
+
+### 11.8 Permissions, dashboard, onboarding
 
 - New RBAC permissions in `packages/core/src/rbac.ts`:
 
@@ -163,7 +180,8 @@ Tag checks with related controls so compliance buyers can file the attestation a
   | `attestation.create` | ✓ | ✓ | ✓ | | | |
   | `attestation.read` | ✓ | ✓ | ✓ | | | ✓ |
 
-- Dashboard: **Posture** (score, grade, failures grouped by severity, each with a fix link and a "waive" button, plus history), **Inventory**, **Shadow AI** (unassigned keys plus statement rows), and **Attestations**.
+- Dashboard: **Posture** (score, grade, failures grouped by severity, each with a fix link and a "waive" button, plus history), **Inventory**, **Shadow AI** (unassigned keys plus statement rows), **Attestations**, and an **agent card** for every agent (linked from Inventory, Agents, and every audit event about that agent).
+- `agent.card.read` follows `inventory.read`. Editing `purpose`, `data_classes`, and `risk_tier` needs `principals.write`; only owner and admin can set `risk_tier`.
 - Onboarding checklist (from Phase 10): show the first posture score as soon as the first provider is connected.
 - Billing hypothesis to test with the pilot: posture and inventory on every plan (that's how people find us), statement import on Team and above, attestations on Business. Enforce through the existing `org_billing` plan limits.
 
@@ -178,6 +196,7 @@ V1–V16 (new section in [edge-cases](../../edge-cases/README.md#posture-invento
 - **F:** fuzz the CSV parser with malformed rows, huge files, odd encodings, formula payloads (`=`, `+`, `-`, `@`), and mixed currencies.
 - **I (Testcontainers Postgres):** the snapshot never returns secret columns (assert on the generated SQL column list). RLS stops cross-org reads on every new endpoint. INV-16: importing statements changes no row in `ledger_entries`, `holds`, or `budget_usage`. A daily run alerts on new failures only. Statement uploads are deduplicated. Waivers expire.
 - **Attestation:** sign, then verify. Flipping any byte of the JSON fails verification. Attestations made before a key rotation still verify. The Merkle root and chain range in the attestation equal those recomputed from `audit export` by the CLI. An attestation over a period with a broken chain says "chain broken at seq N" and can't claim "intact" (V5). Statistics still match after the request-log retention job has deleted logs (V6).
+- **Agent cards:** the card JSON never contains secrets (assert on keys); a team lead can't open another team's agent card (RLS); the signed card verifies; changing `risk_tier` writes an audit event.
 - **E (Playwright):** connect the fake provider, then see a score. Fix a failure and the score rises. Waive a check. Upload a statement and only matched rows reach the server (assert on the network request). Generate an attestation, download it, verify it on `/verify`. Open a share link, revoke it, and see it refused.
 - **Performance:** a snapshot for an org with 10k agents, 50k keys, and 5M audit events at p95 < 2 s. Chain verification is incremental from the last checkpoint (V15).
 
@@ -205,6 +224,7 @@ Migrations for `posture_runs`, `posture_waivers`, `external_spend`, `statement_u
 4. Make a CSV with ten rows (five AI vendors, five groceries) and upload it in **Shadow AI** → only the five AI rows appear. The browser's network tab shows the groceries were never sent.
 5. **Attestations → New** for the last 30 days → download the JSON and PDF. Open `/verify` in a private window, drop in the JSON → "valid". Change one number in the JSON → "invalid".
 6. Run `pnpm attestation-verify att.json --audit audit.jsonl` with the period's audit export → the chain range and Merkle root match.
+7. Open an agent from **Inventory** → its card shows budgets, rules, keys, spend and recent audit events. Set its risk tier to `high` → posture flags `agents.high_risk_hard_capped` until it has a hard budget and an approval threshold.
 
 ## Exit criteria
 
@@ -213,12 +233,18 @@ Migrations for `posture_runs`, `posture_waivers`, `external_spend`, `statement_u
 - [ ] Unassigned-key claiming and statement import working end to end, INV-16 enforced by test
 - [ ] Attestations signed, downloadable, verifiable on the web and from the CLI; ADR 0020 written
 - [ ] Disclaimer and UI wording approved in the legal review
+- [ ] Agent cards live for every agent, with signed JSON export and the `get_agent_card` MCP tool
 - [ ] The design partner has seen their own posture score and one attestation, and told us which checks and frameworks matter to them
 
 ## After Phase 11
 
+Planned in later phases:
+- Seats, subscriptions, receipts, and terminal-tool telemetry → [Phase 12](../phase-12-seats-and-tools/README.md).
+- Anomaly detection and configurable rate limits → [Phase 13](../phase-13-guardrails-and-routing/README.md).
+- Framework evidence packs (extends 11.6), OAuth-grant discovery in Google Workspace and Microsoft 365, and SCIM → [Phase 15](../phase-15-interop-and-distribution/README.md).
+- Browser extension → [Phase 16](../phase-16-browser-extension/README.md).
+
+Still unscheduled:
 - Live spend feeds instead of CSV: Lean (UAE open banking), Pemo, Ramp, and Brex APIs.
-- OAuth-grant discovery: list third-party AI apps that employees connected to Google Workspace (Admin SDK Tokens API) or Microsoft 365 (Entra enterprise apps). **VERIFY** scopes.
-- Browser extension for shadow-AI discovery (already on the roadmap).
 - Scheduled attestations (monthly, auto-shared with a named auditor).
 - Org-defined custom checks written in the policy rule language.
