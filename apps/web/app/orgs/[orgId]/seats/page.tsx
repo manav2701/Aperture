@@ -2,7 +2,14 @@ import { can } from '@aperture/core';
 import { Badge, Card, CardTitle, EmptyState, PageHeader } from '@/components/ui/card';
 import { serverApi, unwrap } from '@/lib/api/server';
 import { formatAmount, formatDateTime } from '@/lib/format';
-import { ConnectSeats, EditSeat, ImportSeats, ReviewReceiptForm, SeatConnectionActions } from './seat-actions';
+import {
+  ConnectSeats,
+  EditSeat,
+  ImportSeats,
+  ReviewReceiptForm,
+  SeatConnectionActions,
+  SeatSettingsForm,
+} from './seat-actions';
 
 const PAYER_LABEL: Record<string, string> = {
   company: 'Company',
@@ -25,7 +32,7 @@ export default async function SeatsPage({ params }: { params: Promise<{ orgId: s
   const org = await api.GET('/api/v1/orgs/{orgId}', path).then(unwrap);
   const manage = can(org.role, 'seats.manage');
   const review = can(org.role, 'receipts.review');
-  const [seats, insights, connections, providers, usage, tools, members, receipts] = await Promise.all([
+  const [seats, insights, connections, providers, usage, tools, members, receipts, settings] = await Promise.all([
     api.GET('/api/v1/orgs/{orgId}/seats', path).then(unwrap),
     api.GET('/api/v1/orgs/{orgId}/seats/insights', path).then(unwrap),
     api.GET('/api/v1/orgs/{orgId}/seat-connections', path).then(unwrap),
@@ -38,6 +45,7 @@ export default async function SeatsPage({ params }: { params: Promise<{ orgId: s
           .GET('/api/v1/orgs/{orgId}/receipts', { params: { path: { orgId }, query: { status: 'review' } } })
           .then(unwrap)
       : null,
+    api.GET('/api/v1/orgs/{orgId}/settings/seats', path).then(unwrap),
   ]);
   const queue = receipts?.receipts ?? [];
   const people = (members?.members ?? []).map((m) => ({ userId: m.userId, name: m.name, email: m.email }));
@@ -254,6 +262,12 @@ export default async function SeatsPage({ params }: { params: Promise<{ orgId: s
             )}
             {manage ? <ConnectSeats orgId={orgId} providers={providers.providers} /> : null}
           </Card>
+          {manage ? (
+            <Card>
+              <CardTitle>Settings</CardTitle>
+              <SeatSettingsForm orgId={orgId} initial={settings} />
+            </Card>
+          ) : null}
           {manage ? (
             <Card>
               <CardTitle>Import from an admin console</CardTitle>

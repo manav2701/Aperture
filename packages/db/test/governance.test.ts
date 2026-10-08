@@ -16,6 +16,7 @@ import {
   fxRates,
   holds,
   ledgerEntries,
+  orgSettings,
   receipts,
   seats,
   statementUploads,
@@ -343,6 +344,26 @@ describe('attestations', () => {
       '.',
     );
     expect(() => verifyJws(tampered, jwks)).toThrow();
+
+    // V6: a period older than request-log retention still gets its numbers from the ledger and
+    // audit chain, and says that denials may be missing instead of reporting zero.
+    expect(document.activity.decisions.requestLogComplete).toBe(true);
+    await system.db
+      .insert(orgSettings)
+      .values({ orgId: tree.org.id, requestLogDays: 7 })
+      .onConflictDoUpdate({ target: orgSettings.orgId, set: { requestLogDays: 7 } });
+    const older = await withOrg(app.db, tree.org.id, (tx) =>
+      createAttestation(tx, ring, {
+        orgId: tree.org.id,
+        from: new Date(Date.now() - 30 * 86_400_000),
+        to,
+        createdBy: user,
+        issuer,
+        apertureVersion: 'test',
+      }),
+    );
+    expect(older.document.activity.decisions.requestLogComplete).toBe(false);
+    expect(older.document.activity).toMatchObject({ approvals: { granted: 1 }, mandates: { issued: 1 } });
 
     await rotatePlatformSigningKey(app.db, ring);
     expect(() => verifyJws(created.jws, { keys: [] })).toThrow();

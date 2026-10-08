@@ -348,14 +348,16 @@ async function readableCard(
   principalId: string,
 ) {
   const card = await withOrg(deps.db, orgId, (tx) => buildCard(tx, orgId, principalId));
-  const reach = reachOf(membership, 'agents.read');
+  // Card reads follow inventory.read (plan §11.8): a team lead sees only their team's agents,
+  // because the card carries spend, keys and audit events, unlike the agents list.
+  const reach = reachOf(membership, 'inventory.read');
   if (reach.kind === 'team' && card.team?.id !== reach.teamId) throw notFound('agent');
   return card;
 }
 
 export function registerAgentCardRoutes(router: Router, deps: AppDeps): void {
   router.add(
-    { permission: 'agents.read' },
+    { permission: 'inventory.read' },
     createRoute({
       method: 'get',
       path: '/api/v1/orgs/{orgId}/agents/{principalId}/card',
@@ -371,7 +373,7 @@ export function registerAgentCardRoutes(router: Router, deps: AppDeps): void {
   );
 
   router.add(
-    { permission: 'agents.read' },
+    { permission: 'inventory.read' },
     createRoute({
       method: 'get',
       path: '/api/v1/orgs/{orgId}/agents/{principalId}/card.jws',

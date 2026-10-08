@@ -498,3 +498,63 @@ export function ReviewReceiptForm({
     </form>
   );
 }
+
+/** When a seat counts as idle, and when seat overage alerts (Aperture can't cap overage). */
+export function SeatSettingsForm({
+  orgId,
+  initial,
+}: {
+  orgId: string;
+  initial: { idleSeatDays: number; extraUsageAlertUsd: string | null };
+}) {
+  const { submit, pending, error } = useSubmit();
+  const [days, setDays] = useState(String(initial.idleSeatDays));
+  const [alert, setAlert] = useState(initial.extraUsageAlertUsd ?? '');
+  return (
+    <form
+      className="space-y-3 text-sm"
+      onSubmit={(event) => {
+        event.preventDefault();
+        submit(() =>
+          api.PUT('/api/v1/orgs/{orgId}/settings/seats', {
+            params: { path: { orgId } },
+            body: { idleSeatDays: Number(days), extraUsageAlertUsd: alert === '' ? null : alert },
+          }),
+        );
+      }}
+    >
+      <Field label="Idle after (days without activity)" htmlFor="idle-days">
+        <Input
+          id="idle-days"
+          type="number"
+          min={7}
+          max={365}
+          required
+          value={days}
+          onChange={(e) => {
+            setDays(e.target.value);
+          }}
+        />
+      </Field>
+      <Field
+        label="Alert when overage in 30 days passes (USD)"
+        htmlFor="overage-alert"
+        hint="Empty turns the alert off. Set spending limits in each vendor's console; Aperture can't cap them."
+      >
+        <Input
+          id="overage-alert"
+          placeholder="e.g. 200"
+          pattern="\d+(\.\d{1,6})?"
+          value={alert}
+          onChange={(e) => {
+            setAlert(e.target.value);
+          }}
+        />
+      </Field>
+      <FormError message={error} />
+      <Button type="submit" size="sm" variant="secondary" disabled={pending}>
+        Save
+      </Button>
+    </form>
+  );
+}

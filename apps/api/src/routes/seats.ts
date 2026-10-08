@@ -20,6 +20,7 @@ import {
   eq,
   inArray,
   isNull,
+  refreshSeatIdleness,
   schema,
   sql,
   upsertSeat,
@@ -867,6 +868,73 @@ export function registerSeatRoutes(router: Router, deps: AppDeps): void {
         });
       });
       return c.json({ toolIds }, 200);
+    },
+  );
+
+  const SeatSettingsSchema = z
+    .object({
+      /** Days without activity before a connector or imported seat counts as idle. */
+      idleSeatDays: z.number().int().min(7).max(365),
+      /** Alert when seat overage in 30 days passes this many USD; null turns the alert off. */
+      extraUsageAlertUsd: UsdAmount.nullable(),
+    })
+    .openapi('SeatSettings');
+  const seatSettingsOf = (orgId: string) =>
+    withOrg(deps.db, orgId, async (tx) => {
+      const [row] = await tx
+        .select({ idle: schema.orgSettings.idleSeatDays, alert: schema.orgSettings.extraUsageAlert })
+        .from(schema.orgSettings)
+        .where(eq(schema.orgSettings.orgId, orgId));
+      return {
+        idleSeatDays: row?.idle ?? 30,
+        extraUsageAlertUsd: row?.alert == null ? null : usd(row.alert),
+      };
+    });
+
+  router.add(
+    { permission: 'seats.read' },
+    createRoute({
+      method: 'get',
+      path: '/api/v1/orgs/{orgId}/settings/seats',
+      tags: ['seats'],
+      summary: 'The idle-seat threshold and the seat overage alert',
+      request: { params: OrgParams },
+      responses: { 200: json(SeatSettingsSchema), ...errorResponses },
+    }),
+    async (c) => c.json(await seatSettingsOf(c.req.valid('param').orgId), 200),
+  );
+
+  router.add(
+    { permission: 'seats.manage' },
+    createRoute({
+      method: 'put',
+      path: '/api/v1/orgs/{orgId}/settings/seats',
+      tags: ['seats'],
+      summary: 'Set the idle-seat threshold and the seat overage alert (Aperture can’t cap overage; vendors can)',
+      request: { params: OrgParams, ...jsonBody(SeatSettingsSchema) },
+      responses: { 200: json(SeatSettingsSchema), ...errorResponses },
+    }),
+    async (c) => {
+      const user = requireUser(c);
+      const { orgId } = c.req.valid('param');
+      const body = c.req.valid('json');
+      const values = { idleSeatDays: body.idleSeatDays, extraUsageAlert: optionalUsd(body.extraUsageAlertUsd) };
+      await withOrg(deps.db, orgId, async (tx) => {
+        await tx
+          .insert(schema.orgSettings)
+          .values({ orgId, ...values })
+          .onConflictDoUpdate({ target: schema.orgSettings.orgId, set: { ...values, updatedAt: new Date() } });
+        // The new threshold applies now, not at tomorrow's run.
+        await refreshSeatIdleness(tx, orgId, new Date());
+        await auditByUser(tx, {
+          orgId,
+          userId: user.id,
+          action: 'seats.settings_changed',
+          subject: `org:${orgId}`,
+          data: body,
+        });
+      });
+      return c.json(await seatSettingsOf(orgId), 200);
     },
   );
 

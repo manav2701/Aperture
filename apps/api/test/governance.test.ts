@@ -1,6 +1,6 @@
 import { createHmac } from 'node:crypto';
 import { verifyJws } from '@aperture/crypto';
-import { count, eq, schema } from '@aperture/db';
+import { and, count, desc, eq, schema } from '@aperture/db';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { body, createHarness, createOrg, joinAs, signUp, type Harness } from './harness';
 
@@ -251,6 +251,40 @@ describe('agent cards', () => {
     const { jws } = await body<{ jws: string }>(await get(`${base}/agents/${agent.id}/card.jws`, owner));
     const jwks = await body<{ keys: [] }>(await h.request('/api/v1/public/jwks.json'));
     expect((verifyJws(jws, jwks).payload as { card: { id: string } }).card.id).toBe(agent.id);
+
+    const [audited] = await h.system.db
+      .select({ data: schema.auditEvents.data })
+      .from(schema.auditEvents)
+      .where(and(eq(schema.auditEvents.orgId, orgId), eq(schema.auditEvents.subject, `principal:${agent.id}`)))
+      .orderBy(desc(schema.auditEvents.seq))
+      .limit(1);
+    expect(JSON.stringify(audited?.data)).toContain('high');
+  });
+
+  it('shows a team lead only their own team’s agent cards', async () => {
+    const { owner, orgId, base } = await org();
+    const research = await body<{ id: string }>(await post(`${base}/teams`, owner, { name: 'Research' }));
+    const sales = await body<{ id: string }>(await post(`${base}/teams`, owner, { name: 'Sales' }));
+    const lead = await joinAs(h, {
+      ownerCookie: owner,
+      orgId,
+      email: email('rlead'),
+      role: 'team_lead',
+      teamId: research.id,
+    });
+    const mine = await body<{ id: string }>(
+      await post(`${base}/agents`, owner, {
+        name: 'r-bot',
+        teamId: research.id,
+        budget: { limit: '1', period: 'day' },
+      }),
+    );
+    const theirs = await body<{ id: string }>(
+      await post(`${base}/agents`, owner, { name: 's-bot', teamId: sales.id, budget: { limit: '1', period: 'day' } }),
+    );
+    expect((await get(`${base}/agents/${mine.id}/card`, lead)).status).toBe(200);
+    expect((await get(`${base}/agents/${theirs.id}/card`, lead)).status).toBe(404);
+    expect((await get(`${base}/agents/${theirs.id}/card.jws`, lead)).status).toBe(404);
   });
 });
 
@@ -395,6 +429,21 @@ describe('seats, tools, and terminal telemetry', () => {
       body: JSON.stringify({ resourceMetrics: [] }),
     });
     expect(response.status).toBe(401);
+  });
+
+  it('lets seat managers set the idle threshold and overage alert, and members only read them', async () => {
+    const { owner, orgId, base } = await org();
+    expect(await body(await get(`${base}/settings/seats`, owner))).toEqual({
+      idleSeatDays: 30,
+      extraUsageAlertUsd: null,
+    });
+    const put = (cookie: string, payload: unknown) =>
+      h.request(`${base}/settings/seats`, { method: 'PUT', cookie, body: JSON.stringify(payload) });
+    const saved = await put(owner, { idleSeatDays: 14, extraUsageAlertUsd: '250.00' });
+    expect(await body(saved)).toEqual({ idleSeatDays: 14, extraUsageAlertUsd: '250.00' });
+    expect((await put(owner, { idleSeatDays: 3, extraUsageAlertUsd: null })).status).toBe(400);
+    const member = await joinAs(h, { ownerCookie: owner, orgId, email: email('seatmember'), role: 'member' });
+    expect((await put(member, { idleSeatDays: 60, extraUsageAlertUsd: null })).status).toBe(403);
   });
 
   it('connects a Cursor team, syncs its seats, and refuses a second connection to the same account', async () => {
