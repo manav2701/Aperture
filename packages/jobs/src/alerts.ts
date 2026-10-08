@@ -24,7 +24,10 @@ export type AlertKind =
   | 'card_decisions_timing_out'
   | 'x402_unknown_transfer'
   | 'x402_allowance_revoked'
-  | 'org_deletion_scheduled';
+  | 'org_deletion_scheduled'
+  | 'posture_regression'
+  | 'waiver_expiring'
+  | 'seat_extra_usage';
 
 /** Queues an alert once per dedupe key (C2: a threshold alerts once per budget period). */
 export async function queueAlert(
@@ -163,6 +166,21 @@ export function alertMessage(kind: string, payload: Record<string, unknown>): { 
         subject: 'Your Aperture organization is being deleted',
         text: 'The 30-day grace period after the deletion request has ended. All keys and agents are revoked and connections disabled; the remaining data will be deleted by Aperture operators. The audit chain is kept for the contractual retention period.',
       };
+    case 'posture_regression':
+      return {
+        subject: `New ${s(payload.severity)} posture failure: ${s(payload.title)}`,
+        text: `The daily posture check found a new ${s(payload.severity)} failure (${s(payload.check)}) affecting ${s(payload.subjects)} item(s). Open Posture to see what fails and how to fix it.`,
+      };
+    case 'waiver_expiring':
+      return {
+        subject: `A posture waiver expires on ${s(payload.expires)}`,
+        text: `The waiver for ${s(payload.check)} ("${s(payload.reason)}") expires on ${s(payload.expires)}. After that the check counts as failing again unless it is fixed or waived anew.`,
+      };
+    case 'seat_extra_usage':
+      return {
+        subject: `AI seat overage reached $${s(payload.total)} in 30 days`,
+        text: `Usage-based charges on top of AI seats came to $${s(payload.total)} in the last 30 days, above your alert threshold of $${s(payload.threshold)}. Aperture can't cap these: set spending limits in each vendor's admin console.`,
+      };
     default:
       return { subject: `Aperture alert: ${kind}`, text: JSON.stringify(payload) };
   }
@@ -184,7 +202,11 @@ export async function dispatchAlerts(deps: JobDeps): Promise<number> {
     const link =
       alert.kind === 'approval_requested'
         ? `${deps.webOrigin}/orgs/${alert.orgId}/approvals`
-        : `${deps.webOrigin}/orgs/${alert.orgId}`;
+        : alert.kind === 'posture_regression' || alert.kind === 'waiver_expiring'
+          ? `${deps.webOrigin}/orgs/${alert.orgId}/posture`
+          : alert.kind === 'seat_extra_usage'
+            ? `${deps.webOrigin}/orgs/${alert.orgId}/seats`
+            : `${deps.webOrigin}/orgs/${alert.orgId}`;
     try {
       const { recipients, slack, slackApp } = await withOrg(dbOf(deps), alert.orgId, async (tx) => {
         const people = await tx

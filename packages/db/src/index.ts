@@ -89,6 +89,24 @@ export {
   type MandateRow,
 } from './mandates';
 export { principalPolicyContext } from './policies';
+export {
+  PROVIDER_CONNECTIONS,
+  collectPostureSnapshot,
+  coverageAmounts,
+  inventoryRows,
+  type AuditCheckpoint,
+  type InventoryKind,
+  type InventoryRow,
+  type SnapshotOptions,
+} from './posture';
+export {
+  createAttestation,
+  platformJwks,
+  platformSigningKey,
+  rotatePlatformSigningKey,
+  type AttestationInput,
+} from './attestations';
+export { addToolUsage, convertToMicros, recordSeatDay, setSeatExtraUsage, upsertSeat, type SeatInput } from './seats';
 // Query helpers, re-exported so every package uses this package's single drizzle-orm instance.
 export {
   and,

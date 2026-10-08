@@ -29,6 +29,24 @@ export const PERMISSIONS = [
   'approvals.read',
   /** Approve or deny requests (never your own, or your own agents'). */
   'approvals.decide',
+  /** Governance posture (Phase 11): read checks and results; waive a failing check. */
+  'posture.read',
+  'posture.waive',
+  /** The AI inventory and its governance coverage figure. */
+  'inventory.read',
+  /** Upload bank or card statements to find AI spend Aperture doesn't govern. */
+  'external_spend.import',
+  'attestation.create',
+  'attestation.read',
+  /** Seats and subscriptions (Phase 12). */
+  'seats.read',
+  'seats.manage',
+  /** Review receipts the inbox couldn't import on its own. */
+  'receipts.review',
+  /** Declare your own AI tools, forward receipts, and connect your terminal tools. */
+  'tools.declare',
+  /** See and revoke every member's telemetry tokens. */
+  'telemetry.manage',
 ] as const;
 export type Permission = (typeof PERMISSIONS)[number];
 
@@ -63,6 +81,15 @@ export const ROLE_GRANTS: Record<Role, Partial<Record<Permission, Grant>>> = {
     'workspace.use': 'all',
     'approvals.read': 'all',
     'approvals.decide': 'all',
+    'posture.read': 'all',
+    'inventory.read': 'all',
+    'external_spend.import': 'all',
+    'attestation.create': 'all',
+    'attestation.read': 'all',
+    'seats.read': 'all',
+    'seats.manage': 'all',
+    'receipts.review': 'all',
+    'tools.declare': 'all',
   },
   team_lead: {
     'org.read': 'all',
@@ -79,11 +106,16 @@ export const ROLE_GRANTS: Record<Role, Partial<Record<Permission, Grant>>> = {
     'workspace.use': 'all',
     'approvals.read': 'all',
     'approvals.decide': 'team',
+    'posture.read': 'team',
+    'inventory.read': 'team',
+    'seats.read': 'team',
+    'tools.declare': 'all',
   },
   member: {
     'org.read': 'all',
     'teams.read': 'all',
     'workspace.use': 'all',
+    'tools.declare': 'all',
   },
   auditor: {
     'org.read': 'all',
@@ -98,6 +130,11 @@ export const ROLE_GRANTS: Record<Role, Partial<Record<Permission, Grant>>> = {
     'spend.read': 'all',
     'agents.read': 'all',
     'approvals.read': 'all',
+    'posture.read': 'all',
+    'inventory.read': 'all',
+    'attestation.read': 'all',
+    'seats.read': 'all',
+    'tools.declare': 'all',
   },
 };
 

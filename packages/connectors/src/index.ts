@@ -19,3 +19,13 @@ export {
   type Provider,
   type UsageRecord,
 } from './types';
+export { SEAT_PROVIDER_INFO, isSeatProvider, seatConnectorFor, type SeatProviderInfo } from './seats/registry';
+export {
+  SEAT_PROVIDER_IDS,
+  type SeatConnector,
+  type SeatConnectorOptions,
+  type SeatDay,
+  type SeatModelUsage,
+  type SeatProvider,
+  type SeatRecord,
+} from './seats/types';

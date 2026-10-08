@@ -8,6 +8,8 @@ import { expireAllHolds, syncPrices, verifyLedgers } from './maintenance';
 import { pollMediaJobs } from './media';
 import { startScheduler, type Job, type Scheduler } from './scheduler';
 import { syncAllConnections } from './sync';
+import { runAllPosture } from './posture';
+import { checkSeatOverage, syncAllSeatConnections } from './seats';
 
 export { alertMessage, dispatchAlerts, queueAlert, scanBudgetThresholds, type AlertKind } from './alerts';
 export { expirePendingApprovals, notifyApprovals } from './approvals';
@@ -19,6 +21,14 @@ export { expireAllHolds, syncPrices, verifyLedgers } from './maintenance';
 export { pollMediaJobs } from './media';
 export { SLACK_API, SlackApiError, alertBlocks, slackApi, slackEscape } from './slack';
 export { startScheduler, type Job, type Scheduler } from './scheduler';
+export { REVOCABLE_PROVIDERS, runAllPosture, runPosture, type PostureRun } from './posture';
+export {
+  checkSeatOverage,
+  seatConnectorForConnection,
+  syncAllSeatConnections,
+  syncSeatConnection,
+  type SeatSyncResult,
+} from './seats';
 export {
   connectorForConnection,
   syncAllConnections,
@@ -57,6 +67,9 @@ export function standardJobs(deps: JobDeps): Job[] {
     job('audit.anchor', 60 * MINUTE, () => anchorAudits(deps)),
     job('privacy.retention', 24 * 60 * MINUTE, () => applyRetention(deps)),
     job('privacy.deletions', 60 * MINUTE, () => processDeletions(deps)),
+    job('posture.run', 24 * 60 * MINUTE, () => runAllPosture(deps)),
+    job('seats.sync', 6 * 60 * MINUTE, () => syncAllSeatConnections(deps)),
+    job('seats.overage', 24 * 60 * MINUTE, () => checkSeatOverage(deps)),
   ];
 }
 

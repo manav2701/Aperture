@@ -113,6 +113,20 @@
       "when": 1790621592286,
       "tag": "0015_production_security",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1791436070675,
+      "tag": "0016_posture_and_seats",
+      "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1791436072258,
+      "tag": "0017_posture_and_seats_security",
+      "breakpoints": true
     }
   ]
 }

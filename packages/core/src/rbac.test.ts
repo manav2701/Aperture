@@ -22,6 +22,15 @@ describe('role grants (plan/architecture §11 role table)', () => {
       'workspace.use',
       'approvals.read',
       'approvals.decide',
+      'posture.read',
+      'inventory.read',
+      'external_spend.import',
+      'attestation.create',
+      'attestation.read',
+      'seats.read',
+      'seats.manage',
+      'receipts.review',
+      'tools.declare',
     ],
     team_lead: [
       'org.read',
@@ -38,8 +47,12 @@ describe('role grants (plan/architecture §11 role table)', () => {
       'workspace.use',
       'approvals.read',
       'approvals.decide',
+      'posture.read',
+      'inventory.read',
+      'seats.read',
+      'tools.declare',
     ],
-    member: ['org.read', 'teams.read', 'workspace.use'],
+    member: ['org.read', 'teams.read', 'workspace.use', 'tools.declare'],
     auditor: [
       'org.read',
       'members.read',
@@ -53,6 +66,11 @@ describe('role grants (plan/architecture §11 role table)', () => {
       'spend.read',
       'agents.read',
       'approvals.read',
+      'posture.read',
+      'inventory.read',
+      'attestation.read',
+      'seats.read',
+      'tools.declare',
     ],
   };
 
@@ -66,10 +84,15 @@ describe('role grants (plan/architecture §11 role table)', () => {
     expect(grantFor('team_lead', 'agents.manage')).toBe('team');
     expect(grantFor('team_lead', 'approvals.decide')).toBe('team');
     expect(grantFor('team_lead', 'budgets.read')).toBe('all');
+    expect(grantFor('team_lead', 'inventory.read')).toBe('team');
+    expect(grantFor('team_lead', 'posture.read')).toBe('team');
+    expect(grantFor('team_lead', 'seats.read')).toBe('team');
   });
 
   it('keeps auditors read-only', () => {
-    expect(PERMISSIONS.filter((p) => can('auditor', p) && /\.(manage|update)$/.test(p))).toEqual([]);
+    expect(
+      PERMISSIONS.filter((p) => can('auditor', p) && /\.(manage|update|waive|create|import|review)$/.test(p)),
+    ).toEqual([]);
   });
 
   it('only owners grant or revoke the owner role', () => {

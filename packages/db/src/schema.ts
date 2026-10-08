@@ -23,6 +23,8 @@ const inList = (column: string, values: readonly string[]) =>
   sql.raw(`${column} in (${values.map((value) => `'${value}'`).join(', ')})`);
 
 export const RAIL_VALUES = ['gateway', 'provider', 'card', 'x402'] as const;
+export const RISK_TIERS = ['low', 'medium', 'high'] as const;
+export const DATA_CLASSES = ['none', 'internal', 'customer_personal', 'financial', 'health'] as const;
 export const HOLD_STATUSES = ['open', 'settled', 'released', 'expired_reconciling'] as const;
 export const EXPIRY_ACTIONS = ['settle', 'release', 'reconcile'] as const;
 export const ENTRY_KINDS = [
@@ -64,6 +66,14 @@ export const principals = pgTable(
     description: text('description'),
     /** `unassigned`: the org's catch-all for provider usage from keys not yet mapped to anyone. */
     systemRole: text('system_role', { enum: ['unassigned'] }),
+    /** Agent cards (Phase 11 §11.7): self-declared, never inferred. */
+    purpose: text('purpose'),
+    dataClasses: text('data_classes')
+      .array()
+      .notNull()
+      .default(sql`'{}'::text[]`),
+    /** Set by an owner or admin; `high` agents need a hard budget and an approval threshold. */
+    riskTier: text('risk_tier', { enum: RISK_TIERS }),
     createdAt: createdAt(),
   },
   (table) => [
@@ -72,6 +82,12 @@ export const principals = pgTable(
     unique('principals_org_user_unique').on(table.orgId, table.userId),
     check('principals_kind_check', inList('kind', ['user', 'agent'])),
     check('principals_status_check', inList('status', ['active', 'paused', 'revoked'])),
+    check('principals_risk_tier_check', sql`risk_tier is null or risk_tier in ('low', 'medium', 'high')`),
+    check(
+      'principals_data_classes_check',
+      sql`data_classes <@ array['none','internal','customer_personal','financial','health']::text[]`,
+    ),
+    check('principals_purpose_check', sql`purpose is null or char_length(purpose) <= 500`),
   ],
 );
 
@@ -208,6 +224,8 @@ export const ledgerEntries = pgTable(
     unique('ledger_entries_idempotency_unique').on(table.orgId, table.idempotencyKey),
     index('ledger_entries_org_time_idx').on(table.orgId, table.occurredAt),
     index('ledger_entries_hold_idx').on(table.holdId),
+    /** Posture and inventory read each principal's last activity and 30-day spend. */
+    index('ledger_entries_principal_time_idx').on(table.principalId, table.occurredAt),
     check('ledger_entries_kind_check', inList('kind', ENTRY_KINDS)),
     check('ledger_entries_rail_check', inList('rail', RAIL_VALUES)),
     check('ledger_entries_paths_check', sql`cardinality(budget_ids) = cardinality(period_keys)`),
@@ -1078,11 +1096,18 @@ export const orgSettings = pgTable(
     deletion: text('deletion', { enum: DELETION_STATES }).notNull().default('none'),
     deletionRequestedAt: timestamp('deletion_requested_at', { withTimezone: true, mode: 'date' }),
     deletionRequestedBy: text('deletion_requested_by').references(() => users.id),
+    /** Phase 12: the random part of the org's receipts address (`receipts-<token>@…`). */
+    receiptsToken: text('receipts_token').unique(),
+    /** A connector-reported seat with no activity for this many days is idle. */
+    idleSeatDays: integer('idle_seat_days').notNull().default(30),
+    /** Alert when seat overage charges in 30 days pass this amount (µUSD); null: no alert. */
+    extraUsageAlert: money('extra_usage_alert'),
     updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
   },
   () => [
     check('org_settings_deletion_check', inList('deletion', DELETION_STATES)),
     check('org_settings_retention_check', sql`request_log_days between 7 and 3650 and media_days between 1 and 3650`),
+    check('org_settings_idle_seat_days_check', sql`idle_seat_days between 7 and 365`),
   ],
 );
 
@@ -1106,4 +1131,425 @@ export const orgBilling = pgTable(
     unique('org_billing_customer_unique').on(table.stripeCustomerId),
     check('org_billing_plan_check', inList('plan', PLANS)),
   ],
+);
+
+// ---------------------------------------------------------------------------------------------
+// Phase 11: governance posture, AI inventory, shadow AI, signed attestations.
+
+export const POSTURE_TRIGGERS = ['scheduled', 'manual', 'attestation'] as const;
+
+/** One evaluation of the posture catalogue; append-only history for regressions and attestations. */
+export const postureRuns = pgTable(
+  'posture_runs',
+  {
+    id: uuid('id').primaryKey(),
+    orgId: uuid('org_id')
+      .notNull()
+      .references(() => orgs.id),
+    catalogueVersion: integer('catalogue_version').notNull(),
+    trigger: text('trigger', { enum: POSTURE_TRIGGERS }).notNull(),
+    score: integer('score').notNull(),
+    grade: text('grade').notNull(),
+    /** CheckResult[] from @aperture/core. */
+    results: jsonb('results').$type<unknown[]>().notNull(),
+    /** Incremental audit verification (V15): the chain is verified from here next time. */
+    auditVerifiedSeq: bigint('audit_verified_seq', { mode: 'number' }),
+    auditVerifiedHash: text('audit_verified_hash'),
+    ranAt: timestamp('ran_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
+  },
+  (table) => [
+    index('posture_runs_org_ran_idx').on(table.orgId, table.ranAt),
+    check('posture_runs_trigger_check', inList('trigger', POSTURE_TRIGGERS)),
+    check('posture_runs_score_check', sql`score between 0 and 100`),
+  ],
+);
+
+/** An accepted risk: a failing check (or one subject of it) counts as passed until it expires. */
+export const postureWaivers = pgTable(
+  'posture_waivers',
+  {
+    id: uuid('id').primaryKey(),
+    orgId: uuid('org_id')
+      .notNull()
+      .references(() => orgs.id),
+    checkId: text('check_id').notNull(),
+    /** null waives the whole check. */
+    subjectId: text('subject_id'),
+    reason: text('reason').notNull(),
+    createdBy: text('created_by')
+      .notNull()
+      .references(() => users.id),
+    expiresAt: timestamp('expires_at', { withTimezone: true, mode: 'date' }).notNull(),
+    revokedAt: timestamp('revoked_at', { withTimezone: true, mode: 'date' }),
+    createdAt: createdAt(),
+  },
+  (table) => [
+    index('posture_waivers_org_idx').on(table.orgId),
+    check('posture_waivers_reason_check', sql`char_length(reason) between 3 and 1000`),
+    check(
+      'posture_waivers_expiry_check',
+      sql`expires_at > created_at and expires_at <= created_at + interval '180 days'`,
+    ),
+  ],
+);
+
+/** A statement upload: only rows matching an AI vendor ever reach the server (§11.4). */
+export const statementUploads = pgTable('statement_uploads', {
+  id: uuid('id').primaryKey(),
+  orgId: uuid('org_id')
+    .notNull()
+    .references(() => orgs.id),
+  uploadedBy: text('uploaded_by')
+    .notNull()
+    .references(() => users.id),
+  fileName: text('file_name').notNull(),
+  rowsReceived: integer('rows_received').notNull(),
+  rowsNew: integer('rows_new').notNull(),
+  createdAt: createdAt(),
+});
+
+export const EXTERNAL_SPEND_SOURCES = ['statement_upload', 'receipt'] as const;
+export const EXTERNAL_SPEND_STATUSES = ['open', 'assigned', 'governed', 'dismissed', 'provider_billing'] as const;
+
+/**
+ * Evidence of AI spend Aperture didn't govern (INV-16): it never touches ledger_entries, holds,
+ * or budget_usage, and only appears in inventory, coverage, posture, and attestations.
+ */
+export const externalSpend = pgTable(
+  'external_spend',
+  {
+    id: uuid('id').primaryKey(),
+    orgId: uuid('org_id')
+      .notNull()
+      .references(() => orgs.id),
+    /** `YYYY-MM-DD`. */
+    occurredOn: text('occurred_on').notNull(),
+    /** Converted at that day's fx_rates rate (µUSD). */
+    amount: money('amount').notNull(),
+    originalAmount: text('original_amount').notNull(),
+    originalCurrency: text('original_currency').notNull(),
+    descriptor: text('descriptor').notNull(),
+    toolId: text('tool_id').notNull(),
+    vendor: text('vendor').notNull(),
+    category: text('category').notNull(),
+    source: text('source', { enum: EXTERNAL_SPEND_SOURCES }).notNull(),
+    uploadId: uuid('upload_id').references(() => statementUploads.id),
+    receiptId: uuid('receipt_id'),
+    /** SHA-256 of date, amount, currency, and normalized descriptor, so re-uploads don't duplicate. */
+    dedupeHash: text('dedupe_hash').notNull(),
+    status: text('status', { enum: EXTERNAL_SPEND_STATUSES }).notNull().default('open'),
+    /** For `provider_billing`: the connection whose usage this charge pays for (V12). */
+    connectionId: uuid('connection_id').references(() => connections.id),
+    assignedPrincipalId: uuid('assigned_principal_id').references(() => principals.id),
+    assignedTeamId: uuid('assigned_team_id').references(() => teams.id),
+    note: text('note'),
+    createdAt: createdAt(),
+    updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
+  },
+  (table) => [
+    unique('external_spend_dedupe_unique').on(table.orgId, table.dedupeHash),
+    index('external_spend_org_date_idx').on(table.orgId, table.occurredOn),
+    check('external_spend_source_check', inList('source', EXTERNAL_SPEND_SOURCES)),
+    check('external_spend_status_check', inList('status', EXTERNAL_SPEND_STATUSES)),
+    check('external_spend_amount_check', sql`amount >= 0`),
+  ],
+);
+
+export const ATTESTATION_STATUSES = ['ready', 'failed'] as const;
+
+/** Signed attestations (§11.5); the JSON document is the record of truth. */
+export const attestations = pgTable(
+  'attestations',
+  {
+    id: uuid('id').primaryKey(),
+    orgId: uuid('org_id')
+      .notNull()
+      .references(() => orgs.id),
+    periodFrom: timestamp('period_from', { withTimezone: true, mode: 'date' }).notNull(),
+    periodTo: timestamp('period_to', { withTimezone: true, mode: 'date' }).notNull(),
+    status: text('status', { enum: ATTESTATION_STATUSES }).notNull(),
+    document: jsonb('document').$type<Record<string, unknown>>(),
+    jws: text('jws'),
+    kid: text('kid'),
+    error: text('error'),
+    createdBy: text('created_by')
+      .notNull()
+      .references(() => users.id),
+    createdAt: createdAt(),
+  },
+  (table) => [
+    index('attestations_org_idx').on(table.orgId, table.createdAt),
+    check('attestations_status_check', inList('status', ATTESTATION_STATUSES)),
+    check('attestations_period_check', sql`period_from < period_to`),
+  ],
+);
+
+/** Revocable, expiring links to one attestation; only a SHA-256 of the token is stored. */
+export const attestationShares = pgTable(
+  'attestation_shares',
+  {
+    id: uuid('id').primaryKey(),
+    orgId: uuid('org_id')
+      .notNull()
+      .references(() => orgs.id),
+    attestationId: uuid('attestation_id')
+      .notNull()
+      .references(() => attestations.id),
+    tokenHash: text('token_hash').notNull().unique(),
+    expiresAt: timestamp('expires_at', { withTimezone: true, mode: 'date' }).notNull(),
+    revokedAt: timestamp('revoked_at', { withTimezone: true, mode: 'date' }),
+    views: integer('views').notNull().default(0),
+    lastViewedAt: timestamp('last_viewed_at', { withTimezone: true, mode: 'date' }),
+    createdBy: text('created_by')
+      .notNull()
+      .references(() => users.id),
+    createdAt: createdAt(),
+  },
+  (table) => [
+    index('attestation_shares_attestation_idx').on(table.attestationId),
+    check(
+      'attestation_shares_expiry_check',
+      sql`expires_at > created_at and expires_at <= created_at + interval '90 days'`,
+    ),
+  ],
+);
+
+/**
+ * The platform (or self-hosted instance) attestation keys: Ed25519, envelope-encrypted. Global;
+ * retired keys stay published so old attestations keep verifying.
+ */
+export const platformSigningKeys = pgTable('platform_signing_keys', {
+  kid: text('kid').primaryKey(),
+  publicJwk: jsonb('public_jwk').$type<PublicJwk>().notNull(),
+  privateKey: jsonb('private_key').notNull(),
+  retiredAt: timestamp('retired_at', { withTimezone: true, mode: 'date' }),
+  createdAt: createdAt(),
+});
+
+// ---------------------------------------------------------------------------------------------
+// Phase 12: seats, subscriptions, receipts, terminal-tool telemetry.
+
+export const SEAT_SOURCES = ['connector', 'receipt', 'statement', 'declared', 'import', 'manual'] as const;
+export const SEAT_PAYERS = ['company', 'personal_expensed', 'personal_unexpensed', 'unknown'] as const;
+export const SEAT_STATUSES = ['active', 'idle', 'cancelled'] as const;
+
+/**
+ * A seat or subscription of an AI tool (INV-17): visible, never enforced, so it never touches
+ * the ledger. The one exception is a subscription paid with a governed card, whose
+ * authorizations go through the ledger on the cards rail like any other purchase.
+ */
+export const seats = pgTable(
+  'seats',
+  {
+    id: uuid('id').primaryKey(),
+    orgId: uuid('org_id')
+      .notNull()
+      .references(() => orgs.id),
+    toolId: text('tool_id').notNull(),
+    plan: text('plan'),
+    /** The member holding the seat, when known. */
+    userId: text('user_id').references(() => users.id),
+    /** The vendor's id or email for the person, as the source reported it. */
+    externalUserRef: text('external_user_ref'),
+    source: text('source', { enum: SEAT_SOURCES }).notNull(),
+    payer: text('payer', { enum: SEAT_PAYERS }).notNull().default('unknown'),
+    /** Known monthly cost (µUSD); null means the plan's list price is used for estimates. */
+    monthlyCost: money('monthly_cost'),
+    originalAmount: text('original_amount'),
+    currency: text('currency'),
+    renewsOn: text('renews_on'),
+    status: text('status', { enum: SEAT_STATUSES }).notNull().default('active'),
+    lastActiveAt: timestamp('last_active_at', { withTimezone: true, mode: 'date' }),
+    connectionId: uuid('connection_id').references(() => connections.id),
+    note: text('note'),
+    /** One seat per source key: `connection:<id>:<external user>`, `receipt:<user>:<tool>`, … */
+    dedupeKey: text('dedupe_key').notNull(),
+    lastSyncedAt: timestamp('last_synced_at', { withTimezone: true, mode: 'date' }),
+    createdAt: createdAt(),
+    updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
+  },
+  (table) => [
+    unique('seats_dedupe_unique').on(table.orgId, table.dedupeKey),
+    index('seats_org_tool_idx').on(table.orgId, table.toolId),
+    index('seats_user_idx').on(table.userId),
+    check('seats_source_check', inList('source', SEAT_SOURCES)),
+    check('seats_payer_check', inList('payer', SEAT_PAYERS)),
+    check('seats_status_check', inList('status', SEAT_STATUSES)),
+    check('seats_cost_check', sql`monthly_cost is null or monthly_cost >= 0`),
+  ],
+);
+
+/** Daily activity for a seat, as its connector or import reports it. */
+export const seatUsageDaily = pgTable(
+  'seat_usage_daily',
+  {
+    seatId: uuid('seat_id')
+      .notNull()
+      .references(() => seats.id),
+    orgId: uuid('org_id')
+      .notNull()
+      .references(() => orgs.id),
+    day: text('day').notNull(),
+    active: boolean('active').notNull(),
+    requests: integer('requests').notNull().default(0),
+    tokens: bigint('tokens', { mode: 'bigint' })
+      .notNull()
+      .default(sql`0`),
+    /** Overage and usage-based charges the vendor reports (µUSD). */
+    extraUsageCost: money('extra_usage_cost')
+      .notNull()
+      .default(sql`0`),
+    /** The vendor's estimate of the usage at API list prices (µUSD), e.g. Claude Code analytics. */
+    estimatedCost: money('estimated_cost')
+      .notNull()
+      .default(sql`0`),
+  },
+  (table) => [
+    primaryKey({ columns: [table.seatId, table.day] }),
+    index('seat_usage_daily_org_idx').on(table.orgId, table.day),
+  ],
+);
+
+export const RECEIPT_VIAS = ['inbound_email', 'upload'] as const;
+export const RECEIPT_STATUSES = ['imported', 'review', 'dismissed'] as const;
+
+/**
+ * Parsed receipts. Data minimisation (§12.3): the email body and attachments are discarded after
+ * extraction; only these fields and a SHA-256 of the message remain.
+ */
+export const receipts = pgTable(
+  'receipts',
+  {
+    id: uuid('id').primaryKey(),
+    orgId: uuid('org_id')
+      .notNull()
+      .references(() => orgs.id),
+    via: text('via', { enum: RECEIPT_VIAS }).notNull(),
+    /** The member who forwarded or uploaded it, when known. */
+    submittedBy: text('submitted_by').references(() => users.id),
+    senderDomain: text('sender_domain'),
+    messageHash: text('message_hash').notNull(),
+    status: text('status', { enum: RECEIPT_STATUSES }).notNull(),
+    reason: text('reason'),
+    trust: text('trust').notNull(),
+    toolId: text('tool_id'),
+    plan: text('plan'),
+    /** µUSD at the receipt date's rate. */
+    amount: money('amount'),
+    originalAmount: text('original_amount'),
+    currency: text('currency'),
+    occurredOn: text('occurred_on'),
+    renewsOn: text('renews_on'),
+    seatId: uuid('seat_id').references(() => seats.id),
+    externalSpendId: uuid('external_spend_id').references(() => externalSpend.id),
+    resolvedBy: text('resolved_by').references(() => users.id),
+    resolvedAt: timestamp('resolved_at', { withTimezone: true, mode: 'date' }),
+    createdAt: createdAt(),
+  },
+  (table) => [
+    unique('receipts_message_unique').on(table.orgId, table.messageHash),
+    index('receipts_org_status_idx').on(table.orgId, table.status),
+    check('receipts_via_check', inList('via', RECEIPT_VIAS)),
+    check('receipts_status_check', inList('status', RECEIPT_STATUSES)),
+  ],
+);
+
+/** Terminal-tool usage per person, tool, model, and UTC day, from OTLP telemetry (§12.5). */
+export const toolUsageDaily = pgTable(
+  'tool_usage_daily',
+  {
+    orgId: uuid('org_id')
+      .notNull()
+      .references(() => orgs.id),
+    userId: text('user_id')
+      .notNull()
+      .references(() => users.id),
+    tool: text('tool').notNull(),
+    day: text('day').notNull(),
+    model: text('model').notNull(),
+    sessions: integer('sessions').notNull().default(0),
+    inputTokens: bigint('input_tokens', { mode: 'bigint' })
+      .notNull()
+      .default(sql`0`),
+    outputTokens: bigint('output_tokens', { mode: 'bigint' })
+      .notNull()
+      .default(sql`0`),
+    cacheReadTokens: bigint('cache_read_tokens', { mode: 'bigint' })
+      .notNull()
+      .default(sql`0`),
+    cacheWriteTokens: bigint('cache_write_tokens', { mode: 'bigint' })
+      .notNull()
+      .default(sql`0`),
+    /** The tool's own estimate (list-price equivalent on subscriptions), µUSD. */
+    cost: money('cost')
+      .notNull()
+      .default(sql`0`),
+    activeSeconds: integer('active_seconds').notNull().default(0),
+    linesAdded: integer('lines_added').notNull().default(0),
+    linesRemoved: integer('lines_removed').notNull().default(0),
+    commits: integer('commits').notNull().default(0),
+    pullRequests: integer('pull_requests').notNull().default(0),
+    updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.orgId, table.userId, table.tool, table.day, table.model] }),
+    index('tool_usage_daily_org_day_idx').on(table.orgId, table.day),
+  ],
+);
+
+/** Telemetry-only keys (`apt_tel_…`): they can send OTLP for one member and nothing else. */
+export const telemetryTokens = pgTable(
+  'telemetry_tokens',
+  {
+    id: uuid('id').primaryKey(),
+    orgId: uuid('org_id')
+      .notNull()
+      .references(() => orgs.id),
+    userId: text('user_id')
+      .notNull()
+      .references(() => users.id),
+    tool: text('tool').notNull(),
+    name: text('name').notNull(),
+    prefix: text('prefix').notNull(),
+    /** HMAC-SHA-256(pepper, token), hex. */
+    hash: text('hash').notNull().unique(),
+    createdBy: text('created_by')
+      .notNull()
+      .references(() => users.id),
+    lastUsedAt: timestamp('last_used_at', { withTimezone: true, mode: 'date' }),
+    revokedAt: timestamp('revoked_at', { withTimezone: true, mode: 'date' }),
+    createdAt: createdAt(),
+  },
+  (table) => [index('telemetry_tokens_org_user_idx').on(table.orgId, table.userId)],
+);
+
+/** The org's approved AI tools (catalogue ids). */
+export const approvedTools = pgTable(
+  'approved_tools',
+  {
+    orgId: uuid('org_id')
+      .notNull()
+      .references(() => orgs.id),
+    toolId: text('tool_id').notNull(),
+    addedBy: text('added_by')
+      .notNull()
+      .references(() => users.id),
+    createdAt: createdAt(),
+  },
+  (table) => [primaryKey({ columns: [table.orgId, table.toolId] })],
+);
+
+/** When each member last confirmed their declared AI tools (quarterly prompt, §12.4). */
+export const toolConfirmations = pgTable(
+  'tool_confirmations',
+  {
+    orgId: uuid('org_id')
+      .notNull()
+      .references(() => orgs.id),
+    userId: text('user_id')
+      .notNull()
+      .references(() => users.id),
+    confirmedAt: timestamp('confirmed_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
+  },
+  (table) => [primaryKey({ columns: [table.orgId, table.userId] })],
 );
