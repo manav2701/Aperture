@@ -144,3 +144,4 @@ export {
   type InsightSeat,
   type InsightUsage,
 } from './insights';
+export { DATA_CLASSES, RISK_TIERS, type DataClass, type RiskTier } from './agent';

@@ -58,6 +58,17 @@ export function createApertureMcpServer(client: Aperture): McpServer {
   );
 
   server.registerTool(
+    'get_agent_card',
+    {
+      title: 'Agent card',
+      description:
+        'The agent card: its declared purpose, data classes and risk tier, which policy rules apply to it, budget left, and active mandates. Read it before planning paid work.',
+      annotations: { readOnlyHint: true },
+    },
+    () => run(() => client.card()),
+  );
+
+  server.registerTool(
     'list_allowed_models',
     {
       title: 'Allowed models',

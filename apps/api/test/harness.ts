@@ -55,12 +55,12 @@ export interface Harness {
 
 /** The API wired to a fresh database, connecting as the non-superuser app role like production. */
 export async function createHarness(
-  options: { enforceTwoFactor?: boolean; billing?: AppDeps['billing'] } = {},
+  options: { enforceTwoFactor?: boolean; billing?: AppDeps['billing']; inboundEmail?: AppDeps['inboundEmail'] } = {},
 ): Promise<Harness> {
   const system = await createTestDatabase();
   const appDb = connect(appRoleUrl(system.url));
   const outbox = new Outbox();
-  const logger = createLogger({ service: 'api-test', level: 'silent' });
+  const logger = createLogger({ service: 'api-test', level: (process.env.TEST_LOG_LEVEL as 'silent' | undefined) ?? 'silent' });
   const auth = createAuth({
     db: appDb.db,
     email: outbox,
@@ -104,6 +104,9 @@ export async function createHarness(
       slack: { clientId: 'slack-client-id', clientSecret: 'slack-client-secret', signingSecret: SLACK_SIGNING_SECRET },
       enforceTwoFactor: options.enforceTwoFactor ?? false,
       billing: options.billing,
+      inboundEmail: options.inboundEmail,
+      attestationIssuer: { kind: 'aperture_cloud', instance: 'test.aperture' },
+      apertureVersion: 'test',
       signer: signerFromEnv(
         { EMBED_SIGNER: true, SIGNER_KEK_V1: randomBytes(32).toString('base64') },
         appDb.db,

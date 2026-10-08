@@ -19,7 +19,7 @@ export function AcceptInvitation({ token }: { token: string }) {
         return result;
       },
       () => {
-        if (orgId !== undefined) router.push(`/orgs/${orgId}`);
+        if (orgId !== undefined) router.push(`/orgs/${orgId}/my-tools?welcome=1`);
       },
     );
   };

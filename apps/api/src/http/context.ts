@@ -37,6 +37,12 @@ export interface AppDeps {
   enforceTwoFactor?: boolean | undefined;
   /** Aperture's own Stripe billing; plan limits apply only when set. */
   billing?: { secretKey: string; webhookSecret: string; prices: { team: string; business: string } } | undefined;
+  /** Who signs attestations (Phase 11 §11.5): Aperture Cloud, or the operator of a self-hosted instance. */
+  attestationIssuer?: { kind: 'aperture_cloud' | 'self_hosted'; instance: string } | undefined;
+  /** The receipts inbox (Phase 12 §12.3); off until a domain and a signing secret are set. */
+  inboundEmail?: { domain: string; secret: string; authservId: string | undefined } | undefined;
+  /** Recorded in attestations. */
+  apertureVersion?: string | undefined;
 }
 
 export type SessionUser = NonNullable<Awaited<ReturnType<Auth['api']['getSession']>>>['user'];

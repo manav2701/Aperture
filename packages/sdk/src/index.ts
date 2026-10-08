@@ -176,6 +176,20 @@ export interface Me {
   mandate: Mandate | null;
 }
 
+/** This agent's own card (Phase 11 §11.7): what it declared, what governs it, and what it can still spend. */
+export interface AgentCard {
+  id: string;
+  name: string;
+  status: string;
+  purpose: string | null;
+  data_classes: string[];
+  risk_tier: string | null;
+  budget: { name: string | null; remaining_usd: string | null };
+  rules: { level: string; type: string }[];
+  mandates: { id: string; purpose: string; expires_at: string }[];
+  live_keys: number;
+}
+
 export interface Model {
   id: string;
   provider: string;
@@ -276,6 +290,11 @@ export class Aperture {
   /** Who this key is, what it has left, and the mandate it acts under. */
   me(): Promise<Me> {
     return this.#call('GET', '/v1/me');
+  }
+
+  /** This agent's card: declared purpose and risk tier, the rules that apply, budget left, and mandates. */
+  card(): Promise<AgentCard> {
+    return this.#call('GET', '/v1/card');
   }
 
   /** Models this agent may use right now, with prices; `needs_approval` ones go to a person first. */

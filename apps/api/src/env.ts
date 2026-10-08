@@ -53,6 +53,16 @@ export const apiEnvSchema = serviceEnvSchema(4000).extend({
   STRIPE_BILLING_WEBHOOK_SECRET: optional,
   STRIPE_PRICE_TEAM: optional,
   STRIPE_PRICE_BUSINESS: optional,
+  /** Phase 11: `aperture_cloud` on Aperture's own deployment, `self_hosted` everywhere else. */
+  ATTESTATION_ISSUER: z.enum(['aperture_cloud', 'self_hosted']).default('self_hosted'),
+  /** The name attestations give this instance (defaults to the web origin's host). */
+  APERTURE_INSTANCE: optional,
+  /** Phase 12 receipts inbox: addresses are receipts-<token>@INBOUND_EMAIL_DOMAIN. Both, or neither. */
+  INBOUND_EMAIL_DOMAIN: optional,
+  /** HMAC-SHA-256 secret the inbound mail forwarder signs raw messages with. */
+  INBOUND_EMAIL_SECRET: z.string().min(32).optional(),
+  /** The receiving server's authserv-id in Authentication-Results; only its DKIM results are trusted. */
+  INBOUND_AUTHSERV_ID: optional,
 });
 
 export type ApiEnv = z.output<typeof apiEnvSchema>;

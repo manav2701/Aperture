@@ -107,6 +107,15 @@ const { app } = buildApp(
             prices: { team: env.STRIPE_PRICE_TEAM, business: env.STRIPE_PRICE_BUSINESS },
           }
         : undefined,
+    attestationIssuer: {
+      kind: env.ATTESTATION_ISSUER,
+      instance: env.APERTURE_INSTANCE ?? new URL(env.WEB_ORIGIN).host,
+    },
+    inboundEmail:
+      env.INBOUND_EMAIL_DOMAIN !== undefined && env.INBOUND_EMAIL_SECRET !== undefined
+        ? { domain: env.INBOUND_EMAIL_DOMAIN, secret: env.INBOUND_EMAIL_SECRET, authservId: env.INBOUND_AUTHSERV_ID }
+        : undefined,
+    apertureVersion: process.env.npm_package_version ?? '0.7.0',
   },
   gateway,
 );

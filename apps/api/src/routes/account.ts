@@ -201,6 +201,28 @@ export function registerAccountRoutes(router: Router, deps: AppDeps): void {
           ]),
           x402Payments: await tx.select().from(schema.x402Payments).where(eq(schema.x402Payments.orgId, orgId)),
           mediaJobs: await tx.select().from(schema.mediaJobs).where(eq(schema.mediaJobs.orgId, orgId)),
+          postureRuns: await tx.select().from(schema.postureRuns).where(eq(schema.postureRuns.orgId, orgId)),
+          postureWaivers: await tx.select().from(schema.postureWaivers).where(eq(schema.postureWaivers.orgId, orgId)),
+          externalSpend: await tx.select().from(schema.externalSpend).where(eq(schema.externalSpend.orgId, orgId)),
+          attestations: await tx.select().from(schema.attestations).where(eq(schema.attestations.orgId, orgId)),
+          seats: await tx.select().from(schema.seats).where(eq(schema.seats.orgId, orgId)),
+          seatUsageDaily: await tx.select().from(schema.seatUsageDaily).where(eq(schema.seatUsageDaily.orgId, orgId)),
+          receipts: await tx.select().from(schema.receipts).where(eq(schema.receipts.orgId, orgId)),
+          toolUsageDaily: await tx.select().from(schema.toolUsageDaily).where(eq(schema.toolUsageDaily.orgId, orgId)),
+          approvedTools: await tx.select().from(schema.approvedTools).where(eq(schema.approvedTools.orgId, orgId)),
+          telemetryTokens: await tx
+            .select({
+              id: schema.telemetryTokens.id,
+              userId: schema.telemetryTokens.userId,
+              tool: schema.telemetryTokens.tool,
+              name: schema.telemetryTokens.name,
+              prefix: schema.telemetryTokens.prefix,
+              lastUsedAt: schema.telemetryTokens.lastUsedAt,
+              revokedAt: schema.telemetryTokens.revokedAt,
+              createdAt: schema.telemetryTokens.createdAt,
+            })
+            .from(schema.telemetryTokens)
+            .where(eq(schema.telemetryTokens.orgId, orgId)),
         };
         await auditByUser(tx, { orgId, userId: user.id, action: 'org.exported', subject: `org:${orgId}` });
         return result;

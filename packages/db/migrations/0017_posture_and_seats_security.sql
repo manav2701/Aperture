@@ -20,9 +20,9 @@ BEGIN
 END
 $$;
 --> statement-breakpoint
-GRANT SELECT, INSERT ON posture_runs, statement_uploads TO aperture_app;
+GRANT SELECT, INSERT ON posture_runs TO aperture_app;
 --> statement-breakpoint
-GRANT SELECT, INSERT, UPDATE ON posture_waivers, external_spend, attestations, attestation_shares, seats,
+GRANT SELECT, INSERT, UPDATE ON statement_uploads, posture_waivers, external_spend, attestations, attestation_shares, seats,
   seat_usage_daily, receipts, tool_usage_daily, telemetry_tokens, tool_confirmations TO aperture_app;
 --> statement-breakpoint
 GRANT SELECT, INSERT, DELETE ON approved_tools TO aperture_app;

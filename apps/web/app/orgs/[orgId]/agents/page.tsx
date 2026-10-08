@@ -1,4 +1,5 @@
 import { can } from '@aperture/core';
+import Link from 'next/link';
 import { Badge, Card, CardTitle, EmptyState, PageHeader } from '@/components/ui/card';
 import { serverApi, unwrap } from '@/lib/api/server';
 import { formatDateTime } from '@/lib/format';
@@ -50,7 +51,9 @@ export default async function AgentsPage({ params }: { params: Promise<{ orgId: 
                 <li key={agent.id} className="space-y-3 border border-border p-4">
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <div className="flex flex-wrap items-center gap-2">
-                      <span className="font-medium">{agent.name}</span>
+                      <Link href={`/orgs/${orgId}/agents/${agent.id}`} className="font-medium hover:text-highlight">
+                        {agent.name}
+                      </Link>
                       <Badge tone={agent.status === 'active' ? 'accent' : 'danger'}>{agent.status}</Badge>
                       {teamName(agent.teamId) === null ? null : <Badge>{teamName(agent.teamId)}</Badge>}
                       <Badge>{agent.activeKeys} keys</Badge>

@@ -8,6 +8,7 @@ import { registerAgentRoutes } from './agent';
 import { GatewayError, errorResponse } from './errors';
 import { registerMediaRoutes } from './media';
 import { registerX402Routes } from './x402';
+import { registerTelemetryRoutes } from './telemetry';
 import { governedRequest, type BuildInput, type GatewayDeps } from './pipeline';
 
 const MAX_BODY_BYTES = 10 * 1024 * 1024;
@@ -117,6 +118,7 @@ export function buildApp(deps: GatewayDeps) {
   registerMediaRoutes(app, deps);
   registerAgentRoutes(app, deps);
   registerX402Routes(app, deps);
+  registerTelemetryRoutes(app, deps);
 
   // MCP over Streamable HTTP. Tools call this same app in-process with the caller's own key,
   // so they get exactly the caller's authority and nothing more.

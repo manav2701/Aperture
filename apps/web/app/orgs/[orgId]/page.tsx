@@ -1,4 +1,4 @@
-import { can } from '@aperture/core';
+import { can, formatShare } from '@aperture/core';
 import Link from 'next/link';
 import { BudgetMeter } from '@/components/budget-meter';
 import { Card, CardTitle, EmptyState, PageHeader } from '@/components/ui/card';
@@ -28,6 +28,11 @@ export default async function OverviewPage({ params }: { params: Promise<{ orgId
       : null,
     api.GET('/api/v1/orgs/{orgId}/onboarding', path).then((result) => result.data?.steps ?? []),
   ]);
+  const [posture, inventory] = await Promise.all([
+    can(role, 'posture.read') ? api.GET('/api/v1/orgs/{orgId}/posture', path).then((r) => r.data ?? null) : null,
+    can(role, 'inventory.read') ? api.GET('/api/v1/orgs/{orgId}/inventory', path).then((r) => r.data ?? null) : null,
+  ]);
+  const enforced = inventory?.coverage.find((share) => share.status === 'enforced')?.basisPoints ?? null;
   const remaining = onboarding.filter((step) => !step.done);
   const topLevel = budgets?.budgets.filter((b) => b.parentId === null && !b.archived) ?? [];
   const base = `/orgs/${orgId}`;
@@ -52,6 +57,26 @@ export default async function OverviewPage({ params }: { params: Promise<{ orgId
             ))}
           </ol>
         </Card>
+      )}
+      {posture === null && inventory === null ? null : (
+        <div className="mb-6 grid gap-6 sm:grid-cols-2">
+          {posture === null ? null : (
+            <Link href={`${base}/posture`} className="border border-border p-5 hover:border-accent">
+              <p className="text-sm text-muted-foreground">Governance posture</p>
+              <p className="font-mono text-3xl">{posture.run === null ? '—' : `${String(posture.run.score)}/100`}</p>
+              <p className="text-xs text-muted-foreground">
+                {posture.run === null ? 'Run the checks' : `grade ${posture.run.grade} · ${String(posture.results.filter((r) => r.status === 'fail').length)} failing`}
+              </p>
+            </Link>
+          )}
+          {inventory === null ? null : (
+            <Link href={`${base}/inventory`} className="border border-border p-5 hover:border-accent">
+              <p className="text-sm text-muted-foreground">AI spend Aperture enforces (30 days)</p>
+              <p className="font-mono text-3xl">{enforced === null || inventory.coverage.every((c) => c.basisPoints === 0) ? '—' : formatShare(enforced)}</p>
+              <p className="text-xs text-muted-foreground">{inventory.rows.length} things can spend</p>
+            </Link>
+          )}
+        </div>
       )}
       <div className="grid gap-6 lg:grid-cols-2">
         {budgets === null ? null : (

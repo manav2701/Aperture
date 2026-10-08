@@ -1,4 +1,12 @@
-import { PERIODS, evaluatePolicy, formatUsd, mandateToPolicyDocument, micros, parseUsd } from '@aperture/core';
+import {
+  PERIODS,
+  evaluatePolicy,
+  formatUsd,
+  mandateToPolicyDocument,
+  micros,
+  parseUsd,
+  policyDocumentSchema,
+} from '@aperture/core';
 import { API_KEY_PREFIX_LENGTH, generateApiKey, hashApiKey } from '@aperture/crypto';
 import {
   MandateError,
@@ -8,8 +16,10 @@ import {
   budgetNodeRemaining,
   eq,
   inArray,
+  isNull,
   issueMandate,
   parseScope,
+  principalPolicyContext,
   requestApproval,
   schema,
   standingMandate,
@@ -186,6 +196,48 @@ export function registerAgentRoutes(app: Hono, deps: GatewayDeps): void {
             remaining.length === 0 ? null : usd(remaining.reduce((min, value) => (value < min ? value : min))),
         },
         mandate: view.mandate === undefined ? null : mandateView(view.mandate, view.mandateLeft),
+      });
+    }),
+  );
+
+  // The caller's own agent card (Phase 11 §11.7): declared purpose, rules that apply, budget left.
+  app.get(
+    '/v1/card',
+    route(async (caller) => {
+      const view = await withOrg(deps.db, caller.orgId, async (tx) => {
+        const [principal] = await tx.select().from(schema.principals).where(eq(schema.principals.id, caller.principalId));
+        const headroom = await budgetHeadroom(tx, { orgId: caller.orgId, principalId: caller.principalId, rail: 'gateway' });
+        const context = await principalPolicyContext(tx, caller.orgId, caller.principalId);
+        const mandates = await tx
+          .select()
+          .from(schema.mandates)
+          .where(and(eq(schema.mandates.subjectPrincipalId, caller.principalId), eq(schema.mandates.status, 'active')));
+        const keys = await tx
+          .select({ id: schema.apiKeys.id })
+          .from(schema.apiKeys)
+          .where(and(eq(schema.apiKeys.principalId, caller.principalId), isNull(schema.apiKeys.revokedAt)));
+        return { principal, headroom, context, mandates, keys };
+      });
+      const now = Date.now();
+      return Response.json({
+        id: caller.principalId,
+        name: view.principal?.name ?? '',
+        status: view.principal?.status ?? 'revoked',
+        purpose: view.principal?.purpose ?? null,
+        data_classes: view.principal?.dataClasses ?? [],
+        risk_tier: view.principal?.riskTier ?? null,
+        budget: {
+          name: view.headroom.budgetName,
+          remaining_usd: view.headroom.remaining === null ? null : usd(view.headroom.remaining),
+        },
+        rules: view.context.layers.flatMap((layer) => {
+          const parsed = policyDocumentSchema.safeParse(layer.document);
+          return parsed.success ? parsed.data.rules.map((rule) => ({ level: layer.level, type: rule.type })) : [];
+        }),
+        mandates: view.mandates
+          .filter((m) => m.expiresAt.getTime() > now)
+          .map((m) => ({ id: m.id, purpose: m.purpose, expires_at: m.expiresAt.toISOString() })),
+        live_keys: view.keys.length,
       });
     }),
   );

@@ -43,7 +43,13 @@ describe('route registry', () => {
   it('guards every org-scoped route with a permission and keeps public routes to a known list', () => {
     const publicRoutes = h.routes.filter((r) => r.access === 'public').map((r) => `${r.method} ${r.path}`);
     // The JWKS is public on purpose: anyone may verify an org's mandates (it holds public keys only).
-    expect(publicRoutes).toEqual(['GET /api/v1/invitations/{token}', 'GET /api/v1/orgs/{orgId}/jwks.json']);
+    // Shared attestations are reached by an unguessable, revocable token; the attestation JWKS holds public keys only.
+    expect(publicRoutes).toEqual([
+      'GET /api/v1/invitations/{token}',
+      'GET /api/v1/orgs/{orgId}/jwks.json',
+      'GET /api/v1/public/attestations/{token}',
+      'GET /api/v1/public/jwks.json',
+    ]);
     for (const route of h.routes) {
       if (route.path.includes('{orgId}') && !route.path.endsWith('/jwks.json'))
         expect(typeof route.access, `${route.method} ${route.path}`).toBe('object');

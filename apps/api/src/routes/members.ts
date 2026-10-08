@@ -224,6 +224,18 @@ export function registerMemberRoutes(router: Router, deps: AppDeps): void {
           .update(schema.principals)
           .set({ status: 'revoked' })
           .where(and(eq(schema.principals.orgId, orgId), eq(schema.principals.userId, target.userId)));
+        // Phase 12 offboarding (S1): their telemetry tokens stop working; their seats stay listed
+        // and show up as reclaimable in seat insights.
+        await tx
+          .update(schema.telemetryTokens)
+          .set({ revokedAt: new Date() })
+          .where(
+            and(
+              eq(schema.telemetryTokens.orgId, orgId),
+              eq(schema.telemetryTokens.userId, target.userId),
+              isNull(schema.telemetryTokens.revokedAt),
+            ),
+          );
         await tx.delete(schema.members).where(eq(schema.members.id, memberId));
         await auditByUser(tx, {
           orgId,

@@ -20,6 +20,12 @@ import { registerSpendRoutes } from './routes/spend';
 import { registerTeamRoutes } from './routes/teams';
 import { registerWorkspaceRoutes } from './routes/workspace';
 import { registerX402Routes } from './routes/x402';
+import { registerAgentCardRoutes } from './routes/agent-cards';
+import { registerAttestationRoutes, registerPlatformJwks } from './routes/attestations';
+import { registerPostureRoutes } from './routes/posture';
+import { registerSeatRoutes } from './routes/seats';
+import { registerShadowRoutes } from './routes/shadow';
+import { registerInboundEmailWebhook } from './receipts';
 import { registerStripeWebhooks } from './cards';
 import { registerSlackInstallRoute, registerSlackWebhooks } from './slack';
 
@@ -83,6 +89,10 @@ export function buildApp(
     return c.json(jwks);
   });
 
+  registerPlatformJwks(app, deps);
+  // The receipts inbox forwarder signs raw mail; it sits outside the session (and its own body limit).
+  registerInboundEmailWebhook(app, deps);
+
   app.use(
     '/api/*',
     bodyLimit({
@@ -123,10 +133,15 @@ export function buildApp(
   registerCardRoutes(router, deps);
   registerX402Routes(router, deps);
   registerAccountRoutes(router, deps);
+  registerPostureRoutes(router, deps);
+  registerShadowRoutes(router, deps);
+  registerAttestationRoutes(router, deps);
+  registerAgentCardRoutes(router, deps);
+  registerSeatRoutes(router, deps);
 
   app.doc31('/api/v1/openapi.json', {
     openapi: '3.1.0',
-    info: { title: 'Aperture control-plane API', version: '0.6.0' },
+    info: { title: 'Aperture control-plane API', version: '0.7.0' },
   });
 
   app.notFound((c) => c.json(errorBody('not_found', 'no such route'), 404));
