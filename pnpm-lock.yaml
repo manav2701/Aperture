@@ -318,6 +318,18 @@ importers:
 
   packages/config: {}
 
+  packages/connect:
+    devDependencies:
+      '@aperture/config':
+        specifier: workspace:*
+        version: link:../config
+      fast-check:
+        specifier: ^4.10.2
+        version: 4.10.2
+      tsx:
+        specifier: ^4.23.15
+        version: 4.23.15
+
   packages/connectors:
     dependencies:
       zod:

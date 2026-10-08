@@ -1,0 +1,24 @@
+{
+  "name": "aperture-governance",
+  "displayName": "Aperture",
+  "version": "0.1.0",
+  "description": "Aperture's agent tools in Claude Code: budget left, agent card, cost estimates, allowed models, and spend approvals, all under your Aperture agent key.",
+  "author": { "name": "Aperture" },
+  "license": "UNLICENSED",
+  "keywords": ["governance", "budget", "approvals", "mcp"],
+  "userConfig": {
+    "gateway_url": {
+      "type": "string",
+      "title": "Aperture gateway URL",
+      "description": "Your organization's Aperture gateway, for example https://gateway.example.com (no trailing slash)",
+      "required": true
+    },
+    "agent_key": {
+      "type": "string",
+      "title": "Aperture agent key",
+      "description": "An agent key (apk_…) from Agents → the agent → Keys. Every tool call runs with this agent's own budget and policy.",
+      "sensitive": true,
+      "required": true
+    }
+  }
+}

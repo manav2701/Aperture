@@ -1,0 +1,23 @@
+{
+  "name": "@aperture/connect",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Points a developer's terminal AI tools (Claude Code) at Aperture's telemetry collector: shows the change, asks, and can undo it",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "bin": {
+    "aperture-connect": "./src/cli.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "start": "tsx src/cli.ts"
+  },
+  "devDependencies": {
+    "@aperture/config": "workspace:*",
+    "fast-check": "^4.10.2",
+    "tsx": "^4.23.15"
+  }
+}

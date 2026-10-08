@@ -1,0 +1,13 @@
+{
+  "name": "aperture",
+  "owner": { "name": "Aperture" },
+  "description": "Aperture's plugins for Claude Code: governed AI spend, budgets and approvals.",
+  "plugins": [
+    {
+      "name": "aperture-governance",
+      "source": "./claude-code-plugin",
+      "description": "Lets Claude read its Aperture budget and agent card, estimate costs, and ask a person to approve spend before paid work.",
+      "category": "governance"
+    }
+  ]
+}

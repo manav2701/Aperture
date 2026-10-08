@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "aperture": {
+      "type": "http",
+      "url": "${user_config.gateway_url}/mcp",
+      "headers": { "Authorization": "Bearer ${user_config.agent_key}" }
+    }
+  }
+}
