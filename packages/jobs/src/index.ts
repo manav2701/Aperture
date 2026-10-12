@@ -64,7 +64,8 @@ export function standardJobs(deps: JobDeps): Job[] {
     job('cards.reconcile', 24 * 60 * MINUTE, () => reconcileCards(deps)),
     job('x402.watch', 20_000, () => watchX402(deps)),
     job('x402.reconcile', 24 * 60 * MINUTE, () => reconcileX402(deps)),
-    job('prices.stable', 5 * MINUTE, () => syncStablePrices(deps)),
+    // Prices stay usable for an hour (X13), and CoinGecko throttles shared cloud IPs: twice an hour is plenty.
+    job('prices.stable', 30 * MINUTE, () => syncStablePrices(deps)),
     job('audit.anchor', 60 * MINUTE, () => anchorAudits(deps)),
     job('privacy.retention', 24 * 60 * MINUTE, () => applyRetention(deps)),
     job('privacy.deletions', 60 * MINUTE, () => processDeletions(deps)),

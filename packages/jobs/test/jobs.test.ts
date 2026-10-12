@@ -546,6 +546,28 @@ describe('x402 upkeep (Phase 9)', () => {
     const [price] = await system.db.select().from(schema.stablePrices).where(eq(schema.stablePrices.asset, 'USDC'));
     expect(price?.micros).toBe(1_000_100n);
 
+    // Throttled (429): keep the stored price instead of failing the job. It stays usable for an
+    // hour, after which the depeg guard refuses stablecoin payments by itself.
+    const throttled: JobDeps['fetch'] = (input, init) =>
+      input.startsWith('https://api.coingecko.com')
+        ? Promise.resolve(new Response('rate limited', { status: 429 }))
+        : rpc.fetch(input, init);
+    expect(await syncStablePrices(deps(throttled))).toBe(0);
+    const [kept] = await system.db.select().from(schema.stablePrices).where(eq(schema.stablePrices.asset, 'USDC'));
+    expect(kept?.micros).toBe(1_000_100n);
+
+    // A key, when set, goes out as the demo-key header.
+    const seen: string[] = [];
+    const withKey: JobDeps['fetch'] = (input, init) => {
+      if (!input.startsWith('https://api.coingecko.com')) return rpc.fetch(input, init);
+      seen.push(String(new Headers(init.headers).get('x-cg-demo-api-key')));
+      return Promise.resolve(
+        Response.json({ 'usd-coin': { usd: 1.0001, last_updated_at: Math.floor(Date.now() / 1000) } }),
+      );
+    };
+    expect(await syncStablePrices({ ...deps(withKey), coingeckoApiKey: 'cg-demo-key' })).toBe(1);
+    expect(seen).toEqual(['cg-demo-key']);
+
     chain.delegate = null;
     expect(await reconcileX402(deps(network))).toBe(1);
     const [account] = await system.db.select().from(schema.x402Accounts).where(eq(schema.x402Accounts.id, accountId));

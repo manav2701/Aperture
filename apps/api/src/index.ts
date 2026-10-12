@@ -50,6 +50,7 @@ const jobs: JobDeps = {
   webOrigin: env.WEB_ORIGIN,
   storage,
   notarySecret: env.NOTARY_SECRET_KEY,
+  coingeckoApiKey: env.COINGECKO_API_KEY,
 };
 const signer = signerFromEnv(env, database.db, logger.child({ component: 'signer' }));
 

@@ -4,6 +4,9 @@ import type { RpcFetch } from './rpc';
  * The depeg guard's input (X13): USDC/USD and USDT/USD from CoinGecko's public price API (free,
  * no key; Pyth's Hermes API started requiring a key in 2026-10). Budgets treat one stablecoin unit
  * as one dollar, which is only safe near the peg.
+ *
+ * CoinGecko throttles unauthenticated callers hard, and shared cloud egress IPs (Render, Cloud Run)
+ * reach that limit without any help from us. A free demo key raises it; COINGECKO_API_KEY sets one.
  */
 
 export const COINGECKO_IDS = { USDC: 'usd-coin', USDT: 'tether' } as const;
@@ -20,12 +23,23 @@ export interface StablePrice {
   publishedAt: Date;
 }
 
-export async function fetchStablecoinPrices(fetchImpl: RpcFetch): Promise<StablePrice[]> {
+/**
+ * The price source refused us for now (throttled, or down). Prices stay usable for an hour, so a
+ * caller can skip this round; the depeg guard refuses payment once they go stale.
+ */
+export class PriceSourceUnavailable extends Error {}
+
+export async function fetchStablecoinPrices(fetchImpl: RpcFetch, apiKey?: string): Promise<StablePrice[]> {
   const ids = Object.values(COINGECKO_IDS).join(',');
   const response = await fetchImpl(
     `https://api.coingecko.com/api/v3/simple/price?ids=${ids}&vs_currencies=usd&include_last_updated_at=true`,
-    { signal: AbortSignal.timeout(10_000) },
+    {
+      signal: AbortSignal.timeout(10_000),
+      ...(apiKey === undefined ? {} : { headers: { 'x-cg-demo-api-key': apiKey } }),
+    },
   );
+  if (response.status === 429 || response.status >= 500)
+    throw new PriceSourceUnavailable(`CoinGecko answered ${String(response.status)}`);
   if (!response.ok) throw new Error(`CoinGecko answered ${String(response.status)}`);
   const body = (await response.json()) as Record<string, { usd?: number; last_updated_at?: number } | undefined>;
   const prices: StablePrice[] = [];

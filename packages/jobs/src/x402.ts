@@ -6,6 +6,7 @@ import {
   buildMemoTransaction,
   destinationFor,
   fetchStablecoinPrices,
+  PriceSourceUnavailable,
   notaryFromSecret,
   paymentsOutOf,
   solanaRpc,
@@ -203,7 +204,16 @@ export async function reconcileX402(deps: JobDeps): Promise<number> {
 }
 
 export async function syncStablePrices(deps: JobDeps): Promise<number> {
-  const prices = await fetchStablecoinPrices(rpcFetch(deps));
+  let prices;
+  try {
+    prices = await fetchStablecoinPrices(rpcFetch(deps), deps.coingeckoApiKey);
+  } catch (error) {
+    // Throttled or down: keep the stored price. It stays usable for an hour, after which the
+    // depeg guard refuses stablecoin payments on its own, so this fails closed.
+    if (!(error instanceof PriceSourceUnavailable)) throw error;
+    deps.logger.warn({ err: error }, 'stablecoin price source unavailable; keeping the stored price');
+    return 0;
+  }
   await withSystem(dbOf(deps), async (tx) => {
     for (const price of prices) {
       await tx

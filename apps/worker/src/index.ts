@@ -15,6 +15,7 @@ const env = loadEnvOrExit(
     RESEND_API_KEY: z.string().min(1).optional(),
     EMAIL_FROM: z.string().min(3).default('Aperture <onboarding@resend.dev>'),
     NOTARY_SECRET_KEY: z.string().min(1).optional(),
+    COINGECKO_API_KEY: z.string().min(1).optional(),
   }),
 );
 const logger = createLogger({ service: 'worker', level: env.LOG_LEVEL });
@@ -31,6 +32,7 @@ const scheduler = startStandardJobs({
   webOrigin: env.WEB_ORIGIN,
   storage: storageFromEnv(process.env),
   notarySecret: env.NOTARY_SECRET_KEY,
+  coingeckoApiKey: env.COINGECKO_API_KEY,
 });
 
 runService({

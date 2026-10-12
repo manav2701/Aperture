@@ -18,6 +18,8 @@ export interface JobDeps {
   storage?: MediaStorage | undefined;
   /** NOTARY_SECRET_KEY: the Solana wallet that writes daily audit anchors; anchoring is off without it. */
   notarySecret?: string | undefined;
+  /** COINGECKO_API_KEY: a free demo key; without it CoinGecko throttles shared cloud IPs. */
+  coingeckoApiKey?: string | undefined;
 }
 
 export const dbOf = (deps: JobDeps): Database => deps.database.db;

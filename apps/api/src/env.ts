@@ -44,6 +44,8 @@ export const apiEnvSchema = serviceEnvSchema(4000).extend({
   SIGNER_RPC_MAINNET: optional,
   /** Solana wallet that writes daily audit anchors (JSON array or base58 of the 64-byte keypair). */
   NOTARY_SECRET_KEY: optional,
+  /** A free CoinGecko demo key; without it the stablecoin price source throttles shared cloud IPs. */
+  COINGECKO_API_KEY: optional,
   /** Allow Solana mainnet connections: only after the legal opinion (C1). */
   MAINNET_X402_ENABLED: z.stringbool().default(false),
   /** Require two-factor for owners, admins and finance before any change. */
