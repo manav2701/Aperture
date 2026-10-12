@@ -46,6 +46,12 @@ export const apiEnvSchema = serviceEnvSchema(4000).extend({
   NOTARY_SECRET_KEY: optional,
   /** A free CoinGecko demo key; without it the stablecoin price source throttles shared cloud IPs. */
   COINGECKO_API_KEY: optional,
+  /**
+   * Header carrying the real client IP, for rate limiting. Only set it to one the proxy
+   * overwrites: 'cf-connecting-ip' behind Cloudflare (Render), 'x-forwarded-for' only where the
+   * platform replaces it. Unset, every caller shares one bucket.
+   */
+  CLIENT_IP_HEADER: optional,
   /** Allow Solana mainnet connections: only after the legal opinion (C1). */
   MAINNET_X402_ENABLED: z.stringbool().default(false),
   /** Require two-factor for owners, admins and finance before any change. */

@@ -16,7 +16,10 @@ import type { ApiEnv } from './env';
  */
 export function createAuth(options: {
   db: Database;
-  env: Pick<ApiEnv, 'NODE_ENV' | 'WEB_ORIGIN' | 'BETTER_AUTH_SECRET' | 'GOOGLE_CLIENT_ID' | 'GOOGLE_CLIENT_SECRET'>;
+  env: Pick<
+    ApiEnv,
+    'NODE_ENV' | 'WEB_ORIGIN' | 'BETTER_AUTH_SECRET' | 'GOOGLE_CLIENT_ID' | 'GOOGLE_CLIENT_SECRET' | 'CLIENT_IP_HEADER'
+  >;
   email: EmailSender;
 }) {
   const { db, env, email } = options;
@@ -61,6 +64,15 @@ export function createAuth(options: {
       },
     },
     socialProviders: google,
+    account: {
+      accountLinking: {
+        // Someone who signed up with a password and later clicks "Continue with Google" would
+        // otherwise get account_not_linked. Google asserts the address is verified, and the session
+        // hook below still refuses a Google session when two-factor is on.
+        enabled: true,
+        trustedProviders: ['google'],
+      },
+    },
     plugins: [
       // TOTP with backup codes (Phase 10). Required for owners, admins and finance before they
       // change anything (see requireUser / accessMiddleware).
@@ -114,6 +126,11 @@ export function createAuth(options: {
       cookiePrefix: 'aperture',
       useSecureCookies: production,
       database: { generateId: () => uuidv7() },
+      // Without a header the runtime can prove, every caller shares one rate-limit bucket, so one
+      // attacker can lock everyone out of /sign-in. Only a header the proxy *overwrites* is safe:
+      // x-forwarded-for is appended to on most platforms, so a client can forge the first entry.
+      // Unset means keep the shared bucket rather than trust something spoofable.
+      ...(env.CLIENT_IP_HEADER === undefined ? {} : { ipAddress: { ipAddressHeaders: [env.CLIENT_IP_HEADER] } }),
     },
   });
 }

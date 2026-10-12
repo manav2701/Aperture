@@ -73,6 +73,7 @@ export async function createHarness(
       BETTER_AUTH_SECRET: 'test-secret-that-is-at-least-thirty-two-chars',
       GOOGLE_CLIENT_ID: undefined,
       GOOGLE_CLIENT_SECRET: undefined,
+      CLIENT_IP_HEADER: undefined,
     },
   });
   let providerFetch: FetchLike = () => Promise.resolve(Response.json({ error: 'no fake provider' }, { status: 404 }));
