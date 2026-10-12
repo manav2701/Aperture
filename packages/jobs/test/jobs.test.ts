@@ -202,8 +202,9 @@ describe('Anthropic sync (buckets, T2 revoke on breach)', () => {
     });
 
     let outputTokens = 100_000; // 100k × $15/M = $1.50 > $1 budget
-    // A bucket from a few minutes ago, so the spend lands in today's budget period.
-    const start = new Date(Math.floor((Date.now() - 5 * 60_000) / 60_000) * 60_000);
+    // The latest complete minute: old enough to be a finished bucket, recent enough to land in
+    // today's budget period (a longer look-back crosses midnight and fails during the first minutes).
+    const start = new Date(Math.floor(Date.now() / 60_000) * 60_000 - 60_000);
     const bucket = () => ({
       starting_at: start.toISOString(),
       ending_at: new Date(start.getTime() + 60_000).toISOString(),

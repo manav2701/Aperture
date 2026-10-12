@@ -11,11 +11,7 @@ Rebuilding from the original hackathon demo. **Phases 1 and 2 of 10 are complete
 - The build plan, architecture, and research: [plan/](plan/README.md)
 - What is being built, and for whom: [plan/vision](plan/vision/README.md)
 
-
 https://github.com/user-attachments/assets/903f3127-ae5d-4ebc-9b28-151878916f09
-
-
-
 
 ## Repository map
 
