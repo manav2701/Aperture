@@ -22,6 +22,21 @@ export interface S3Settings {
 
 export const SIGNED_URL_SECONDS = 15 * 60;
 
+/**
+ * S3 errors reach callers as "@aws-sdk XML parse error: unexpected content" whenever the endpoint
+ * answers with something that isn't XML — a paused project, a maintenance page, a wrong endpoint.
+ * The status code is the part that tells you which, so put it in the message.
+ */
+async function call<T>(what: string, run: () => Promise<T>): Promise<T> {
+  try {
+    return await run();
+  } catch (error) {
+    const status = (error as { $response?: { statusCode?: number } }).$response?.statusCode;
+    const detail = status === undefined ? '' : ` (the storage endpoint answered HTTP ${String(status)})`;
+    throw new Error(`media storage ${what} failed${detail}: ${(error as Error).message}`, { cause: error });
+  }
+}
+
 export function s3Storage(settings: S3Settings): MediaStorage {
   const client = new S3Client({
     endpoint: settings.endpoint,
@@ -32,8 +47,8 @@ export function s3Storage(settings: S3Settings): MediaStorage {
   });
   return {
     async put(key, body, contentType) {
-      await client.send(
-        new PutObjectCommand({ Bucket: settings.bucket, Key: key, Body: body, ContentType: contentType }),
+      await call('upload', () =>
+        client.send(new PutObjectCommand({ Bucket: settings.bucket, Key: key, Body: body, ContentType: contentType })),
       );
     },
     signedUrl(key, expiresInSeconds = SIGNED_URL_SECONDS) {
@@ -42,7 +57,7 @@ export function s3Storage(settings: S3Settings): MediaStorage {
       });
     },
     async remove(key) {
-      await client.send(new DeleteObjectCommand({ Bucket: settings.bucket, Key: key }));
+      await call('delete', () => client.send(new DeleteObjectCommand({ Bucket: settings.bucket, Key: key })));
     },
   };
 }

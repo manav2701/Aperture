@@ -128,11 +128,27 @@ async function pollOne(deps: JobDeps, job: MediaJob): Promise<void> {
   }
 
   const outputs: MediaJob['outputs'] = [];
-  for (const [index, output] of status.outputs.entries()) {
-    const file = await client.downloadVideo(job.providerJobId, output);
-    const objectKey = mediaKey(job.orgId, job.id, index, extensionFor(file.contentType));
-    await storage.put(objectKey, file.bytes, file.contentType);
-    outputs.push({ key: objectKey, contentType: file.contentType, bytes: file.bytes.byteLength });
+  try {
+    for (const [index, output] of status.outputs.entries()) {
+      const file = await client.downloadVideo(job.providerJobId, output);
+      const objectKey = mediaKey(job.orgId, job.id, index, extensionFor(file.contentType));
+      await storage.put(objectKey, file.bytes, file.contentType);
+      outputs.push({ key: objectKey, contentType: file.contentType, bytes: file.bytes.byteLength });
+    }
+  } catch (error) {
+    // The video is made and billed, but we can't keep it (storage down or misconfigured). Record
+    // why on the job so it doesn't just sit at "running", and let the next poll try again: the
+    // provider keeps the file for a while, and GIVE_UP_MS still bounds the retrying.
+    const reason = `the video is ready but storing it failed: ${(error as Error).message}`;
+    deps.logger.error({ err: error, jobId: job.id }, 'storing a finished video failed');
+    await withOrg(dbOf(deps), job.orgId, (tx) =>
+      tx
+        .update(schema.mediaJobs)
+        .set({ pollCount: job.pollCount + 1, error: reason })
+        .where(eq(schema.mediaJobs.id, job.id)),
+    );
+    if (age > GIVE_UP_MS) await finish(deps, job, { status: 'failed', cost: job.estimated, error: reason });
+    return;
   }
   // Providers without a reported cost bill the requested seconds, which is what we reserved.
   await finish(deps, job, { status: 'succeeded', cost: status.exactCost ?? job.estimated, outputs });
