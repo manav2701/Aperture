@@ -69,12 +69,12 @@ export default async function AttestationsPage({ params }: { params: Promise<{ o
           <Card>
             <CardTitle>Verify one</CardTitle>
             <p className="text-sm text-muted-foreground">
-              Open{' '}
+              Build one above, then download it with its <strong>JSON</strong> link. Anyone you send that file to can
+              check its signature against Aperture&rsquo;s published keys, without an account here: open{' '}
               <Link href="/verify" className="underline">
                 the verify page
               </Link>{' '}
-              and drop in the JSON file, or run{' '}
-              <code className="font-mono text-xs">pnpm attestation-verify att.json</code>.
+              and drop the file in, or run <code className="font-mono text-xs">pnpm attestation-verify att.json</code>.
             </p>
           </Card>
           <FormNotice>{ATTESTATION_DISCLAIMER}</FormNotice>
