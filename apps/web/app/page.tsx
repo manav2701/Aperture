@@ -93,10 +93,10 @@ export default function HomePage() {
               Sign in
             </Link>
             <Link
-              href="/signup"
+              href="/waitlist"
               className="inline-flex h-9 items-center gap-1.5 bg-accent px-3.5 text-sm font-medium text-accent-foreground hover:bg-accent/90"
             >
-              Get started
+              Request access
             </Link>
           </div>
         </nav>
@@ -114,7 +114,7 @@ export default function HomePage() {
               </p>
               <h1 className="text-[clamp(2.6rem,5.6vw,4.5rem)] font-bold leading-[0.95] tracking-[-0.035em]">
                 <span className="rise-line">
-                  <span>Give agents a budget.</span>
+                  <span>Give AI a budget.</span>
                 </span>
                 <span className="rise-line">
                   <span className="text-muted-foreground">Not a blank check.</span>
@@ -126,10 +126,10 @@ export default function HomePage() {
               </p>
               <div className="fade-up flex flex-wrap gap-3">
                 <Link
-                  href="/signup"
+                  href="/waitlist"
                   className="group inline-flex h-12 items-center gap-2 bg-accent px-6 font-medium text-accent-foreground hover:bg-accent/90"
                 >
-                  Get started
+                  Request access
                   <ArrowRight aria-hidden="true" className="size-4 transition-transform group-hover:translate-x-1" />
                 </Link>
                 <a href="#product" className="inline-flex h-12 items-center border border-border px-6 hover:bg-muted">
@@ -287,14 +287,14 @@ export default function HomePage() {
             </h2>
             <div className="max-w-sm space-y-6">
               <p className="text-muted-foreground">
-                Connect a provider, set a budget, and watch the first request get checked.
+                Aperture is onboarding its first teams by hand. Tell us what you are spending on and we will set you up.
               </p>
               <div className="flex flex-wrap gap-3">
                 <Link
-                  href="/signup"
+                  href="/waitlist"
                   className="group inline-flex h-12 items-center gap-2 bg-accent px-6 font-medium text-accent-foreground hover:bg-accent/90"
                 >
-                  Get started
+                  Request access
                   <ArrowRight aria-hidden="true" className="size-4 transition-transform group-hover:translate-x-1" />
                 </Link>
                 <Link href="/login" className="inline-flex h-12 items-center border border-border px-6 hover:bg-muted">

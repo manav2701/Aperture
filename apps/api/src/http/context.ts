@@ -43,6 +43,8 @@ export interface AppDeps {
   inboundEmail?: { domain: string; secret: string; authservId: string | undefined } | undefined;
   /** Recorded in attestations. */
   apertureVersion?: string | undefined;
+  /** Header carrying the real client IP (CLIENT_IP_HEADER); undefined means none is trusted. */
+  clientIpHeader?: string | undefined;
 }
 
 export type SessionUser = NonNullable<Awaited<ReturnType<Auth['api']['getSession']>>>['user'];

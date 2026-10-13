@@ -2,7 +2,7 @@ import type { Database } from '@aperture/db';
 import { schema } from '@aperture/db';
 import { betterAuth } from 'better-auth';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
-import { APIError } from 'better-auth/api';
+import { APIError, createAuthMiddleware } from 'better-auth/api';
 import { magicLink, twoFactor } from 'better-auth/plugins';
 import { eq } from '@aperture/db';
 import { v7 as uuidv7 } from 'uuid';
@@ -18,12 +18,21 @@ export function createAuth(options: {
   db: Database;
   env: Pick<
     ApiEnv,
-    'NODE_ENV' | 'WEB_ORIGIN' | 'BETTER_AUTH_SECRET' | 'GOOGLE_CLIENT_ID' | 'GOOGLE_CLIENT_SECRET' | 'CLIENT_IP_HEADER'
+    | 'NODE_ENV'
+    | 'WEB_ORIGIN'
+    | 'BETTER_AUTH_SECRET'
+    | 'GOOGLE_CLIENT_ID'
+    | 'GOOGLE_CLIENT_SECRET'
+    | 'CLIENT_IP_HEADER'
+    | 'AUTH_ALLOWED_EMAILS'
   >;
   email: EmailSender;
 }) {
   const { db, env, email } = options;
   const production = env.NODE_ENV === 'production';
+  // Private beta (AUTH_ALLOWED_EMAILS). Undefined means the gate is off, not that it is empty.
+  const allowed = env.AUTH_ALLOWED_EMAILS === undefined ? undefined : new Set(env.AUTH_ALLOWED_EMAILS);
+  const closedBeta = `Aperture is in a private beta. Ask for access at ${env.WEB_ORIGIN}/waitlist.`;
   const google =
     env.GOOGLE_CLIENT_ID !== undefined && env.GOOGLE_CLIENT_SECRET !== undefined
       ? { google: { clientId: env.GOOGLE_CLIENT_ID, clientSecret: env.GOOGLE_CLIENT_SECRET } }
@@ -97,19 +106,37 @@ export function createAuth(options: {
         '/request-password-reset': { window: 60, max: 3 },
       },
     },
+    hooks: {
+      // Turn an off-list address away before the endpoint runs, so a closed beta makes no
+      // half-built account and sends no mail. The OAuth callback carries no address, so the
+      // session hook below is what covers it.
+      before: createAuthMiddleware((ctx) => {
+        const address = (ctx.body as { email?: unknown } | undefined)?.email;
+        if (allowed !== undefined && typeof address === 'string' && !allowed.has(address.trim().toLowerCase())) {
+          throw new APIError('FORBIDDEN', { message: closedBeta });
+        }
+        return Promise.resolve();
+      }),
+    },
     databaseHooks: {
       session: {
         create: {
-          // The two-factor plugin only guards password sign-in. Someone who turned it on must
-          // not get a session from a magic link or Google without their second factor.
           before: async (session, context) => {
             const path = context?.path ?? '';
-            if (!path.startsWith('/magic-link/verify') && !path.startsWith('/callback/')) return;
+            // Magic links and Google skip the password form, so they skip the two-factor plugin.
+            const skippedSecondFactor = path.startsWith('/magic-link/verify') || path.startsWith('/callback/');
+            if (allowed === undefined && !skippedSecondFactor) return;
             const [user] = await db
-              .select({ twoFactorEnabled: schema.users.twoFactorEnabled })
+              .select({ email: schema.users.email, twoFactorEnabled: schema.users.twoFactorEnabled })
               .from(schema.users)
               .where(eq(schema.users.id, session.userId));
-            if (user?.twoFactorEnabled === true) {
+            // Every route to a session passes through here, so an account that predates the gate,
+            // or one Google has just linked, still does not get in while it is off-list.
+            if (allowed !== undefined && (user === undefined || !allowed.has(user.email.toLowerCase()))) {
+              throw new APIError('FORBIDDEN', { message: closedBeta });
+            }
+            // Someone who turned two-factor on must not get a session without their second factor.
+            if (skippedSecondFactor && user?.twoFactorEnabled === true) {
               throw new APIError('FORBIDDEN', {
                 message: 'Two-factor is on for this account: sign in with your password and authenticator code.',
               });

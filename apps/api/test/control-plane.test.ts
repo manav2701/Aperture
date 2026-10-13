@@ -44,11 +44,13 @@ describe('route registry', () => {
     const publicRoutes = h.routes.filter((r) => r.access === 'public').map((r) => `${r.method} ${r.path}`);
     // The JWKS is public on purpose: anyone may verify an org's mandates (it holds public keys only).
     // Shared attestations are reached by an unguessable, revocable token; the attestation JWKS holds public keys only.
+    // Joining the waitlist is the one public write: it only ever appends an address (see routes/waitlist.ts).
     expect(publicRoutes).toEqual([
       'GET /api/v1/invitations/{token}',
       'GET /api/v1/orgs/{orgId}/jwks.json',
       'GET /api/v1/public/attestations/{token}',
       'GET /api/v1/public/jwks.json',
+      'POST /api/v1/public/waitlist',
     ]);
     for (const route of h.routes) {
       if (route.path.includes('{orgId}') && !route.path.endsWith('/jwks.json'))

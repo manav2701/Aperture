@@ -1553,3 +1553,31 @@ export const toolConfirmations = pgTable(
   },
   (table) => [primaryKey({ columns: [table.orgId, table.userId] })],
 );
+
+// ---------------------------------------------------------------------------------------------
+// Private beta: people who asked for access before sign-up is open to them. Global — there is no
+// org yet, so there is nothing to isolate and no row-level security.
+
+export const WAITLIST_TEAM_SIZES = ['just_me', '2_10', '11_50', '51_200', '200_plus'] as const;
+
+export const waitlistSignups = pgTable(
+  'waitlist_signups',
+  {
+    id: uuid('id').primaryKey(),
+    /** Stored lower-cased, so one address cannot join twice under different capitalisation. */
+    email: text('email').notNull().unique(),
+    name: text('name').notNull(),
+    company: text('company'),
+    /** Which AI spend problem brought them; free text, and the only field worth reading in bulk. */
+    note: text('note'),
+    teamSize: text('team_size', { enum: WAITLIST_TEAM_SIZES }),
+    /** `?ref=` on the landing page, so a channel can be told apart from direct traffic. */
+    referrer: text('referrer'),
+    invitedAt: timestamp('invited_at', { withTimezone: true, mode: 'date' }),
+    createdAt: createdAt(),
+  },
+  (table) => [
+    index('waitlist_signups_created_idx').on(table.createdAt),
+    check('waitlist_signups_team_size_check', sql`team_size is null or ${inList('team_size', WAITLIST_TEAM_SIZES)}`),
+  ],
+);

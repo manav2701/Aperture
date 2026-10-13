@@ -25,6 +25,7 @@ import { registerAttestationRoutes, registerPlatformJwks } from './routes/attest
 import { registerPostureRoutes } from './routes/posture';
 import { registerSeatRoutes } from './routes/seats';
 import { registerShadowRoutes } from './routes/shadow';
+import { registerWaitlistRoutes } from './routes/waitlist';
 import { registerInboundEmailWebhook } from './receipts';
 import { registerStripeWebhooks } from './cards';
 import { registerSlackInstallRoute, registerSlackWebhooks } from './slack';
@@ -138,6 +139,7 @@ export function buildApp(
   registerAttestationRoutes(router, deps);
   registerAgentCardRoutes(router, deps);
   registerSeatRoutes(router, deps);
+  registerWaitlistRoutes(router, deps);
 
   app.doc31('/api/v1/openapi.json', {
     openapi: '3.1.0',

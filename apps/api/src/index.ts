@@ -117,6 +117,7 @@ const { app } = buildApp(
         ? { domain: env.INBOUND_EMAIL_DOMAIN, secret: env.INBOUND_EMAIL_SECRET, authservId: env.INBOUND_AUTHSERV_ID }
         : undefined,
     apertureVersion: process.env.npm_package_version ?? '0.7.0',
+    clientIpHeader: env.CLIENT_IP_HEADER,
   },
   gateway,
 );

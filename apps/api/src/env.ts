@@ -56,6 +56,21 @@ export const apiEnvSchema = serviceEnvSchema(4000).extend({
   MAINNET_X402_ENABLED: z.stringbool().default(false),
   /** Require two-factor for owners, admins and finance before any change. */
   ENFORCE_TWO_FACTOR: z.stringbool().default(true),
+  /**
+   * Private beta: a comma-separated allowlist of addresses that may sign up or sign in. Everyone
+   * else is pointed at the waitlist. Unset (or empty), sign-up is open to anyone — an allowlist
+   * that parsed to nothing would otherwise lock the operator out of their own instance.
+   */
+  AUTH_ALLOWED_EMAILS: z
+    .string()
+    .optional()
+    .transform((value) => {
+      const emails = (value ?? '')
+        .split(',')
+        .map((email) => email.trim().toLowerCase())
+        .filter((email) => email.length > 0);
+      return emails.length === 0 ? undefined : emails;
+    }),
   /** Aperture's own billing (Stripe Billing). All four, or none (self-hosted: no plan limits). */
   STRIPE_BILLING_SECRET_KEY: optional,
   STRIPE_BILLING_WEBHOOK_SECRET: optional,

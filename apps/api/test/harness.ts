@@ -55,7 +55,14 @@ export interface Harness {
 
 /** The API wired to a fresh database, connecting as the non-superuser app role like production. */
 export async function createHarness(
-  options: { enforceTwoFactor?: boolean; billing?: AppDeps['billing']; inboundEmail?: AppDeps['inboundEmail'] } = {},
+  options: {
+    enforceTwoFactor?: boolean;
+    billing?: AppDeps['billing'];
+    inboundEmail?: AppDeps['inboundEmail'];
+    /** Private beta: only these addresses may sign up or sign in. */
+    allowedEmails?: string[];
+    clientIpHeader?: string;
+  } = {},
 ): Promise<Harness> {
   const system = await createTestDatabase();
   const appDb = connect(appRoleUrl(system.url));
@@ -73,7 +80,8 @@ export async function createHarness(
       BETTER_AUTH_SECRET: 'test-secret-that-is-at-least-thirty-two-chars',
       GOOGLE_CLIENT_ID: undefined,
       GOOGLE_CLIENT_SECRET: undefined,
-      CLIENT_IP_HEADER: undefined,
+      CLIENT_IP_HEADER: options.clientIpHeader,
+      AUTH_ALLOWED_EMAILS: options.allowedEmails,
     },
   });
   let providerFetch: FetchLike = () => Promise.resolve(Response.json({ error: 'no fake provider' }, { status: 404 }));
@@ -111,6 +119,7 @@ export async function createHarness(
       inboundEmail: options.inboundEmail,
       attestationIssuer: { kind: 'aperture_cloud', instance: 'test.aperture' },
       apertureVersion: 'test',
+      clientIpHeader: options.clientIpHeader,
       signer: signerFromEnv(
         { EMBED_SIGNER: true, SIGNER_KEK_V1: randomBytes(32).toString('base64') },
         appDb.db,

@@ -127,6 +127,20 @@
       "when": 1791436072258,
       "tag": "0017_posture_and_seats_security",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1791875722053,
+      "tag": "0018_waitlist",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1791875722054,
+      "tag": "0019_waitlist_security",
+      "breakpoints": true
     }
   ]
 }
